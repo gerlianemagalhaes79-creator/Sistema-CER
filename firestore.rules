@@ -16,7 +16,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && getUserData().accessType == 'Administrador';
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) && getUserData().accessType == 'Administrador') || 
+        request.auth.token.email == 'gerlianemagalhaes79@gmail.com'
+      );
     }
 
     function isCoordination() {

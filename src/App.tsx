@@ -1737,6 +1737,23 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const user = await UserService.loginWithGoogle();
+      if (user) {
+        onLogin(user);
+      } else {
+        setError('Acesso negado');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao entrar com Google');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <motion.div 
@@ -1754,9 +1771,24 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
         
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100">
-              <AlertCircle size={16} />
-              {error}
+            <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex flex-col gap-2 border border-red-100">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} />
+                {error}
+              </div>
+              {error.includes('auth/operation-not-allowed') && (
+                <p className="mt-2 text-[10px] text-red-400 font-medium">
+                  Nota: Para usar e-mail/senha, ative o provedor no console: 
+                  <a 
+                    href="https://console.firebase.google.com/project/gen-lang-client-0302716869/authentication/providers" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="underline block mt-1"
+                  >
+                    Abrir Console Firebase
+                  </a>
+                </p>
+              )}
             </div>
           )}
           <div>
@@ -1795,6 +1827,16 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
             {loading ? (
               <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
             ) : 'Entrar no Sistema'}
+          </button>
+
+          <button 
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full bg-white text-gray-700 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-50 border border-gray-100 shadow-sm transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+          >
+            <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="G" referrerPolicy="no-referrer" />
+            Entrar com Google
           </button>
           
           <div className="text-center">

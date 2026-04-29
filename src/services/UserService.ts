@@ -4,7 +4,9 @@ import {
   updatePassword,
   updateEmail,
   User as FirebaseUser,
-  onAuthStateChanged
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { 
   doc, 
@@ -88,6 +90,7 @@ export const UserService = {
       const firebaseUser = userCredential.user;
       
       const userDoc = await getDoc(doc(db, PATH, firebaseUser.uid));
+      
       if (userDoc.exists()) {
         const userData = userDoc.data() as User;
         if (userData.status === 'Active') {
@@ -96,14 +99,72 @@ export const UserService = {
           await signOut(auth);
           throw new Error('Usuário inativo');
         }
+      } else if (firebaseUser.email === 'gerlianemagalhaes79@gmail.com') {
+        // Bootstrap the first admin user
+        const newAdmin: User = {
+          id: firebaseUser.uid,
+          name: 'Gerliane Magalhães (Admin)',
+          email: firebaseUser.email,
+          role: 'Administrador Geral',
+          accessType: AccessType.Administrador,
+          status: 'Active',
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, PATH, firebaseUser.uid), newAdmin);
+        return newAdmin;
       } else {
-        // If profile doesn't exist in Firestore but exists in Auth (shouldn't happen with sync)
         await signOut(auth);
         throw new Error('Perfil do usuário não encontrado');
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'auth/operation-not-allowed') {
+        throw new Error('O provedor de E-mail/Senha não está ativado no Console do Firebase. (Authentication > Sign-in method)');
+      }
+      if (error.code === 'auth/user-not-found') {
+        throw new Error('Usuário não cadastrado no Firebase Auth.');
+      }
       console.error('Authentication Error:', error);
       return null;
+    }
+  },
+
+  loginWithGoogle: async (): Promise<User | null> => {
+    const PATH = 'usuarios';
+    try {
+      const provider = new GoogleAuthProvider();
+      const userCredential = await signInWithPopup(auth, provider);
+      const firebaseUser = userCredential.user;
+      
+      const userDoc = await getDoc(doc(db, PATH, firebaseUser.uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+        if (userData.status === 'Active') {
+          return userData;
+        } else {
+          await signOut(auth);
+          throw new Error('Usuário inativo');
+        }
+      } else if (firebaseUser.email === 'gerlianemagalhaes79@gmail.com') {
+        // Bootstrap the first admin user
+        const newAdmin: User = {
+          id: firebaseUser.uid,
+          name: firebaseUser.displayName || 'Admin',
+          email: firebaseUser.email || '',
+          role: 'Administrador Geral',
+          accessType: AccessType.Administrador,
+          status: 'Active',
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, PATH, firebaseUser.uid), newAdmin);
+        return newAdmin;
+      } else {
+        await signOut(auth);
+        throw new Error('Perfil do usuário não encontrado. Entre em contato com o administrador.');
+      }
+    } catch (error: any) {
+      console.error('Google Sign-In Error:', error);
+      throw error;
     }
   },
 
