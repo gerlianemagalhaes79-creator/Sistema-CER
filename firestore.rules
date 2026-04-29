@@ -37,7 +37,7 @@ service cloud.firestore {
 
     // Usuarios collection
     match /usuarios/{userId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || isCoordination() || request.auth.uid == userId);
       allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
     }
 

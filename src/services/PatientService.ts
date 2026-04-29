@@ -17,9 +17,11 @@ export const PatientService = {
   getPatients: async (): Promise<Patient[]> => {
     const PATH = 'pacientes';
     try {
-      const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('name', 'asc'));
+      const q = query(collection(db, PATH), orderBy('name', 'asc'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as Patient);
+      return snapshot.docs
+        .map(doc => doc.data() as Patient)
+        .filter(p => !p.deletedAt);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
       return [];
@@ -28,9 +30,12 @@ export const PatientService = {
 
   subscribeToPatients: (callback: (patients: Patient[]) => void) => {
     const PATH = 'pacientes';
-    const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('name', 'asc'));
+    const q = query(collection(db, PATH), orderBy('name', 'asc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as Patient));
+      callback(snapshot.docs
+        .map(doc => doc.data() as Patient)
+        .filter(p => !p.deletedAt)
+      );
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });
@@ -38,9 +43,12 @@ export const PatientService = {
 
   subscribeToDeletedPatients: (callback: (patients: Patient[]) => void) => {
     const PATH = 'pacientes';
-    const q = query(collection(db, PATH), where('deletedAt', '!=', null), orderBy('deletedAt', 'desc'));
+    const q = query(collection(db, PATH), orderBy('deletedAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as Patient));
+      callback(snapshot.docs
+        .map(doc => doc.data() as Patient)
+        .filter(p => !!p.deletedAt)
+      );
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });
@@ -55,6 +63,7 @@ export const PatientService = {
       id,
       createdAt: now,
       updatedAt: now,
+      updatedBy: auth.currentUser?.email || 'unknown',
       deletedAt: null
     };
     

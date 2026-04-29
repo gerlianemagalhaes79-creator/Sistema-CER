@@ -18,9 +18,11 @@ export const MovementService = {
   getMovements: async (): Promise<Movement[]> => {
     const PATH = 'movimentacoes';
     try {
-      const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('date', 'desc'));
+      const q = query(collection(db, PATH), orderBy('date', 'desc'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as Movement);
+      return snapshot.docs
+        .map(doc => doc.data() as Movement)
+        .filter(m => !m.deletedAt);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
       return [];
@@ -29,9 +31,12 @@ export const MovementService = {
 
   subscribeToMovements: (callback: (movements: Movement[]) => void) => {
     const PATH = 'movimentacoes';
-    const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('date', 'desc'));
+    const q = query(collection(db, PATH), orderBy('date', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as Movement));
+      callback(snapshot.docs
+        .map(doc => doc.data() as Movement)
+        .filter(m => !m.deletedAt)
+      );
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });
@@ -39,9 +44,12 @@ export const MovementService = {
 
   subscribeToDeletedMovements: (callback: (movements: Movement[]) => void) => {
     const PATH = 'movimentacoes';
-    const q = query(collection(db, PATH), where('deletedAt', '!=', null), orderBy('deletedAt', 'desc'));
+    const q = query(collection(db, PATH), orderBy('deletedAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as Movement));
+      callback(snapshot.docs
+        .map(doc => doc.data() as Movement)
+        .filter(m => !!m.deletedAt)
+      );
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });

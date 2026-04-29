@@ -1329,6 +1329,11 @@ const PatientsPage = ({
                       <div className="text-[10px] font-bold text-gray-500">
                         {p.professionals[0]?.split('(')[0] || 'Nenhum'}
                       </div>
+                      {p.updatedBy && (
+                        <p className="text-[8px] text-gray-300 font-medium italic mt-1">
+                          Ref: {p.updatedBy.split('@')[0]}
+                        </p>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={p.status} />
@@ -1848,11 +1853,14 @@ export default function App() {
 
         {!sidebarCollapsed && (
           <div className="mt-auto p-5 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
-            <p className="text-[9px] font-black text-emerald-800/40 uppercase tracking-[0.2em] mb-2">Sistema Operativo</p>
-            <div className="flex items-center gap-3">
+            <p className="text-[9px] font-black text-emerald-800/40 uppercase tracking-[0.2em] mb-2">Segurança & Auditoria</p>
+            <div className="flex items-center gap-3 mb-2">
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse"></div>
-              <span className="text-xs text-[#064e3b] font-extrabold uppercase tracking-tight">Estável</span>
+              <span className="text-xs text-[#064e3b] font-extrabold uppercase tracking-tight">Ambiente Monitorado</span>
             </div>
+            <p className="text-[9px] text-gray-400 font-medium italic leading-relaxed">
+              DADOS SENSÍVEIS: Todo acesso é registrado.
+            </p>
           </div>
         )}
       </motion.aside>
