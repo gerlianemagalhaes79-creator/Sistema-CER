@@ -221,20 +221,23 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
           accessType: formData.accessType,
         });
       } else {
+        if (!formData.password) {
+          alert('Por favor, informe uma senha para o novo usuário.');
+          return;
+        }
         await UserService.addUser({
           name: formData.name,
           email: formData.email,
           role: formData.role,
           accessType: formData.accessType,
-          password: formData.password || 'cer123',
           status: 'Active'
-        });
+        }, formData.password);
       }
       onSave();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving user:', error);
-      alert('Erro ao salvar usuário. Nota: A criação de usuários no Firebase Auth pode exigir privilégios de administrador.');
+      alert(error.message || 'Erro ao salvar usuário.');
     } finally {
       setLoading(false);
     }
