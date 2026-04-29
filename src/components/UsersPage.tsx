@@ -49,6 +49,17 @@ export const UsersPage = ({ onReload }: { onReload: () => void }) => {
     }
   };
 
+  const handleDeleteUser = async (u: User) => {
+    if (window.confirm(`Tem certeza que deseja apagar o usuário ${u.name}? Esta ação não pode ser desfeita.`)) {
+      try {
+        await UserService.deleteUser(u.id);
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Erro ao apagar usuário.');
+      }
+    }
+  };
+
   const refresh = () => {
     onReload();
   };
@@ -156,6 +167,13 @@ export const UsersPage = ({ onReload }: { onReload: () => void }) => {
                         title="Editar"
                       >
                         <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteUser(u)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                        title="Apagar"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>

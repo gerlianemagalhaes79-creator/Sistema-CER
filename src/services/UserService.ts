@@ -7,13 +7,15 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  getAuth
 } from 'firebase/auth';
 import { 
   doc, 
   getDoc, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
   getDocs, 
   collection, 
   query, 
@@ -95,11 +97,10 @@ export const UserService = {
 
   deleteUser: async (id: string) => {
     const PATH = 'usuarios';
-    // Logic to delete or disable user
     try {
-      await updateDoc(doc(db, PATH, id), { status: 'Inactive' });
+      await deleteDoc(doc(db, PATH, id));
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      handleFirestoreError(error, OperationType.DELETE, PATH);
     }
   },
 
