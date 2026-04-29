@@ -56,6 +56,15 @@ export const TrashPage = ({ currentUser }: { currentUser: User }) => {
     if (window.confirm(`Deseja restaurar esta movimentação de "${m.patientName}"?`)) {
       try {
         await MovementService.restoreMovement(m.id);
+        
+        // Se restaurar uma ALTA, o paciente deve voltar para o status de ALTA
+        if (m.type === 'Alta') {
+          await PatientService.updatePatient(m.patientId, { 
+            status: 'Alta',
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.email
+          });
+        }
       } catch (error) {
         console.error('Error restoring movement:', error);
         alert('Erro ao restaurar movimentação.');

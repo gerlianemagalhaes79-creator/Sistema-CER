@@ -1447,6 +1447,30 @@ const MovementsPage = ({
       } else {
         await MovementService.addMovement(data);
       }
+
+      // Se for uma movimentação de ALTA, atualiza o status do paciente
+      if (data.type === 'Alta') {
+        const patient = patients.find(p => p.id === data.patientId);
+        if (patient) {
+          await PatientService.updatePatient(patient.id, { 
+            status: 'Alta',
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.email
+          });
+        }
+      } 
+      // Se for uma ENTRADA, garante que o paciente esteja ATIVO
+      else if (data.type === 'Entrada') {
+        const patient = patients.find(p => p.id === data.patientId);
+        if (patient) {
+          await PatientService.updatePatient(patient.id, { 
+            status: 'Ativo',
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.email
+          });
+        }
+      }
+
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving movement:', error);
@@ -1455,9 +1479,24 @@ const MovementsPage = ({
   };
 
   const handleDelete = async (id: string) => {
+    const movement = movements.find(m => m.id === id);
+    if (!movement) return;
+
     if (window.confirm('Deseja realmente enviar esta movimentação para a lixeira?')) {
       try {
         await MovementService.softDeleteMovement(id);
+        
+        // Se a movimentação sendo apagada for de ALTA, o paciente deve voltar para ATIVO
+        if (movement.type === 'Alta') {
+          const patient = patients.find(p => p.id === movement.patientId);
+          if (patient) {
+            await PatientService.updatePatient(patient.id, { 
+              status: 'Ativo',
+              updatedAt: new Date().toISOString(),
+              updatedBy: currentUser.email
+            });
+          }
+        }
       } catch (error) {
         console.error('Error deleting movement:', error);
         alert('Erro ao excluir movimentação.');
