@@ -52,6 +52,21 @@ export interface Patient {
   updatedBy?: string; // email of the user who last updated it
 }
 
+export interface Professional {
+  id: string;
+  name: string;
+  area: string; // e.g., 'Fisioterapeuta'
+  status: 'Active' | 'Inactive';
+  createdAt: string;
+}
+
+export interface Municipality {
+  id: string;
+  name: string;
+  status: 'Active' | 'Inactive';
+  createdAt: string;
+}
+
 export const CITIES = [
   'Aracati',
   'Fortaleza',

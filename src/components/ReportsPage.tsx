@@ -62,11 +62,15 @@ type ReportType =
 export const ReportsPage = ({ 
   patients, 
   movements, 
-  currentUser 
+  currentUser,
+  availableCities,
+  availableProfessionals
 }: { 
   patients: Patient[], 
   movements: Movement[], 
-  currentUser: User 
+  currentUser: User,
+  availableCities: string[],
+  availableProfessionals: string[]
 }) => {
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [filters, setFilters] = useState<ReportFilter>({
@@ -153,7 +157,7 @@ export const ReportsPage = ({
     const count = dataFiltered.length;
     
     // City chart data
-    const cityData = CITIES.map(city => ({
+    const cityData = availableCities.map(city => ({
       name: city,
       value: dataFiltered.filter((p: any) => p.city === city).length
     })).filter(c => c.value > 0);
@@ -329,7 +333,7 @@ export const ReportsPage = ({
                       className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
                     >
                       <option value="">Todos</option>
-                      {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div className="space-y-2">
@@ -351,7 +355,7 @@ export const ReportsPage = ({
                       className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
                     >
                       <option value="">Todos</option>
-                      {PROFESSIONALS.map(p => <option key={p} value={p}>{p}</option>)}
+                      {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
                   <div className="flex items-end">

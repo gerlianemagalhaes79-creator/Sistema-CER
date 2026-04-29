@@ -32,13 +32,17 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './lib/firebase';
-import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, DIAGNOSES, User, AccessType } from './types';
+import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, DIAGNOSES, User, AccessType, Professional, Municipality } from './types';
 import { PatientService } from './services/PatientService';
 import { MovementService } from './services/MovementService';
 import { UserService } from './services/UserService';
+import { ProfessionalService } from './services/ProfessionalService';
+import { MunicipalityService } from './services/MunicipalityService';
 import { UsersPage } from './components/UsersPage';
 import { ProfilePage } from './components/ProfilePage';
 import { ReportsPage } from './components/ReportsPage';
+import { ProfessionalsPage } from './components/ProfessionalsPage';
+import { MunicipalitiesPage } from './components/MunicipalitiesPage';
 import { 
   BarChart, 
   Bar, 
@@ -56,7 +60,7 @@ import {
 } from 'recharts';
 
 // --- Types ---
-type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile';
+type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile' | 'professionals' | 'municipalities';
 
 // --- UI Components ---
 
@@ -224,19 +228,23 @@ const PatientFormModal = ({
   isOpen, 
   onClose, 
   onSave, 
-  editingPatient 
+  editingPatient,
+  availableCities,
+  availableProfessionals
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
   onSave: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => void,
-  editingPatient: Patient | null 
+  editingPatient: Patient | null,
+  availableCities: string[],
+  availableProfessionals: string[]
 }) => {
   const [formData, setFormData] = useState<Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
     medicalRecordNumber: '',
     birthDate: '',
     gender: 'M',
-    city: CITIES[0],
+    city: availableCities[0] || '',
     diagnoses: [],
     professionals: [],
     status: 'Ativo',
@@ -266,7 +274,7 @@ const PatientFormModal = ({
         medicalRecordNumber: '',
         birthDate: '',
         gender: 'M',
-        city: CITIES[0],
+        city: availableCities[0] || '',
         diagnoses: [],
         professionals: [],
         status: 'Ativo',
@@ -275,7 +283,7 @@ const PatientFormModal = ({
         observations: ''
       });
     }
-  }, [editingPatient, isOpen]);
+  }, [editingPatient, isOpen, availableCities]);
 
   const age = useMemo(() => {
     if (!formData.birthDate) return '...';
@@ -370,7 +378,8 @@ const PatientFormModal = ({
                 onChange={e => setFormData({...formData, city: e.target.value})}
                 className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
               >
-                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {!availableCities.length && <option value="">Nenhum município cadastrado</option>}
+                {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
 
@@ -407,7 +416,7 @@ const PatientFormModal = ({
             <div className="lg:col-span-3">
               <MultiSelect 
                 label="Profissionais Responsáveis" 
-                options={PROFESSIONALS} 
+                options={availableProfessionals} 
                 selected={formData.professionals} 
                 onChange={val => setFormData({...formData, professionals: val})} 
               />
@@ -501,12 +510,14 @@ const MovementFormModal = ({
   isOpen, 
   onClose, 
   onSave, 
-  patients 
+  patients,
+  availableProfessionals
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
   onSave: (movement: Omit<Movement, 'id' | 'createdAt'>) => void,
-  patients: Patient[]
+  patients: Patient[],
+  availableProfessionals: string[]
 }) => {
   const [formData, setFormData] = useState<Omit<Movement, 'id' | 'createdAt'>>({
     patientId: '',
@@ -677,7 +688,18 @@ const MovementFormModal = ({
 
 // --- Main Pages ---
 
-const DashboardPage = ({ patients, movements }: { patients: Patient[], movements: Movement[], key?: string }) => {
+const DashboardPage = ({ 
+  patients, 
+  movements,
+  availableCities,
+  availableProfessionals
+}: { 
+  patients: Patient[], 
+  movements: Movement[],
+  availableCities: string[],
+  availableProfessionals: string[],
+  key?: string 
+}) => {
   const [filterCity, setFilterCity] = useState('');
   const [filterProfessional, setFilterProfessional] = useState('');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
@@ -798,7 +820,7 @@ const DashboardPage = ({ patients, movements }: { patients: Patient[], movements
               className="text-xs font-bold text-gray-600 outline-none bg-transparent"
             >
               <option value="">Todos Municípios</option>
-              {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2 px-3">
@@ -809,7 +831,7 @@ const DashboardPage = ({ patients, movements }: { patients: Patient[], movements
               className="text-xs font-bold text-gray-600 outline-none bg-transparent max-w-[150px]"
             >
               <option value="">Equipe Multidisciplinar</option>
-              {PROFESSIONALS.map(p => <option key={p} value={p}>{p}</option>)}
+              {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         </div>
@@ -1041,10 +1063,14 @@ const DashboardPage = ({ patients, movements }: { patients: Patient[], movements
 const PatientsPage = ({ 
   patients, 
   currentUser,
+  availableCities,
+  availableProfessionals,
   onReload 
 }: { 
   patients: Patient[], 
   currentUser: User,
+  availableCities: string[],
+  availableProfessionals: string[],
   onReload: () => void, 
   key?: string 
 }) => {
@@ -1146,7 +1172,7 @@ const PatientsPage = ({
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium appearance-none"
             >
               <option value="">Todos os Municípios</option>
-              {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 
@@ -1158,7 +1184,7 @@ const PatientsPage = ({
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium appearance-none"
             >
               <option value="">Equipe Multidisciplinar</option>
-              {PROFESSIONALS.map(p => <option key={p} value={p}>{p}</option>)}
+              {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
 
@@ -1277,6 +1303,8 @@ const PatientsPage = ({
         onClose={() => setIsModalOpen(false)} 
         onSave={handleSave} 
         editingPatient={editingPatient}
+        availableCities={availableCities}
+        availableProfessionals={availableProfessionals}
       />
     </motion.div>
   );
@@ -1286,11 +1314,13 @@ const MovementsPage = ({
   movements, 
   patients, 
   currentUser,
+  availableProfessionals,
   onReload 
 }: { 
   movements: Movement[], 
   patients: Patient[], 
   currentUser: User,
+  availableProfessionals: string[],
   onReload: () => void, 
   key?: string 
 }) => {
@@ -1403,7 +1433,7 @@ const MovementsPage = ({
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium appearance-none"
             >
               <option value="">Todos Profissionais</option>
-              {PROFESSIONALS.map(p => <option key={p} value={p}>{p}</option>)}
+              {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
 
@@ -1493,6 +1523,7 @@ const MovementsPage = ({
         onClose={() => setIsModalOpen(false)} 
         onSave={handleSave} 
         patients={patients}
+        availableProfessionals={availableProfessionals}
       />
     </motion.div>
   );
@@ -1506,6 +1537,8 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -1533,10 +1566,14 @@ export default function App() {
 
     const unsubscribePatients = PatientService.subscribeToPatients(setPatients);
     const unsubscribeMovements = MovementService.subscribeToMovements(setMovements);
+    const unsubscribePros = ProfessionalService.subscribeToProfessionals(setProfessionals);
+    const unsubscribeMunis = MunicipalityService.subscribeToMunicipalities(setMunicipalities);
 
     return () => {
       unsubscribePatients();
       unsubscribeMovements();
+      unsubscribePros();
+      unsubscribeMunis();
     };
   }, [isLoggedIn]);
 
@@ -1561,7 +1598,9 @@ export default function App() {
       case 'profile': return true;
       case 'patients': return true;
       case 'movements': return true;
-      case 'reports': return currentUser.accessType === 'Coordenação';
+      case 'reports': return currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Administrador';
+      case 'professionals': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+      case 'municipalities': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'users': return false;
       default: return false;
     }
@@ -1640,6 +1679,24 @@ export default function App() {
               collapsed={sidebarCollapsed}
             />
           )}
+          {canAccess('professionals') && (
+            <SidebarItem 
+              icon={Stethoscope} 
+              label="Equipe" 
+              active={currentPage === 'professionals'} 
+              onClick={() => setCurrentPage('professionals')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
+          {canAccess('municipalities') && (
+            <SidebarItem 
+              icon={MapPin} 
+              label="Municípios" 
+              active={currentPage === 'municipalities'} 
+              onClick={() => setCurrentPage('municipalities')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
           {canAccess('users') && (
             <SidebarItem 
               icon={Shield} 
@@ -1675,12 +1732,22 @@ export default function App() {
         <main className="p-4 md:p-8 max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
             
-            {currentPage === 'dashboard' && <DashboardPage key="dashboard" patients={patients} movements={movements} />}
+            {currentPage === 'dashboard' && (
+              <DashboardPage 
+                key="dashboard" 
+                patients={patients} 
+                movements={movements} 
+                availableCities={municipalities.filter(m => m.status === 'Ativo').map(m => m.name)}
+                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
+              />
+            )}
             {currentPage === 'patients' && (
               <PatientsPage 
                 key="patients" 
                 patients={patients} 
                 currentUser={currentUser}
+                availableCities={municipalities.filter(m => m.status === 'Ativo').map(m => m.name)}
+                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
                 onReload={() => {}} 
               />
             )}
@@ -1690,6 +1757,7 @@ export default function App() {
                 movements={movements} 
                 patients={patients} 
                 currentUser={currentUser}
+                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
                 onReload={() => {}} 
               />
             )}
@@ -1698,7 +1766,15 @@ export default function App() {
                 patients={patients} 
                 movements={movements} 
                 currentUser={currentUser} 
+                availableCities={municipalities.filter(m => m.status === 'Ativo').map(m => m.name)}
+                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
               />
+            )}
+            {currentPage === 'professionals' && canAccess('professionals') && (
+              <ProfessionalsPage />
+            )}
+            {currentPage === 'municipalities' && canAccess('municipalities') && (
+              <MunicipalitiesPage />
             )}
             {currentPage === 'users' && canAccess('users') && (
               <UsersPage onReload={() => {}} />

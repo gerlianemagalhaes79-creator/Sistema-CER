@@ -57,5 +57,17 @@ service cloud.firestore {
       );
       allow write: if isAdmin() || isCoordination() || isReception();
     }
+
+    // Profissionais collection
+    match /profissionais/{professionalId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isCoordination();
+    }
+
+    // Municipios collection
+    match /municipios/{municipalityId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isCoordination();
+    }
   }
 }

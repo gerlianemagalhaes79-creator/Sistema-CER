@@ -56,6 +56,31 @@
         "createdBy": { "type": "string" }
       },
       "required": ["id", "patientId", "type", "date"]
+    },
+    "Professional": {
+      "title": "Professional",
+      "description": "Multidisciplinary team members",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "area": { "type": "string" },
+        "status": { "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "area", "status"]
+    },
+    "Municipality": {
+      "title": "Municipality",
+      "description": "Registered municipalities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "status"]
     }
   },
   "firestore": {
@@ -70,6 +95,14 @@
     "/movimentacoes/{movementId}": {
       "schema": "Movement",
       "description": "Collection of patient movements"
+    },
+    "/profissionais/{professionalId}": {
+      "schema": "Professional",
+      "description": "Collection of multidisciplinary professionals"
+    },
+    "/municipios/{municipalityId}": {
+      "schema": "Municipality",
+      "description": "Collection of municipalities"
     }
   }
 }
