@@ -138,13 +138,16 @@ export const UserService = {
       }
     } catch (error: any) {
       if (error.code === 'auth/operation-not-allowed') {
-        throw new Error('O provedor de E-mail/Senha não está ativado no Console do Firebase. (Authentication > Sign-in method)');
+        throw new Error('O provedor de E-mail/Senha não está ativado no Console do Firebase.');
       }
-      if (error.code === 'auth/user-not-found') {
-        throw new Error('Usuário não cadastrado no Firebase Auth.');
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        throw new Error('E-mail ou senha incorretos.');
+      }
+      if (error.code === 'auth/too-many-requests') {
+        throw new Error('Muitas tentativas malsucedidas. Tente novamente mais tarde ou mude sua senha.');
       }
       console.error('Authentication Error:', error);
-      return null;
+      throw error;
     }
   },
 
