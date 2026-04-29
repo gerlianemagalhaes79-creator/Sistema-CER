@@ -7,7 +7,6 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
-  createUserWithEmailAndPassword,
   getAuth
 } from 'firebase/auth';
 import { 
@@ -20,18 +19,11 @@ import {
   collection, 
   query, 
   where,
+  limit,
   onSnapshot
 } from 'firebase/firestore';
-import { initializeApp, getApps, getApp } from 'firebase/app';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { User, AccessType } from '../types';
-import firebaseConfig from '../../firebase-applet-config.json';
-
-// Secondary app instance for creating users without logging out the admin
-const getSecondaryAuth = () => {
-  const secondaryApp = getApps().find(app => app.name === 'Secondary') || initializeApp(firebaseConfig, 'Secondary');
-  return getAuth(secondaryApp);
-};
 
 export const UserService = {
   getUsers: async (): Promise<User[]> => {
@@ -56,21 +48,13 @@ export const UserService = {
     });
   },
 
-  addUser: async (user: Omit<User, 'id' | 'createdAt'>, password?: string): Promise<void> => {
+  addUser: async (user: Omit<User, 'id' | 'createdAt'>): Promise<void> => {
     const PATH = 'usuarios';
-    let authUid = '';
-
     try {
-      if (password) {
-        // Try to create auth user using secondary app
-        const secondaryAuth = getSecondaryAuth();
-        const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, password);
-        authUid = userCredential.user.uid;
-        // Sign out from secondary app immediately
-        await secondaryAuth.signOut();
-      }
-      
-      const id = authUid || crypto.randomUUID();
+      // For Google-only login, we just create the profile with a random ID.
+      // When the user logs in via Google for the first time, our login logic 
+      // will find this profile by email and bind them.
+      const id = crypto.randomUUID();
       const newUser: User = {
         ...user,
         id,
@@ -79,9 +63,6 @@ export const UserService = {
       
       await setDoc(doc(db, PATH, id), newUser);
     } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        throw new Error('Este e-mail já está em uso no sistema de autenticação.');
-      }
       handleFirestoreError(error, OperationType.CREATE, PATH);
     }
   },

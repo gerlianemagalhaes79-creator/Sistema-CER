@@ -200,7 +200,6 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
     email: '',
     role: '',
     accessType: AccessType.Profissional,
-    password: '',
     status: 'Active' as const
   });
   const [loading, setLoading] = useState(false);
@@ -212,7 +211,6 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
         email: editingUser.email,
         role: editingUser.role,
         accessType: editingUser.accessType,
-        password: '',
         status: editingUser.status
       });
     } else {
@@ -221,7 +219,6 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
         email: '',
         role: '',
         accessType: AccessType.Profissional,
-        password: '',
         status: 'Active'
       });
     }
@@ -239,17 +236,13 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
           accessType: formData.accessType,
         });
       } else {
-        if (!formData.password) {
-          alert('Por favor, informe uma senha para o novo usuário.');
-          return;
-        }
         await UserService.addUser({
           name: formData.name,
           email: formData.email,
           role: formData.role,
           accessType: formData.accessType,
           status: 'Active'
-        }, formData.password);
+        });
       }
       onSave();
       onClose();
@@ -348,23 +341,6 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
                     </select>
                   </div>
                 </div>
-
-                {!editingUser && (
-                  <div className="space-y-2">
-                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Senha Inicial</label>
-                    <div className="relative">
-                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
-                      <input 
-                        type="password" 
-                        required
-                        value={formData.password}
-                        onChange={e => setFormData({...formData, password: e.target.value})}
-                        className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
-                        placeholder="••••••••"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div className="flex gap-4 pt-4">
