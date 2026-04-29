@@ -1737,8 +1737,8 @@ export default function App() {
                 key="dashboard" 
                 patients={patients} 
                 movements={movements} 
-                availableCities={municipalities.filter(m => m.status === 'Ativo').map(m => m.name)}
-                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
+                availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
+                availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
               />
             )}
             {currentPage === 'patients' && (
@@ -1746,8 +1746,8 @@ export default function App() {
                 key="patients" 
                 patients={patients} 
                 currentUser={currentUser}
-                availableCities={municipalities.filter(m => m.status === 'Ativo').map(m => m.name)}
-                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
+                availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
+                availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
                 onReload={() => {}} 
               />
             )}
@@ -1757,7 +1757,7 @@ export default function App() {
                 movements={movements} 
                 patients={patients} 
                 currentUser={currentUser}
-                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
+                availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
                 onReload={() => {}} 
               />
             )}
@@ -1766,8 +1766,8 @@ export default function App() {
                 patients={patients} 
                 movements={movements} 
                 currentUser={currentUser} 
-                availableCities={municipalities.filter(m => m.status === 'Ativo').map(m => m.name)}
-                availableProfessionals={professionals.filter(p => p.status === 'Ativo').map(p => p.name)}
+                availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
+                availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
               />
             )}
             {currentPage === 'professionals' && canAccess('professionals') && (
