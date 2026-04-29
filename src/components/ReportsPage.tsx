@@ -113,7 +113,9 @@ export const ReportsPage = ({
     const applyCommonFilters = (items: any[]) => {
       return items.filter(item => {
         const matchCity = filters.city ? (item.city === filters.city) : true;
-        const matchPro = filters.professional ? (item.professionals?.some((p: string) => p.includes(filters.professional))) : true;
+        const matchPro = filters.professional 
+          ? (item.responsibleProfessional?.includes(filters.professional) || item.professionals?.some((p: string) => p.includes(filters.professional))) 
+          : true;
         const matchDiagnosis = filters.diagnosis ? (item.diagnoses?.some((d: string) => d.includes(filters.diagnosis))) : true;
         const matchStatus = filters.status ? (item.status === filters.status) : true;
         return matchCity && matchPro && matchDiagnosis && matchStatus;
@@ -215,7 +217,7 @@ export const ReportsPage = ({
       item.medicalRecordNumber || '',
       item.city || item.type || '',
       item.status || (item.date ? new Date(item.date).toLocaleDateString() : ''),
-      item.professionals?.join(', ') || ''
+      item.responsibleProfessional || item.professionals?.join(', ') || ''
     ]);
 
     doc.autoTable({
@@ -564,6 +566,7 @@ export const ReportsPage = ({
                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-gray-400">Nome / Paciente</th>
                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-gray-400">Prontuário</th>
                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-gray-400">Município / Tipo</th>
+                           <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-gray-400">Profissional</th>
                            <th className="px-6 py-4 font-black uppercase tracking-widest text-[10px] text-gray-400">Situação</th>
                          </tr>
                        </thead>
@@ -573,6 +576,7 @@ export const ReportsPage = ({
                              <td className="px-6 py-3 font-bold text-[#064e3b]">{item.name || item.patientName}</td>
                              <td className="px-6 py-3 font-medium text-gray-500">{item.medicalRecordNumber}</td>
                              <td className="px-6 py-3 font-medium text-gray-500">{item.city || item.type}</td>
+                             <td className="px-6 py-3 font-medium text-emerald-800 text-[10px]">{item.responsibleProfessional || item.professionals?.[0] || '-'}</td>
                              <td className="px-6 py-3">
                                <span className="px-2 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-lg border border-emerald-100">
                                  {item.status || 'Registrado'}

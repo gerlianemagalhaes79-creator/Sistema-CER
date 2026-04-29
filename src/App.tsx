@@ -501,6 +501,7 @@ const MovementTypeBadge = ({ type }: { type: MovementType }) => {
     'Transferência': 'bg-purple-100 text-purple-800 border-purple-200',
     'Mudança de profissional': 'bg-amber-100 text-amber-800 border-amber-200',
     'Atualização cadastral': 'bg-gray-100 text-gray-600 border-gray-200',
+    'Atendimento': 'bg-indigo-100 text-indigo-800 border-indigo-200',
   };
 
   return (
@@ -529,7 +530,8 @@ const MovementFormModal = ({
     medicalRecordNumber: '',
     diagnoses: [],
     professionals: [],
-    type: 'Entrada',
+    responsibleProfessional: '',
+    type: 'Atendimento',
     date: new Date().toISOString().split('T')[0],
     observations: ''
   });
@@ -552,7 +554,8 @@ const MovementFormModal = ({
       patientName: p.name,
       medicalRecordNumber: p.medicalRecordNumber,
       diagnoses: p.diagnoses,
-      professionals: p.professionals
+      professionals: p.professionals,
+      responsibleProfessional: p.professionals[0] || ''
     });
     setSearchTerm(p.name);
     setShowPatientList(false);
@@ -646,11 +649,23 @@ const MovementFormModal = ({
                 onChange={e => setFormData({...formData, type: e.target.value as MovementType})}
                 className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
               >
+                <option value="Atendimento">Atendimento</option>
                 <option value="Entrada">Entrada</option>
                 <option value="Alta">Alta</option>
                 <option value="Transferência">Transferência</option>
                 <option value="Mudança de profissional">Mudança de profissional</option>
                 <option value="Atualização cadastral">Atualização cadastral</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Profissional Responsável</label>
+              <select 
+                value={formData.responsibleProfessional}
+                onChange={e => setFormData({...formData, responsibleProfessional: e.target.value})}
+                className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
+              >
+                <option value="">Selecione o profissional...</option>
+                {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div>
@@ -722,7 +737,9 @@ const DashboardPage = ({
 
   const filteredMovements = useMemo(() => {
     return movements.filter(m => {
-      const matchPro = filterProfessional ? m.professionals.includes(filterProfessional) : true;
+      const matchPro = filterProfessional 
+        ? (m.responsibleProfessional?.includes(filterProfessional) || m.professionals.includes(filterProfessional)) 
+        : true;
       const matchMonth = filterMonth ? m.date.startsWith(filterMonth) : true;
       return matchPro && matchMonth;
     });
@@ -1467,6 +1484,7 @@ const MovementsPage = ({
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium appearance-none"
             >
               <option value="">Todos os Tipos</option>
+              <option value="Atendimento">Atendimento</option>
               <option value="Entrada">Entrada</option>
               <option value="Alta">Alta</option>
               <option value="Transferência">Transferência</option>
@@ -1526,8 +1544,8 @@ const MovementsPage = ({
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                       <p className="text-[10px] font-bold text-gray-500">{m.professionals[0]?.split('(')[0] || '-'}</p>
-                       {m.professionals.length > 1 && <p className="text-[9px] text-gray-400">+{m.professionals.length - 1} outros</p>}
+                       <p className="text-[10px] font-bold text-[#064e3b]">{m.responsibleProfessional || '-'}</p>
+                       <p className="text-[9px] text-gray-400">Equipe original: {m.professionals.join(', ') || '-'}</p>
                     </td>
                     <td className="px-6 py-4">
                        <p className="text-xs text-gray-500 max-w-[200px] truncate" title={m.observations}>{m.observations || '-'}</p>

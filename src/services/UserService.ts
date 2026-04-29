@@ -104,11 +104,11 @@ export const UserService = {
           await signOut(auth);
           throw new Error('Usuário inativo');
         }
-      } else if (firebaseUser.email === 'gerlianemagalhaes79@gmail.com') {
+      } else if (firebaseUser.email === 'gerlianemagalhaes79@gmail.com' || firebaseUser.email === 'cer2polisobral@gmail.com') {
         // Bootstrap the first admin user
         const newAdmin: User = {
           id: firebaseUser.uid,
-          name: 'Gerliane Magalhães (Admin)',
+          name: firebaseUser.email === 'cer2polisobral@gmail.com' ? 'CER II Policlínica Sobral' : 'Gerliane Magalhães (Admin)',
           email: firebaseUser.email,
           role: 'Administrador Geral',
           accessType: AccessType.Administrador,
@@ -168,11 +168,11 @@ export const UserService = {
           await signOut(auth);
           throw new Error('Sua conta está inativa. Entre em contato com a administração.');
         }
-      } else if (firebaseUser.email === 'gerlianemagalhaes79@gmail.com') {
+      } else if (firebaseUser.email === 'gerlianemagalhaes79@gmail.com' || firebaseUser.email === 'cer2polisobral@gmail.com') {
         // Bootstrap the first admin user
         const newAdmin: User = {
           id: firebaseUser.uid,
-          name: firebaseUser.displayName || 'Admin',
+          name: firebaseUser.displayName || (firebaseUser.email === 'cer2polisobral@gmail.com' ? 'CER II Policlínica Sobral' : 'Admin'),
           email: firebaseUser.email || '',
           role: 'Administrador Geral',
           accessType: AccessType.Administrador,

@@ -16,7 +16,7 @@ export interface User {
   createdAt: string;
 }
 
-export type MovementType = 'Entrada' | 'Alta' | 'Transferência' | 'Mudança de profissional' | 'Atualização cadastral';
+export type MovementType = 'Entrada' | 'Alta' | 'Transferência' | 'Mudança de profissional' | 'Atualização cadastral' | 'Atendimento';
 
 export interface Movement {
   id: string;
@@ -24,7 +24,8 @@ export interface Movement {
   patientName: string;
   medicalRecordNumber: string;
   diagnoses: string[];
-  professionals: string[];
+  professionals: string[]; // Keep original team for context
+  responsibleProfessional?: string; // The specific professional for this event
   type: MovementType;
   date: string;
   observations?: string;

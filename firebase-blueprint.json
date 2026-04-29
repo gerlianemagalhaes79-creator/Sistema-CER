@@ -40,7 +40,7 @@
     },
     "Movement": {
       "title": "Movement",
-      "description": "Records of patient movements (entry, discharge, etc.)",
+      "description": "Records of patient movements and attendances",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -49,7 +49,8 @@
         "medicalRecordNumber": { "type": "string" },
         "diagnoses": { "type": "array", "items": { "type": "string" } },
         "professionals": { "type": "array", "items": { "type": "string" } },
-        "type": { "enum": ["Entrada", "Alta", "Transferência", "Mudança de profissional", "Atualização cadastral"] },
+        "responsibleProfessional": { "type": "string" },
+        "type": { "enum": ["Entrada", "Alta", "Transferência", "Mudança de profissional", "Atualização cadastral", "Atendimento"] },
         "date": { "type": "string", "format": "date-time" },
         "observations": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
