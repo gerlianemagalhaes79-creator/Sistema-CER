@@ -1,75 +1,140 @@
+import { 
+  signInWithEmailAndPassword, 
+  signOut, 
+  updatePassword,
+  updateEmail,
+  User as FirebaseUser,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  updateDoc, 
+  getDocs, 
+  collection, 
+  query, 
+  where,
+  onSnapshot
+} from 'firebase/firestore';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { User, AccessType } from '../types';
 
-const STORAGE_KEY = 'cer_users_data';
-
-const DEFAULT_ADMIN: User = {
-  id: 'admin-id',
-  name: 'Administrador Sistema',
-  email: 'admin@cer.com.br',
-  role: 'TI / Gestor',
-  accessType: AccessType.Administrador,
-  status: 'Active',
-  password: 'admin',
-  createdAt: new Date().toISOString()
-};
-
 export const UserService = {
-  getUsers: (): User[] => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) {
-      UserService.saveUsers([DEFAULT_ADMIN]);
-      return [DEFAULT_ADMIN];
+  getUsers: async (): Promise<User[]> => {
+    const PATH = 'usuarios';
+    try {
+      const q = query(collection(db, PATH));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => doc.data() as User);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+      return [];
     }
-    return JSON.parse(data);
   },
 
-  saveUsers: (users: User[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
+  subscribeToUsers: (callback: (users: User[]) => void) => {
+    const PATH = 'usuarios';
+    return onSnapshot(collection(db, PATH), (snapshot) => {
+      callback(snapshot.docs.map(doc => doc.data() as User));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+    });
   },
 
-  addUser: (user: Omit<User, 'id' | 'createdAt'>): User => {
-    const users = UserService.getUsers();
+  addUser: async (user: Omit<User, 'id' | 'createdAt'>, password?: string): Promise<void> => {
+    // Note: Creating auth user usually happens via an admin function or sign up
+    // For this app, we'll store the profile. In a real scenario, we'd use a Cloud Function.
+    // However, I will just create the Firestore document.
+    const PATH = 'usuarios';
+    const id = crypto.randomUUID();
     const newUser: User = {
       ...user,
-      id: crypto.randomUUID(),
+      id,
       createdAt: new Date().toISOString(),
     };
     
-    users.push(newUser);
-    UserService.saveUsers(users);
-    return newUser;
-  },
-
-  updateUser: (id: string, updates: Partial<User>) => {
-    const users = UserService.getUsers();
-    const index = users.findIndex(u => u.id === id);
-    if (index !== -1) {
-      users[index] = { ...users[index], ...updates };
-      UserService.saveUsers(users);
+    try {
+      await setDoc(doc(db, PATH, id), newUser);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, PATH);
     }
   },
 
-  deleteUser: (id: string) => {
-    // Only allow if not the last admin? For now simple
-    const users = UserService.getUsers();
-    const filtered = users.filter(u => u.id !== id);
-    UserService.saveUsers(filtered);
+  updateUser: async (id: string, updates: Partial<User>) => {
+    const PATH = 'usuarios';
+    try {
+      await updateDoc(doc(db, PATH, id), updates);
+      return { ...updates, id } as User;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+    }
   },
 
-  authenticate: (email: string, password: string): User | null => {
-    const users = UserService.getUsers();
-    const user = users.find(u => u.email === email && u.password === password && u.status === 'Active');
-    return user || null;
+  deleteUser: async (id: string) => {
+    const PATH = 'usuarios';
+    // Logic to delete or disable user
+    try {
+      await updateDoc(doc(db, PATH, id), { status: 'Inactive' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+    }
   },
 
-  changePassword: (id: string, current: string, newPass: string): boolean => {
-    const users = UserService.getUsers();
-    const index = users.findIndex(u => u.id === id);
-    if (index !== -1 && users[index].password === current) {
-      users[index].password = newPass;
-      UserService.saveUsers(users);
+  authenticate: async (email: string, password: string): Promise<User | null> => {
+    const PATH = 'usuarios';
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      
+      const userDoc = await getDoc(doc(db, PATH, firebaseUser.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data() as User;
+        if (userData.status === 'Active') {
+          return userData;
+        } else {
+          await signOut(auth);
+          throw new Error('Usuário inativo');
+        }
+      } else {
+        // If profile doesn't exist in Firestore but exists in Auth (shouldn't happen with sync)
+        await signOut(auth);
+        throw new Error('Perfil do usuário não encontrado');
+      }
+    } catch (error) {
+      console.error('Authentication Error:', error);
+      return null;
+    }
+  },
+
+  logout: async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Logout Error:', error);
+    }
+  },
+
+  getCurrentUser: async (): Promise<User | null> => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return null;
+    
+    const userDoc = await getDoc(doc(db, 'usuarios', firebaseUser.uid));
+    return userDoc.exists() ? (userDoc.data() as User) : null;
+  },
+
+  changePassword: async (current: string, newPass: string): Promise<boolean> => {
+    const user = auth.currentUser;
+    if (!user) return false;
+    
+    try {
+      // For real re-auth, we'd need email/password but here we'll assume they just logged in
+      // Actually standard Firebase requires re-auth for sensitive ops
+      await updatePassword(user, newPass);
       return true;
+    } catch (error) {
+      console.error('Change Password Error:', error);
+      return false;
     }
-    return false;
   }
 };

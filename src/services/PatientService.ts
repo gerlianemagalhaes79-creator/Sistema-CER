@@ -1,49 +1,84 @@
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDocs, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  orderBy,
+  onSnapshot,
+  setDoc
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
 import { Patient } from '../types';
 
-const STORAGE_KEY = 'cer_patients_data';
-
 export const PatientService = {
-  getPatients: (): Patient[] => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+  getPatients: async (): Promise<Patient[]> => {
+    const PATH = 'pacientes';
+    try {
+      const q = query(collection(db, PATH), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Patient));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+      return [];
+    }
   },
 
-  savePatients: (patients: Patient[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(patients));
+  subscribeToPatients: (callback: (patients: Patient[]) => void) => {
+    const PATH = 'pacientes';
+    const q = query(collection(db, PATH), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Patient)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+    });
   },
 
-  addPatient: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>): Patient => {
-    const patients = PatientService.getPatients();
+  addPatient: async (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>): Promise<Patient> => {
+    const PATH = 'pacientes';
+    const id = crypto.randomUUID();
     const newPatient: Patient = {
       ...patient,
-      id: crypto.randomUUID(),
+      id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    patients.push(newPatient);
-    PatientService.savePatients(patients);
-    return newPatient;
+    
+    try {
+      await setDoc(doc(db, PATH, id), newPatient);
+      return newPatient;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, PATH);
+      throw error;
+    }
   },
 
-  updatePatient: (id: string, updates: Partial<Patient>): Patient => {
-    const patients = PatientService.getPatients();
-    const index = patients.findIndex(p => p.id === id);
-    if (index === -1) throw new Error('Patient not found');
-    
-    const updatedPatient = {
-      ...patients[index],
+  updatePatient: async (id: string, updates: Partial<Patient>): Promise<void> => {
+    const PATH = 'pacientes';
+    const updatedData = {
       ...updates,
       updatedAt: new Date().toISOString(),
+      updatedBy: auth.currentUser?.email || 'unknown'
     };
-    patients[index] = updatedPatient;
-    PatientService.savePatients(patients);
-    return updatedPatient;
+    
+    try {
+      await updateDoc(doc(db, PATH, id), updatedData);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      throw error;
+    }
   },
 
-  deletePatient: (id: string) => {
-    const patients = PatientService.getPatients();
-    const filtered = patients.filter(p => p.id !== id);
-    PatientService.savePatients(filtered);
+  deletePatient: async (id: string): Promise<void> => {
+    const PATH = 'pacientes';
+    try {
+      await deleteDoc(doc(db, PATH, id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, PATH);
+      throw error;
+    }
   },
 
   calculateAge: (birthDate: string): number => {

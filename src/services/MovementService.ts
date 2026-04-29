@@ -1,43 +1,76 @@
-import { Movement, MovementType } from '../types';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDocs, 
+  deleteDoc, 
+  query, 
+  orderBy,
+  onSnapshot,
+  setDoc
+} from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, auth } from '../lib/firebase';
+import { Movement } from '../types';
 import { PatientService } from './PatientService';
 
-const STORAGE_KEY = 'cer_movements_data';
-
 export const MovementService = {
-  getMovements: (): Movement[] => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+  getMovements: async (): Promise<Movement[]> => {
+    const PATH = 'movimentacoes';
+    try {
+      const q = query(collection(db, PATH), orderBy('date', 'desc'));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Movement));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+      return [];
+    }
   },
 
-  saveMovements: (movements: Movement[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(movements));
+  subscribeToMovements: (callback: (movements: Movement[]) => void) => {
+    const PATH = 'movimentacoes';
+    const q = query(collection(db, PATH), orderBy('date', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Movement)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+    });
   },
 
-  addMovement: (movement: Omit<Movement, 'id' | 'createdAt'>): Movement => {
-    const movements = MovementService.getMovements();
+  addMovement: async (movement: Omit<Movement, 'id' | 'createdAt'>): Promise<Movement> => {
+    const PATH = 'movimentacoes';
+    const id = crypto.randomUUID();
     const newMovement: Movement = {
       ...movement,
-      id: crypto.randomUUID(),
+      id,
       createdAt: new Date().toISOString(),
+      createdBy: auth.currentUser?.email || 'unknown'
     };
     
-    movements.push(newMovement);
-    MovementService.saveMovements(movements);
+    try {
+      await setDoc(doc(db, PATH, id), newMovement);
 
-    // SIDE EFFECT: If type is 'Alta', update patient status
-    if (movement.type === 'Alta') {
-      PatientService.updatePatient(movement.patientId, { 
-        status: 'Alta',
-        dischargeDate: movement.date 
-      });
+      // SIDE EFFECT: If type is 'Alta', update patient status
+      if (movement.type === 'Alta') {
+        await PatientService.updatePatient(movement.patientId, { 
+          status: 'Alta',
+          dischargeDate: movement.date 
+        });
+      }
+
+      return newMovement;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, PATH);
+      throw error;
     }
-
-    return newMovement;
   },
 
-  deleteMovement: (id: string) => {
-    const movements = MovementService.getMovements();
-    const filtered = movements.filter(m => m.id !== id);
-    MovementService.saveMovements(filtered);
+  deleteMovement: async (id: string): Promise<void> => {
+    const PATH = 'movimentacoes';
+    try {
+      await deleteDoc(doc(db, PATH, id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, PATH);
+      throw error;
+    }
   }
 };

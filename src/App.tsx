@@ -30,12 +30,15 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './lib/firebase';
 import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, DIAGNOSES, User, AccessType } from './types';
 import { PatientService } from './services/PatientService';
 import { MovementService } from './services/MovementService';
 import { UserService } from './services/UserService';
 import { UsersPage } from './components/UsersPage';
 import { ProfilePage } from './components/ProfilePage';
+import { ReportsPage } from './components/ReportsPage';
 import { 
   BarChart, 
   Bar, 
@@ -1073,20 +1076,28 @@ const PatientsPage = ({
     });
   }, [patients, search, filterCity, filterProfessional, filterStatus, currentUser]);
 
-  const handleSave = (data: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
-    if (editingPatient) {
-      PatientService.updatePatient(editingPatient.id, data);
-    } else {
-      PatientService.addPatient(data);
+  const handleSave = async (data: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (editingPatient) {
+        await PatientService.updatePatient(editingPatient.id, data);
+      } else {
+        await PatientService.addPatient(data);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving patient:', error);
+      alert('Erro ao salvar paciente. Verifique as permissões.');
     }
-    setIsModalOpen(false);
-    onReload();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Deseja realmente excluir este paciente? Esta ação não pode ser desfeita.')) {
-      PatientService.deletePatient(id);
-      onReload();
+      try {
+        await PatientService.deletePatient(id);
+      } catch (error) {
+        console.error('Error deleting patient:', error);
+        alert('Erro ao excluir paciente.');
+      }
     }
   };
 
@@ -1319,10 +1330,14 @@ const MovementsPage = ({
     return { entries, discharges, activePatients, total: currentMonth.length };
   }, [filteredMovements, patients]);
 
-  const handleSave = (data: Omit<Movement, 'id' | 'createdAt'>) => {
-    MovementService.addMovement(data);
-    setIsModalOpen(false);
-    onReload();
+  const handleSave = async (data: Omit<Movement, 'id' | 'createdAt'>) => {
+    try {
+      await MovementService.addMovement(data);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving movement:', error);
+      alert('Erro ao registrar movimentação.');
+    }
   };
 
   return (
@@ -1485,6 +1500,7 @@ const MovementsPage = ({
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1492,24 +1508,48 @@ export default function App() {
   const [movements, setMovements] = useState<Movement[]>([]);
 
   useEffect(() => {
-    setPatients(PatientService.getPatients());
-    setMovements(MovementService.getMovements());
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const user = await UserService.getCurrentUser();
+        if (user) {
+          setCurrentUser(user);
+          setIsLoggedIn(true);
+        } else {
+          // Profile not found in Firestore
+          setIsLoggedIn(false);
+        }
+      } else {
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+      }
+      setIsInitialized(true);
+    });
+
+    return () => unsubscribeAuth();
   }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const unsubscribePatients = PatientService.subscribeToPatients(setPatients);
+    const unsubscribeMovements = MovementService.subscribeToMovements(setMovements);
+
+    return () => {
+      unsubscribePatients();
+      unsubscribeMovements();
+    };
+  }, [isLoggedIn]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     setIsLoggedIn(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await UserService.logout();
     setIsLoggedIn(false);
     setCurrentUser(null);
     setCurrentPage('dashboard');
-  };
-
-  const reloadData = () => {
-    setPatients(PatientService.getPatients());
-    setMovements(MovementService.getMovements());
   };
 
   const canAccess = (page: Page): boolean => {
@@ -1519,13 +1559,22 @@ export default function App() {
     switch (page) {
       case 'dashboard': return true;
       case 'profile': return true;
-      case 'patients': return true; // Filtered in the page
-      case 'movements': return true; // Filtered in the page
+      case 'patients': return true;
+      case 'movements': return true;
       case 'reports': return currentUser.accessType === 'Coordenação';
-      case 'users': return false; // Only Admin
+      case 'users': return false;
       default: return false;
     }
   };
+
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+        <div className="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-[#064e3b] font-black uppercase tracking-widest text-xs">Carregando Sistema...</p>
+      </div>
+    );
+  }
 
   if (!isLoggedIn || !currentUser) {
     return <LoginPage onLogin={handleLogin} />;
@@ -1632,7 +1681,7 @@ export default function App() {
                 key="patients" 
                 patients={patients} 
                 currentUser={currentUser}
-                onReload={reloadData} 
+                onReload={() => {}} 
               />
             )}
             {currentPage === 'movements' && (
@@ -1641,18 +1690,18 @@ export default function App() {
                 movements={movements} 
                 patients={patients} 
                 currentUser={currentUser}
-                onReload={reloadData} 
+                onReload={() => {}} 
               />
             )}
             {currentPage === 'reports' && canAccess('reports') && (
-              <motion.div key="reports" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
-                <BarChart3 size={64} className="mx-auto mb-4 opacity-10" />
-                <h3 className="text-xl font-bold">Módulo de Relatórios</h3>
-                <p className="text-gray-500">Desenvolvimento em progresso</p>
-              </motion.div>
+              <ReportsPage 
+                patients={patients} 
+                movements={movements} 
+                currentUser={currentUser} 
+              />
             )}
             {currentPage === 'users' && canAccess('users') && (
-              <UsersPage key="users" onReload={reloadData} />
+              <UsersPage onReload={() => {}} />
             )}
             {currentPage === 'profile' && (
               <ProfilePage user={currentUser} onUpdate={(updated) => setCurrentUser(updated)} />
@@ -1668,14 +1717,23 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = UserService.authenticate(email, password);
-    if (user) {
-      onLogin(user);
-    } else {
-      setError('Credenciais inválidas ou usuário inativo');
+    setLoading(true);
+    setError('');
+    try {
+      const user = await UserService.authenticate(email, password);
+      if (user) {
+        onLogin(user);
+      } else {
+        setError('Credenciais inválidas ou acesso negado');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao conectar ao servidor');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1731,9 +1789,12 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
           </div>
           <button 
             type="submit"
-            className="w-full bg-[#064e3b] text-white py-4 rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+            disabled={loading}
+            className="w-full bg-[#064e3b] text-white py-4 rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
           >
-            Entrar no Sistema
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+            ) : 'Entrar no Sistema'}
           </button>
           
           <div className="text-center">

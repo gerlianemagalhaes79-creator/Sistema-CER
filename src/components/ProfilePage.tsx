@@ -27,10 +27,11 @@ export const ProfilePage = ({ user, onUpdate }: { user: User, onUpdate: (u: User
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage(null);
     try {
-      const updated = UserService.updateUser(user.id, formData);
+      const updated = await UserService.updateUser(user.id, formData);
       if (updated) {
         onUpdate(updated);
         setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
@@ -40,19 +41,24 @@ export const ProfilePage = ({ user, onUpdate }: { user: User, onUpdate: (u: User
     }
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setMessage(null);
     if (passwords.new !== passwords.confirm) {
       setMessage({ type: 'error', text: 'As novas senhas não coincidem.' });
       return;
     }
     
-    const success = UserService.changePassword(user.id, passwords.current, passwords.new);
-    if (success) {
-      setMessage({ type: 'success', text: 'Senha alterada com sucesso!' });
-      setPasswords({ current: '', new: '', confirm: '' });
-    } else {
-      setMessage({ type: 'error', text: 'Senha atual incorreta.' });
+    try {
+      const success = await UserService.changePassword(passwords.current, passwords.new);
+      if (success) {
+        setMessage({ type: 'success', text: 'Senha alterada com sucesso!' });
+        setPasswords({ current: '', new: '', confirm: '' });
+      } else {
+        setMessage({ type: 'error', text: 'Ops! O Firebase pode exigir que você faça login novamente para mudar a senha por questões de segurança.' });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Erro ao alterar senha.' });
     }
   };
 

@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users with access control",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "accessType": { "enum": ["Administrador", "Coordenação", "Profissional", "Recepção"] },
+        "status": { "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "accessType", "status"]
+    },
+    "Patient": {
+      "title": "Patient",
+      "description": "Patient medical record information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "medicalRecordNumber": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "gender": { "enum": ["M", "F", "Outro"] },
+        "city": { "type": "string" },
+        "diagnoses": { "type": "array", "items": { "type": "string" } },
+        "professionals": { "type": "array", "items": { "type": "string" } },
+        "status": { "enum": ["Ativo", "Alta", "Investigação", "Espera"] },
+        "entryDate": { "type": "string", "format": "date" },
+        "dischargeDate": { "type": "string", "format": "date" },
+        "observations": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["id", "name", "medicalRecordNumber", "status"]
+    },
+    "Movement": {
+      "title": "Movement",
+      "description": "Records of patient movements (entry, discharge, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string" },
+        "medicalRecordNumber": { "type": "string" },
+        "diagnoses": { "type": "array", "items": { "type": "string" } },
+        "professionals": { "type": "array", "items": { "type": "string" } },
+        "type": { "enum": ["Entrada", "Alta", "Transferência", "Mudança de profissional", "Atualização cadastral"] },
+        "date": { "type": "string", "format": "date-time" },
+        "observations": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["id", "patientId", "type", "date"]
+    }
+  },
+  "firestore": {
+    "/usuarios/{userId}": {
+      "schema": "User",
+      "description": "Collection of system users"
+    },
+    "/pacientes/{patientId}": {
+      "schema": "Patient",
+      "description": "Collection of patients"
+    },
+    "/movimentacoes/{movementId}": {
+      "schema": "Movement",
+      "description": "Collection of patient movements"
+    }
+  }
+}

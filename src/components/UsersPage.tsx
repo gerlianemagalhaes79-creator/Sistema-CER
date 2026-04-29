@@ -19,11 +19,16 @@ import { User, AccessType } from '../types';
 import { UserService } from '../services/UserService';
 
 export const UsersPage = ({ onReload }: { onReload: () => void }) => {
-  const [users, setUsers] = useState<User[]>(UserService.getUsers());
+  const [users, setUsers] = useState<User[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<AccessType | ''>('');
+
+  React.useEffect(() => {
+    const unsubscribe = UserService.subscribeToUsers(setUsers);
+    return () => unsubscribe();
+  }, []);
 
   const filteredUsers = useMemo(() => {
     return users.filter(u => {
@@ -34,14 +39,17 @@ export const UsersPage = ({ onReload }: { onReload: () => void }) => {
     });
   }, [users, search, filterType]);
 
-  const handleToggleStatus = (u: User) => {
+  const handleToggleStatus = async (u: User) => {
     const newStatus = u.status === 'Active' ? 'Inactive' : 'Active';
-    UserService.updateUser(u.id, { status: newStatus as any });
-    refresh();
+    try {
+      await UserService.updateUser(u.id, { status: newStatus as any });
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      alert('Erro ao alterar status do usuário.');
+    }
   };
 
   const refresh = () => {
-    setUsers(UserService.getUsers());
     onReload();
   };
 
@@ -177,6 +185,7 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
     password: '',
     status: 'Active' as const
   });
+  const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     if (editingUser) {
@@ -200,27 +209,35 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
     }
   }, [editingUser, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingUser) {
-      UserService.updateUser(editingUser.id, {
-        name: formData.name,
-        email: formData.email,
-        role: formData.role,
-        accessType: formData.accessType,
-      });
-    } else {
-      UserService.addUser({
-        name: formData.name,
-        email: formData.email,
-        role: formData.role,
-        accessType: formData.accessType,
-        password: formData.password || 'cer123',
-        status: 'Active'
-      });
+    setLoading(true);
+    try {
+      if (editingUser) {
+        await UserService.updateUser(editingUser.id, {
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+          accessType: formData.accessType,
+        });
+      } else {
+        await UserService.addUser({
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+          accessType: formData.accessType,
+          password: formData.password || 'cer123',
+          status: 'Active'
+        });
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Error saving user:', error);
+      alert('Erro ao salvar usuário. Nota: A criação de usuários no Firebase Auth pode exigir privilégios de administrador.');
+    } finally {
+      setLoading(false);
     }
-    onSave();
-    onClose();
   };
 
   return (
@@ -339,10 +356,17 @@ const UserFormModal = ({ isOpen, onClose, onSave, editingUser }: { isOpen: boole
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-[#064e3b] text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-2"
+                  disabled={loading}
+                  className="flex-1 bg-[#064e3b] text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  <CheckCircle2 size={20} />
-                  {editingUser ? 'Salvar Alterações' : 'Criar Usuário'}
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={20} />
+                      {editingUser ? 'Salvar Alterações' : 'Criar Usuário'}
+                    </>
+                  )}
                 </button>
               </div>
             </form>

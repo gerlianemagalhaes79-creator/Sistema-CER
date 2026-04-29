@@ -29,6 +29,7 @@ export interface Movement {
   date: string;
   observations?: string;
   createdAt: string;
+  createdBy?: string; // email of the user who created it
 }
 
 export type PatientStatus = 'Ativo' | 'Alta' | 'Investigação' | 'Espera';
@@ -48,6 +49,7 @@ export interface Patient {
   observations?: string;
   createdAt: string;
   updatedAt: string;
+  updatedBy?: string; // email of the user who last updated it
 }
 
 export const CITIES = [
