@@ -1,3 +1,21 @@
+export enum AccessType {
+  Administrador = 'Administrador',
+  Coordenação = 'Coordenação',
+  Profissional = 'Profissional',
+  Recepção = 'Recepção'
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string; // e.g., 'Médico', 'Secretária'
+  accessType: AccessType;
+  status: 'Active' | 'Inactive';
+  password?: string;
+  createdAt: string;
+}
+
 export type MovementType = 'Entrada' | 'Alta' | 'Transferência' | 'Mudança de profissional' | 'Atualização cadastral';
 
 export interface Movement {

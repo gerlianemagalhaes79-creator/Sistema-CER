@@ -19,15 +19,41 @@ import {
   Calendar,
   Stethoscope,
   MapPin,
-  Clock
+  Clock,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  Shield,
+  Mail,
+  Key,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, DIAGNOSES } from './types';
+import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, DIAGNOSES, User, AccessType } from './types';
 import { PatientService } from './services/PatientService';
 import { MovementService } from './services/MovementService';
+import { UserService } from './services/UserService';
+import { UsersPage } from './components/UsersPage';
+import { ProfilePage } from './components/ProfilePage';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  AreaChart, 
+  Area,
+  Legend
+} from 'recharts';
 
 // --- Types ---
-type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users';
+type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile';
 
 // --- UI Components ---
 
@@ -58,27 +84,32 @@ const SidebarItem = ({
   </button>
 );
 
-const Card = ({ title, value, subtitle, icon: Icon }: { title: string, value: string, subtitle?: string, icon?: any }) => (
-  <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+const Card = ({ title, value, subtitle, icon: Icon, colorClass }: { title: string, value: string, subtitle?: string, icon?: any, colorClass?: string }) => (
+  <motion.div 
+    whileHover={{ y: -4 }}
+    className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all relative overflow-hidden group"
+  >
     <div className="relative z-10">
-      <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">{title}</h3>
-      <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
-      {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+      <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.15em] mb-1">{title}</h3>
+      <p className={`text-3xl font-black ${colorClass || 'text-gray-900'} tracking-tighter`}>{value}</p>
+      {subtitle && <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-tight">{subtitle}</p>}
     </div>
     {Icon && (
-      <Icon className="absolute right-[-10px] bottom-[-10px] w-24 h-24 text-gray-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      <Icon className={`absolute right-[-10px] bottom-[-10px] w-20 h-20 opacity-5 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none ${colorClass || 'text-gray-900'}`} />
     )}
-  </div>
+  </motion.div>
 );
 
 const Header = ({ 
   user, 
   onLogout, 
+  onProfile,
   sidebarCollapsed, 
   setSidebarCollapsed 
 }: { 
-  user: string, 
+  user: User, 
   onLogout: () => void,
+  onProfile: () => void,
   sidebarCollapsed: boolean,
   setSidebarCollapsed: (v: boolean) => void
 }) => (
@@ -100,15 +131,18 @@ const Header = ({
     </div>
     
     <div className="flex items-center gap-6">
-      <div className="flex items-center gap-3">
-        <div className="text-right hidden md:block">
-          <p className="text-sm font-bold text-gray-800 leading-tight">{user}</p>
-          <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">Administrador</p>
+      <button 
+        onClick={onProfile}
+        className="flex items-center gap-3 group transition-all"
+      >
+        <div className="text-right hidden md:block group-hover:opacity-80">
+          <p className="text-sm font-bold text-gray-800 leading-tight">{user.name}</p>
+          <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">{user.accessType}</p>
         </div>
-        <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#064e3b] font-bold shadow-sm">
-          {user.charAt(0).toUpperCase()}
+        <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#064e3b] font-bold shadow-sm group-hover:shadow-md transition-shadow">
+          {user.name.charAt(0).toUpperCase()}
         </div>
-      </div>
+      </button>
       <div className="h-8 w-px bg-gray-100"></div>
       <button 
         onClick={onLogout}
@@ -640,80 +674,377 @@ const MovementFormModal = ({
 
 // --- Main Pages ---
 
-const DashboardPage = ({ patients }: { patients: Patient[], key?: string }) => {
-  const stats = useMemo(() => {
-    const total = patients.length;
-    const active = patients.filter(p => p.status === 'Ativo').length;
-    const discharge = patients.filter(p => {
-      if (p.status !== 'Alta' || !p.dischargeDate) return false;
-      const dischargeDate = new Date(p.dischargeDate);
-      const now = new Date();
-      return dischargeDate.getMonth() === now.getMonth() && dischargeDate.getFullYear() === now.getFullYear();
-    }).length;
-    
-    // Professionals count - simplistic unique names across all lists
-    const pros = new Set();
-    patients.forEach(p => p.professionals.forEach(pro => pros.add(pro)));
-    const professionalCount = pros.size;
+const DashboardPage = ({ patients, movements }: { patients: Patient[], movements: Movement[], key?: string }) => {
+  const [filterCity, setFilterCity] = useState('');
+  const [filterProfessional, setFilterProfessional] = useState('');
+  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
 
-    return { total, active, discharge, professionalCount };
-  }, [patients]);
+  const filteredPatients = useMemo(() => {
+    return patients.filter(p => {
+      const matchCity = filterCity ? p.city === filterCity : true;
+      const matchPro = filterProfessional ? p.professionals.includes(filterProfessional) : true;
+      return matchCity && matchPro;
+    });
+  }, [patients, filterCity, filterProfessional]);
+
+  const filteredMovements = useMemo(() => {
+    return movements.filter(m => {
+      const matchPro = filterProfessional ? m.professionals.includes(filterProfessional) : true;
+      const matchMonth = filterMonth ? m.date.startsWith(filterMonth) : true;
+      return matchPro && matchMonth;
+    });
+  }, [movements, filterProfessional, filterMonth]);
+
+  const stats = useMemo(() => {
+    const total = filteredPatients.length;
+    const active = filteredPatients.filter(p => p.status === 'Ativo').length;
+    const investigation = filteredPatients.filter(p => p.status === 'Investigação').length;
+    const waiting = filteredPatients.filter(p => p.status === 'Espera').length;
+    const monthlyDischarges = filteredMovements.filter(m => m.type === 'Alta').length;
+    const monthlyEntries = filteredMovements.filter(m => m.type === 'Entrada').length;
+
+    return { total, active, investigation, waiting, monthlyDischarges, monthlyEntries };
+  }, [filteredPatients, filteredMovements]);
+
+  // Data for Charts
+  const diagnosisData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredPatients.forEach(p => {
+      p.diagnoses.forEach(d => {
+        counts[d] = (counts[d] || 0) + 1;
+      });
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [filteredPatients]);
+
+  const cityData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredPatients.forEach(p => {
+      counts[p.city] = (counts[p.city] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredPatients]);
+
+  const professionalData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredPatients.forEach(p => {
+      p.professionals.forEach(pro => {
+        const name = pro.split(' (')[0];
+        counts[name] = (counts[name] || 0) + 1;
+      });
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredPatients]);
+
+  const trendData = useMemo(() => {
+    // Last 6 months
+    const data = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const monthStr = d.toISOString().substring(0, 7);
+      const entries = movements.filter(m => m.type === 'Entrada' && m.date.startsWith(monthStr)).length;
+      const discharges = movements.filter(m => m.type === 'Alta' && m.date.startsWith(monthStr)).length;
+      data.push({
+        name: d.toLocaleDateString('pt-BR', { month: 'short' }),
+        entradas: entries,
+        altas: discharges
+      });
+    }
+    return data;
+  }, [movements]);
+
+  const PIE_COLORS = ['#064e3b', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5'];
 
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="space-y-6"
+      className="space-y-8"
     >
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Dashboard Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Dashboard</h2>
-          <p className="text-sm font-medium text-gray-500">Indicadores do Centro Especializado em Reabilitação</p>
+          <h2 className="text-3xl font-black text-[#064e3b] tracking-tight">Painel de Controle</h2>
+          <p className="text-sm font-semibold text-gray-400 mt-1 uppercase tracking-widest">Inteligência Clínica e Gerencial</p>
         </div>
-        <div className="bg-white px-5 py-2.5 rounded-2xl border border-emerald-100 text-sm font-bold text-emerald-700 shadow-sm flex items-center gap-2">
-          <Calendar size={16} />
-          {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+        
+        <div className="bg-white p-2 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 px-3 border-r border-gray-100 last:border-none">
+            <Calendar size={14} className="text-emerald-600" />
+            <input 
+              type="month" 
+              value={filterMonth}
+              onChange={e => setFilterMonth(e.target.value)}
+              className="text-xs font-bold text-gray-600 outline-none bg-transparent"
+            />
+          </div>
+          <div className="flex items-center gap-2 px-3 border-r border-gray-100 last:border-none">
+            <MapPin size={14} className="text-emerald-600" />
+            <select 
+              value={filterCity}
+              onChange={e => setFilterCity(e.target.value)}
+              className="text-xs font-bold text-gray-600 outline-none bg-transparent"
+            >
+              <option value="">Todos Municípios</option>
+              {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 px-3">
+            <Stethoscope size={14} className="text-emerald-600" />
+            <select 
+              value={filterProfessional}
+              onChange={e => setFilterProfessional(e.target.value)}
+              className="text-xs font-bold text-gray-600 outline-none bg-transparent max-w-[150px]"
+            >
+              <option value="">Equipe Multidisciplinar</option>
+              {PROFESSIONALS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card title="Total de Pacientes" value={stats.total.toString()} subtitle="Registros históricos" icon={Users} />
-        <Card title="Pacientes Ativos" value={stats.active.toString()} subtitle="Em acompanhamento" icon={Clock} />
-        <Card title="Altas no Mês" value={stats.discharge.toString()} subtitle="Ciclos concluídos" icon={ClipboardList} />
-        <Card title="Profissionais" value={stats.professionalCount.toString()} subtitle="Equipe multidisciplinar" icon={Stethoscope} />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+        <Card title="Total Geral" value={stats.total.toString()} subtitle="Pacientes Base" icon={Users} />
+        <Card title="Ativos" value={stats.active.toString()} subtitle="Em Tratamento" colorClass="text-emerald-600" icon={Activity} />
+        <Card title="Investigação" value={stats.investigation.toString()} subtitle="Triagem Inicial" colorClass="text-amber-500" icon={Search} />
+        <Card title="Em Espera" value={stats.waiting.toString()} subtitle="Fila de Acesso" colorClass="text-blue-500" icon={Clock} />
+        <Card title="Altas no Mês" value={stats.monthlyDischarges.toString()} subtitle="Ciclo Completo" colorClass="text-rose-600" icon={ArrowUpRight} />
+        <Card title="Entradas no Mês" value={stats.monthlyEntries.toString()} subtitle="Novas Admissões" colorClass="text-indigo-600" icon={ArrowDownRight} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 min-h-[350px] shadow-sm flex flex-col items-center justify-center text-gray-300">
-          <BarChart3 size={48} className="mb-4 opacity-20" />
-          <p className="font-bold text-gray-400">Evolução Mensal</p>
-          <p className="text-sm">Gráficos estarão disponíveis em breve</p>
-        </div>
-        <div className="bg-[#064e3b] p-8 rounded-2xl shadow-xl shadow-emerald-900/20 text-white flex flex-col justify-between">
-          <div>
-            <h3 className="text-xl font-bold mb-2">Próximas Metas</h3>
-            <p className="text-emerald-100 text-sm leading-relaxed opacity-70">
-              O sistema CER está em fase de expansão. Em breve teremos integração com prontuário eletrônico completo e telemedicina.
-            </p>
+      {/* Grid of Main Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Trend Chart */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+               <ArrowUpRight size={16} className="text-emerald-600" /> Fluxo de Atendimento (Semestral)
+            </h3>
           </div>
-          <div className="mt-8 space-y-4">
-            <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl">
-              <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-              <span className="text-xs font-semibold">Módulo de Agenda - Março/2024</span>
-            </div>
-            <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl opacity-50">
-              <div className="w-2 h-2 rounded-full bg-white"></div>
-              <span className="text-xs font-semibold">Faturamento TISS - Junho/2024</span>
-            </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="colorEntradas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#064e3b" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#064e3b" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorAltas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#e11d48" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#e11d48" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', fontSize: '12px' }}
+                />
+                <Legend iconType="circle" />
+                <Area type="monotone" dataKey="entradas" stroke="#064e3b" strokeWidth={3} fillOpacity={1} fill="url(#colorEntradas)" />
+                <Area type="monotone" dataKey="altas" stroke="#e11d48" strokeWidth={3} fillOpacity={1} fill="url(#colorAltas)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-        </div>
+        </motion.div>
+
+        {/* Diagnosis Distribution */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"
+        >
+          <div className="mb-8">
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+               <Stethoscope size={16} className="text-emerald-600" /> Pacientes por Diagnóstico
+            </h3>
+          </div>
+          <div className="h-[300px] w-full flex items-center justify-center">
+            {diagnosisData.length > 0 ? (
+               <ResponsiveContainer width="100%" height="100%">
+               <PieChart>
+                 <Pie
+                   data={diagnosisData}
+                   cx="50%"
+                   cy="50%"
+                   innerRadius={60}
+                   outerRadius={100}
+                   paddingAngle={5}
+                   dataKey="value"
+                 >
+                   {diagnosisData.map((entry, index) => (
+                     <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                   ))}
+                 </Pie>
+                 <Tooltip />
+                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 700 }} />
+               </PieChart>
+             </ResponsiveContainer>
+            ) : (
+              <div className="text-center text-gray-300">
+                <p className="text-sm font-bold">Sem dados para exibir</p>
+                <p className="text-xs">Cadastre pacientes para ver estatísticas</p>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* City Stats */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"
+        >
+          <div className="mb-8">
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+               <MapPin size={16} className="text-emerald-600" /> Distribuição por Município
+            </h3>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={cityData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                <XAxis type="number" hide />
+                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} width={100} />
+                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                <Bar dataKey="value" fill="#064e3b" radius={[0, 10, 10, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+
+        {/* Professional Capacity */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"
+        >
+          <div className="mb-8">
+            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+               <UserSquare2 size={16} className="text-emerald-600" /> Pacientes por Profissional
+            </h3>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={professionalData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 700, fill: '#64748b'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
+                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                <Bar dataKey="value" fill="#10b981" radius={[10, 10, 0, 0]} barSize={30} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Recent Activity Lists */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        {/* Recent Patients */}
+        <motion.div 
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-black text-[#064e3b] tracking-tight uppercase text-xs flex items-center gap-2">
+              <Plus size={14} /> Adicionados Recentemente
+            </h3>
+            <button className="text-[10px] font-black text-emerald-600 uppercase hover:underline">Ver Todos</button>
+          </div>
+          <div className="space-y-4">
+            {patients.slice(-5).reverse().map(p => (
+              <div key={p.id} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-emerald-50/20 transition-all border border-transparent hover:border-emerald-50 group">
+                <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-[#064e3b] font-black group-hover:bg-white group-hover:shadow-sm">
+                  {p.name.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-gray-900 truncate">{p.name}</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">#{p.medicalRecordNumber} • {p.city}</p>
+                </div>
+                <StatusBadge status={p.status} />
+              </div>
+            ))}
+            {patients.length === 0 && (
+               <div className="py-10 text-center text-gray-300">
+                  <Users size={32} className="mx-auto mb-2 opacity-10" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Sem registros recentes</p>
+               </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Latest Movements */}
+        <motion.div 
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-black text-[#064e3b] tracking-tight uppercase text-xs flex items-center gap-2">
+              <Clock size={14} /> Últimas Movimentações
+            </h3>
+            <button className="text-[10px] font-black text-emerald-600 uppercase hover:underline">Histórico Completo</button>
+          </div>
+          <div className="space-y-4">
+            {movements.slice(-5).reverse().map(m => (
+              <div key={m.id} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-blue-50/20 transition-all border border-transparent hover:border-blue-50">
+                <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center">
+                  <MovementTypeBadge type={m.type} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-gray-900 truncate">{m.patientName}</p>
+                  <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                     <span>{new Date(m.date).toLocaleDateString('pt-BR')}</span>
+                     <span className="w-1 h-1 rounded-full bg-gray-200"></span>
+                     <span>{m.type}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                   <p className="text-[9px] font-bold text-gray-400">{new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              </div>
+            ))}
+            {movements.length === 0 && (
+               <div className="py-10 text-center text-gray-300">
+                  <ClipboardList size={32} className="mx-auto mb-2 opacity-10" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Sem movimentos registrados</p>
+               </div>
+            )}
+          </div>
+        </motion.div>
       </div>
     </motion.div>
   );
 };
 
-const PatientsPage = ({ patients, onReload }: { patients: Patient[], onReload: () => void, key?: string }) => {
+const PatientsPage = ({ 
+  patients, 
+  currentUser,
+  onReload 
+}: { 
+  patients: Patient[], 
+  currentUser: User,
+  onReload: () => void, 
+  key?: string 
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [search, setSearch] = useState('');
@@ -721,8 +1052,18 @@ const PatientsPage = ({ patients, onReload }: { patients: Patient[], onReload: (
   const [filterProfessional, setFilterProfessional] = useState('');
   const [filterStatus, setFilterStatus] = useState<PatientStatus | ''>('');
 
+  const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação';
+
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
+      // Permission filtering: Professionals only see their patients
+      if (currentUser.accessType === 'Profissional') {
+        const nameClean = currentUser.name.split(' (')[0];
+        const isLinked = p.professionals.some(pro => pro.includes(nameClean));
+        if (!isLinked) return false;
+      }
+
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) || 
                           p.medicalRecordNumber.includes(search);
       const matchCity = filterCity ? p.city === filterCity : true;
@@ -730,7 +1071,7 @@ const PatientsPage = ({ patients, onReload }: { patients: Patient[], onReload: (
       const matchStatus = filterStatus ? p.status === filterStatus : true;
       return matchSearch && matchCity && matchPro && matchStatus;
     });
-  }, [patients, search, filterCity, filterProfessional, filterStatus]);
+  }, [patients, search, filterCity, filterProfessional, filterStatus, currentUser]);
 
   const handleSave = (data: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (editingPatient) {
@@ -761,13 +1102,15 @@ const PatientsPage = ({ patients, onReload }: { patients: Patient[], onReload: (
           <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Pacientes</h2>
           <p className="text-sm font-medium text-gray-500">Gestão centralizada do cadastro de pacientes</p>
         </div>
-        <button 
-          onClick={() => { setEditingPatient(null); setIsModalOpen(true); }}
-          className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
-        >
-          <Plus size={20} />
-          Novo Paciente
-        </button>
+        {canEdit && (
+          <button 
+            onClick={() => { setEditingPatient(null); setIsModalOpen(true); }}
+            className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
+          >
+            <Plus size={20} />
+            Novo Paciente
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -887,20 +1230,24 @@ const PatientsPage = ({ patients, onReload }: { patients: Patient[], onReload: (
                         <button className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="Visualizar">
                           <Eye size={16} />
                         </button>
-                        <button 
-                          onClick={() => { setEditingPatient(p); setIsModalOpen(true); }}
-                          className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" 
-                          title="Editar"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(p.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" 
-                          title="Excluir"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        {canEdit && (
+                          <button 
+                            onClick={() => { setEditingPatient(p); setIsModalOpen(true); }}
+                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" 
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button 
+                            onClick={() => handleDelete(p.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -927,10 +1274,12 @@ const PatientsPage = ({ patients, onReload }: { patients: Patient[], onReload: (
 const MovementsPage = ({ 
   movements, 
   patients, 
+  currentUser,
   onReload 
 }: { 
   movements: Movement[], 
   patients: Patient[], 
+  currentUser: User,
   onReload: () => void, 
   key?: string 
 }) => {
@@ -940,9 +1289,18 @@ const MovementsPage = ({
   const [filterProfessional, setFilterProfessional] = useState('');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
 
+  const canCreate = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+
   const filteredMovements = useMemo(() => {
     return movements
       .filter(m => {
+        // Permission filtering: Professionals only see movements of their patients
+        if (currentUser.accessType === 'Profissional') {
+          const nameClean = currentUser.name.split(' (')[0];
+          const isLinked = m.professionals.some(pro => pro.includes(nameClean));
+          if (!isLinked) return false;
+        }
+
         const matchSearch = m.patientName.toLowerCase().includes(search.toLowerCase()) || 
                             m.medicalRecordNumber.includes(search);
         const matchType = filterType ? m.type === filterType : true;
@@ -951,7 +1309,7 @@ const MovementsPage = ({
         return matchSearch && matchType && matchPro && matchMonth;
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [movements, search, filterType, filterProfessional, filterMonth]);
+  }, [movements, search, filterType, filterProfessional, filterMonth, currentUser]);
 
   const stats = useMemo(() => {
     const currentMonth = filteredMovements;
@@ -979,13 +1337,15 @@ const MovementsPage = ({
           <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Movimentações</h2>
           <p className="text-sm font-medium text-gray-500">Controle mensal de entradas, altas e fluxos</p>
         </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
-        >
-          <Plus size={20} />
-          Nova Movimentação
-        </button>
+        {canCreate && (
+          <button 
+            onClick={() => setIsModalOpen(true)}
+            className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
+          >
+            <Plus size={20} />
+            Nova Movimentação
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -1125,7 +1485,7 @@ const MovementsPage = ({
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userName, setUserName] = useState('');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -1136,13 +1496,14 @@ export default function App() {
     setMovements(MovementService.getMovements());
   }, []);
 
-  const handleLogin = (name: string) => {
-    setUserName(name);
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
     setIsLoggedIn(true);
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
+    setCurrentUser(null);
     setCurrentPage('dashboard');
   };
 
@@ -1151,7 +1512,22 @@ export default function App() {
     setMovements(MovementService.getMovements());
   };
 
-  if (!isLoggedIn) {
+  const canAccess = (page: Page): boolean => {
+    if (!currentUser) return false;
+    if (currentUser.accessType === 'Administrador') return true;
+    
+    switch (page) {
+      case 'dashboard': return true;
+      case 'profile': return true;
+      case 'patients': return true; // Filtered in the page
+      case 'movements': return true; // Filtered in the page
+      case 'reports': return currentUser.accessType === 'Coordenação';
+      case 'users': return false; // Only Admin
+      default: return false;
+    }
+  };
+
+  if (!isLoggedIn || !currentUser) {
     return <LoginPage onLogin={handleLogin} />;
   }
 
@@ -1179,41 +1555,51 @@ export default function App() {
         </div>
 
         <nav className="space-y-2 flex-1">
-          <SidebarItem 
-            icon={LayoutDashboard} 
-            label="Dashboard" 
-            active={currentPage === 'dashboard'} 
-            onClick={() => setCurrentPage('dashboard')}
-            collapsed={sidebarCollapsed}
-          />
-          <SidebarItem 
-            icon={Users} 
-            label="Pacientes" 
-            active={currentPage === 'patients'} 
-            onClick={() => setCurrentPage('patients')}
-            collapsed={sidebarCollapsed}
-          />
-          <SidebarItem 
-            icon={ClipboardList} 
-            label="Movimentações" 
-            active={currentPage === 'movements'} 
-            onClick={() => setCurrentPage('movements')}
-            collapsed={sidebarCollapsed}
-          />
-          <SidebarItem 
-            icon={BarChart3} 
-            label="Relatórios" 
-            active={currentPage === 'reports'} 
-            onClick={() => setCurrentPage('reports')}
-            collapsed={sidebarCollapsed}
-          />
-          <SidebarItem 
-            icon={UserSquare2} 
-            label="Usuários" 
-            active={currentPage === 'users'} 
-            onClick={() => setCurrentPage('users')}
-            collapsed={sidebarCollapsed}
-          />
+          {canAccess('dashboard') && (
+            <SidebarItem 
+              icon={LayoutDashboard} 
+              label="Dashboard" 
+              active={currentPage === 'dashboard'} 
+              onClick={() => setCurrentPage('dashboard')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
+          {canAccess('patients') && (
+            <SidebarItem 
+              icon={Users} 
+              label="Pacientes" 
+              active={currentPage === 'patients'} 
+              onClick={() => setCurrentPage('patients')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
+          {canAccess('movements') && (
+            <SidebarItem 
+              icon={ClipboardList} 
+              label="Movimentações" 
+              active={currentPage === 'movements'} 
+              onClick={() => setCurrentPage('movements')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
+          {canAccess('reports') && (
+            <SidebarItem 
+              icon={BarChart3} 
+              label="Relatórios" 
+              active={currentPage === 'reports'} 
+              onClick={() => setCurrentPage('reports')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
+          {canAccess('users') && (
+            <SidebarItem 
+              icon={Shield} 
+              label="Usuários" 
+              active={currentPage === 'users'} 
+              onClick={() => setCurrentPage('users')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
         </nav>
 
         {!sidebarCollapsed && (
@@ -1230,43 +1616,69 @@ export default function App() {
       {/* Main Content */}
       <div className={`flex-1 flex flex-col transition-all lg:ml-[260px] ${sidebarCollapsed ? 'lg:!ml-20' : ''}`}>
         <Header 
-          user={userName} 
+          user={currentUser} 
           onLogout={handleLogout} 
+          onProfile={() => setCurrentPage('profile')}
           sidebarCollapsed={sidebarCollapsed}
           setSidebarCollapsed={setSidebarCollapsed}
         />
         
         <main className="p-4 md:p-8 max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
-            {currentPage === 'dashboard' && <DashboardPage key="dashboard" patients={patients} />}
-            {currentPage === 'patients' && <PatientsPage key="patients" patients={patients} onReload={reloadData} />}
-            {currentPage === 'movements' && <MovementsPage key="movements" movements={movements} patients={patients} onReload={reloadData} />}
             
-            {/* Template placeholders for other pages */}
-            {currentPage === 'reports' && (
+            {currentPage === 'dashboard' && <DashboardPage key="dashboard" patients={patients} movements={movements} />}
+            {currentPage === 'patients' && (
+              <PatientsPage 
+                key="patients" 
+                patients={patients} 
+                currentUser={currentUser}
+                onReload={reloadData} 
+              />
+            )}
+            {currentPage === 'movements' && (
+              <MovementsPage 
+                key="movements" 
+                movements={movements} 
+                patients={patients} 
+                currentUser={currentUser}
+                onReload={reloadData} 
+              />
+            )}
+            {currentPage === 'reports' && canAccess('reports') && (
               <motion.div key="reports" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
                 <BarChart3 size={64} className="mx-auto mb-4 opacity-10" />
                 <h3 className="text-xl font-bold">Módulo de Relatórios</h3>
                 <p className="text-gray-500">Desenvolvimento em progresso</p>
               </motion.div>
             )}
-            {currentPage === 'users' && (
-              <motion.div key="users" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
-                <UserSquare2 size={64} className="mx-auto mb-4 opacity-10" />
-                <h3 className="text-xl font-bold">Gestão de Usuários</h3>
-                <p className="text-gray-500">Desenvolvimento em progresso</p>
-              </motion.div>
+            {currentPage === 'users' && canAccess('users') && (
+              <UsersPage key="users" onReload={reloadData} />
+            )}
+            {currentPage === 'profile' && (
+              <ProfilePage user={currentUser} onUpdate={(updated) => setCurrentUser(updated)} />
             )}
           </AnimatePresence>
         </main>
       </div>
     </div>
   );
-};
+}
 
-const LoginPage = ({ onLogin }: { onLogin: (name: string) => void }) => {
-  const [name, setName] = useState('');
+const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const user = UserService.authenticate(email, password);
+    if (user) {
+      onLogin(user);
+    } else {
+      setError('Credenciais inválidas ou usuário inativo');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <motion.div 
@@ -1282,38 +1694,52 @@ const LoginPage = ({ onLogin }: { onLogin: (name: string) => void }) => {
           <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">Acesso Restrito</p>
         </div>
         
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex items-center gap-2 border border-red-100">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
           <div>
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Identificação do Profissional</label>
+            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">E-mail Institucional</label>
             <div className="relative">
-              <UserSquare2 className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
               <input 
-                type="text" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
-                placeholder="Ex: Dr. Fernando Lima"
+                placeholder="Ex: profissional@cer.com.br"
+                required
               />
             </div>
           </div>
           <div>
             <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Senha de Acesso</label>
             <div className="relative">
-              <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
+              <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
               <input 
                 type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
                 placeholder="••••••••"
+                required
               />
             </div>
           </div>
           <button 
-            onClick={() => name && onLogin(name)}
+            type="submit"
             className="w-full bg-[#064e3b] text-white py-4 rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-3"
           >
             Entrar no Sistema
           </button>
-        </div>
+          
+          <div className="text-center">
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Acesso padrão: admin@cer.com.br / admin</p>
+          </div>
+        </form>
         
         <div className="mt-12 flex items-center justify-center gap-4">
           <div className="h-px bg-gray-100 flex-1"></div>
@@ -1324,3 +1750,4 @@ const LoginPage = ({ onLogin }: { onLogin: (name: string) => void }) => {
     </div>
   );
 };
+
