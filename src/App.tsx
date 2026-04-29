@@ -32,17 +32,19 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './lib/firebase';
-import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, DIAGNOSES, User, AccessType, Professional, Municipality } from './types';
+import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, User, AccessType, Professional, Municipality, Diagnosis } from './types';
 import { PatientService } from './services/PatientService';
 import { MovementService } from './services/MovementService';
 import { UserService } from './services/UserService';
 import { ProfessionalService } from './services/ProfessionalService';
 import { MunicipalityService } from './services/MunicipalityService';
+import { DiagnosisService } from './services/DiagnosisService';
 import { UsersPage } from './components/UsersPage';
 import { ProfilePage } from './components/ProfilePage';
 import { ReportsPage } from './components/ReportsPage';
 import { ProfessionalsPage } from './components/ProfessionalsPage';
 import { MunicipalitiesPage } from './components/MunicipalitiesPage';
+import { DiagnosesPage } from './components/DiagnosesPage';
 import { 
   BarChart, 
   Bar, 
@@ -60,7 +62,7 @@ import {
 } from 'recharts';
 
 // --- Types ---
-type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile' | 'professionals' | 'municipalities';
+type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile' | 'professionals' | 'municipalities' | 'diagnoses';
 
 // --- UI Components ---
 
@@ -230,14 +232,16 @@ const PatientFormModal = ({
   onSave, 
   editingPatient,
   availableCities,
-  availableProfessionals
+  availableProfessionals,
+  availableDiagnoses
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
   onSave: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => void,
   editingPatient: Patient | null,
   availableCities: string[],
-  availableProfessionals: string[]
+  availableProfessionals: string[],
+  availableDiagnoses: string[]
 }) => {
   const [formData, setFormData] = useState<Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>>({
     name: '',
@@ -393,7 +397,7 @@ const PatientFormModal = ({
             <div className="lg:col-span-2">
               <MultiSelect 
                 label="Diagnósticos" 
-                options={DIAGNOSES} 
+                options={availableDiagnoses} 
                 selected={formData.diagnoses} 
                 onChange={val => setFormData({...formData, diagnoses: val})} 
               />
@@ -692,25 +696,29 @@ const DashboardPage = ({
   patients, 
   movements,
   availableCities,
-  availableProfessionals
+  availableProfessionals,
+  availableDiagnoses
 }: { 
   patients: Patient[], 
   movements: Movement[],
   availableCities: string[],
   availableProfessionals: string[],
+  availableDiagnoses: string[],
   key?: string 
 }) => {
   const [filterCity, setFilterCity] = useState('');
   const [filterProfessional, setFilterProfessional] = useState('');
+  const [filterDiagnosis, setFilterDiagnosis] = useState('');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7));
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
       const matchCity = filterCity ? p.city === filterCity : true;
       const matchPro = filterProfessional ? p.professionals.includes(filterProfessional) : true;
-      return matchCity && matchPro;
+      const matchDiag = filterDiagnosis ? p.diagnoses?.includes(filterDiagnosis) : true;
+      return matchCity && matchPro && matchDiag;
     });
-  }, [patients, filterCity, filterProfessional]);
+  }, [patients, filterCity, filterProfessional, filterDiagnosis]);
 
   const filteredMovements = useMemo(() => {
     return movements.filter(m => {
@@ -821,6 +829,17 @@ const DashboardPage = ({
             >
               <option value="">Todos Municípios</option>
               {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 px-3 border-r border-gray-100 last:border-none">
+            <ClipboardList size={14} className="text-emerald-600" />
+            <select 
+              value={filterDiagnosis}
+              onChange={e => setFilterDiagnosis(e.target.value)}
+              className="text-xs font-bold text-gray-600 outline-none bg-transparent max-w-[150px]"
+            >
+              <option value="">Todos Diagnósticos</option>
+              {availableDiagnoses.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2 px-3">
@@ -1065,12 +1084,14 @@ const PatientsPage = ({
   currentUser,
   availableCities,
   availableProfessionals,
+  availableDiagnoses,
   onReload 
 }: { 
   patients: Patient[], 
   currentUser: User,
   availableCities: string[],
   availableProfessionals: string[],
+  availableDiagnoses: string[],
   onReload: () => void, 
   key?: string 
 }) => {
@@ -1305,6 +1326,7 @@ const PatientsPage = ({
         editingPatient={editingPatient}
         availableCities={availableCities}
         availableProfessionals={availableProfessionals}
+        availableDiagnoses={availableDiagnoses}
       />
     </motion.div>
   );
@@ -1539,6 +1561,7 @@ export default function App() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
+  const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -1568,12 +1591,14 @@ export default function App() {
     const unsubscribeMovements = MovementService.subscribeToMovements(setMovements);
     const unsubscribePros = ProfessionalService.subscribeToProfessionals(setProfessionals);
     const unsubscribeMunis = MunicipalityService.subscribeToMunicipalities(setMunicipalities);
+    const unsubscribeDiagnoses = DiagnosisService.subscribeToDiagnoses(setDiagnoses);
 
     return () => {
       unsubscribePatients();
       unsubscribeMovements();
       unsubscribePros();
       unsubscribeMunis();
+      unsubscribeDiagnoses();
     };
   }, [isLoggedIn]);
 
@@ -1601,6 +1626,7 @@ export default function App() {
       case 'reports': return currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Administrador';
       case 'professionals': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'municipalities': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+      case 'diagnoses': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'users': return false;
       default: return false;
     }
@@ -1697,6 +1723,15 @@ export default function App() {
               collapsed={sidebarCollapsed}
             />
           )}
+          {canAccess('diagnoses') && (
+            <SidebarItem 
+              icon={ClipboardList} 
+              label="Diagnósticos" 
+              active={currentPage === 'diagnoses'} 
+              onClick={() => setCurrentPage('diagnoses')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
           {canAccess('users') && (
             <SidebarItem 
               icon={Shield} 
@@ -1739,6 +1774,7 @@ export default function App() {
                 movements={movements} 
                 availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
                 availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
+                availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
               />
             )}
             {currentPage === 'patients' && (
@@ -1748,6 +1784,7 @@ export default function App() {
                 currentUser={currentUser}
                 availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
                 availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
+                availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
                 onReload={() => {}} 
               />
             )}
@@ -1768,6 +1805,7 @@ export default function App() {
                 currentUser={currentUser} 
                 availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
                 availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
+                availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
               />
             )}
             {currentPage === 'professionals' && canAccess('professionals') && (
@@ -1775,6 +1813,9 @@ export default function App() {
             )}
             {currentPage === 'municipalities' && canAccess('municipalities') && (
               <MunicipalitiesPage />
+            )}
+            {currentPage === 'diagnoses' && canAccess('diagnoses') && (
+              <DiagnosesPage />
             )}
             {currentPage === 'users' && canAccess('users') && (
               <UsersPage onReload={() => {}} />

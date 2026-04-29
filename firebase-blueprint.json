@@ -81,6 +81,18 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "name", "status"]
+    },
+    "Diagnosis": {
+      "title": "Diagnosis",
+      "description": "Patient diagnoses options",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "status"]
     }
   },
   "firestore": {
@@ -103,6 +115,10 @@
     "/municipios/{municipalityId}": {
       "schema": "Municipality",
       "description": "Collection of municipalities"
+    },
+    "/diagnosticos/{diagnosisId}": {
+      "schema": "Diagnosis",
+      "description": "Collection of diagnosis options"
     }
   }
 }

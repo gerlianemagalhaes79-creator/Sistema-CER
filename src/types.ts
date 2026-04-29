@@ -67,6 +67,13 @@ export interface Municipality {
   createdAt: string;
 }
 
+export interface Diagnosis {
+  id: string;
+  name: string;
+  status: 'Active' | 'Inactive';
+  createdAt: string;
+}
+
 export const CITIES = [
   'Aracati',
   'Fortaleza',

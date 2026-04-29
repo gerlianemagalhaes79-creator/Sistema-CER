@@ -37,7 +37,7 @@ import {
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { Patient, Movement, User, AccessType, CITIES, PROFESSIONALS, DIAGNOSES } from '../types';
+import { Patient, Movement, User, AccessType, CITIES, PROFESSIONALS } from '../types';
 
 interface ReportFilter {
   startDate: string;
@@ -64,13 +64,15 @@ export const ReportsPage = ({
   movements, 
   currentUser,
   availableCities,
-  availableProfessionals
+  availableProfessionals,
+  availableDiagnoses
 }: { 
   patients: Patient[], 
   movements: Movement[], 
   currentUser: User,
   availableCities: string[],
-  availableProfessionals: string[]
+  availableProfessionals: string[],
+  availableDiagnoses: string[]
 }) => {
   const [selectedReport, setSelectedReport] = useState<ReportType | null>(null);
   const [filters, setFilters] = useState<ReportFilter>({
@@ -163,7 +165,7 @@ export const ReportsPage = ({
     })).filter(c => c.value > 0);
 
     // Diagnosis chart data
-    const diagnosisData = DIAGNOSES.map(diag => ({
+    const diagnosisData = availableDiagnoses.map(diag => ({
       name: diag,
       value: dataFiltered.filter((p: any) => p.diagnoses?.includes(diag)).length
     })).filter(d => d.value > 0);
@@ -344,7 +346,7 @@ export const ReportsPage = ({
                       className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
                     >
                       <option value="">Todos</option>
-                      {DIAGNOSES.map(d => <option key={d} value={d}>{d}</option>)}
+                      {availableDiagnoses.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div className="space-y-2">

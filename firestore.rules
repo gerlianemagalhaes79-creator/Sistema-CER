@@ -69,5 +69,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin() || isCoordination();
     }
+
+    // Diagnosticos collection
+    match /diagnosticos/{diagnosisId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() || isCoordination();
+    }
   }
 }
