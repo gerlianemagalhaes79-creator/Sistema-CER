@@ -45,6 +45,7 @@ import { ReportsPage } from './components/ReportsPage';
 import { ProfessionalsPage } from './components/ProfessionalsPage';
 import { MunicipalitiesPage } from './components/MunicipalitiesPage';
 import { DiagnosesPage } from './components/DiagnosesPage';
+import { TrashPage } from './components/TrashPage';
 import { 
   BarChart, 
   Bar, 
@@ -62,7 +63,7 @@ import {
 } from 'recharts';
 
 // --- Types ---
-type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile' | 'professionals' | 'municipalities' | 'diagnoses';
+type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile' | 'professionals' | 'municipalities' | 'diagnoses' | 'trash';
 
 // --- UI Components ---
 
@@ -237,13 +238,13 @@ const PatientFormModal = ({
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
-  onSave: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => void,
+  onSave: (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) => void,
   editingPatient: Patient | null,
   availableCities: string[],
   availableProfessionals: string[],
   availableDiagnoses: string[]
 }) => {
-  const [formData, setFormData] = useState<Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>>({
+  const [formData, setFormData] = useState<Omit<Patient, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>>({
     name: '',
     medicalRecordNumber: '',
     birthDate: '',
@@ -516,15 +517,17 @@ const MovementFormModal = ({
   onClose, 
   onSave, 
   patients,
-  availableProfessionals
+  availableProfessionals,
+  editingMovement
 }: { 
   isOpen: boolean, 
   onClose: () => void, 
-  onSave: (movement: Omit<Movement, 'id' | 'createdAt'>) => void,
+  onSave: (movement: Omit<Movement, 'id' | 'createdAt' | 'deletedAt'>) => void,
   patients: Patient[],
-  availableProfessionals: string[]
+  availableProfessionals: string[],
+  editingMovement: Movement | null
 }) => {
-  const [formData, setFormData] = useState<Omit<Movement, 'id' | 'createdAt'>>({
+  const [formData, setFormData] = useState<Omit<Movement, 'id' | 'createdAt' | 'deletedAt'>>({
     patientId: '',
     patientName: '',
     medicalRecordNumber: '',
@@ -538,6 +541,36 @@ const MovementFormModal = ({
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showPatientList, setShowPatientList] = useState(false);
+
+  useEffect(() => {
+    if (editingMovement) {
+      setFormData({
+        patientId: editingMovement.patientId,
+        patientName: editingMovement.patientName,
+        medicalRecordNumber: editingMovement.medicalRecordNumber,
+        diagnoses: editingMovement.diagnoses,
+        professionals: editingMovement.professionals,
+        responsibleProfessional: editingMovement.responsibleProfessional || '',
+        type: editingMovement.type,
+        date: editingMovement.date,
+        observations: editingMovement.observations || ''
+      });
+      setSearchTerm(editingMovement.patientName);
+    } else {
+      setFormData({
+        patientId: '',
+        patientName: '',
+        medicalRecordNumber: '',
+        diagnoses: [],
+        professionals: [],
+        responsibleProfessional: '',
+        type: 'Atendimento',
+        date: new Date().toISOString().split('T')[0],
+        observations: ''
+      });
+      setSearchTerm('');
+    }
+  }, [editingMovement, isOpen]);
 
   const filteredPatients = useMemo(() => {
     if (!searchTerm) return [];
@@ -697,7 +730,7 @@ const MovementFormModal = ({
             onClick={() => onSave(formData)}
             className="px-8 py-2.5 rounded-lg font-bold bg-[#064e3b] text-white hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Registrar Movimentação
+            {editingMovement ? 'Salvar Alterações' : 'Registrar Movimentação'}
           </button>
         </div>
       </motion.div>
@@ -1155,9 +1188,9 @@ const PatientsPage = ({
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Deseja realmente excluir este paciente? Esta ação não pode ser desfeita.')) {
+    if (window.confirm('Deseja realmente enviar este paciente para a lixeira?')) {
       try {
-        await PatientService.deletePatient(id);
+        await PatientService.softDeletePatient(id);
       } catch (error) {
         console.error('Error deleting patient:', error);
         alert('Erro ao excluir paciente.');
@@ -1364,12 +1397,15 @@ const MovementsPage = ({
   key?: string 
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMovement, setEditingMovement] = useState<Movement | null>(null);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<MovementType | ''>('');
   const [filterProfessional, setFilterProfessional] = useState('');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
 
   const canCreate = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+  const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação';
 
   const filteredMovements = useMemo(() => {
     return movements
@@ -1401,11 +1437,26 @@ const MovementsPage = ({
 
   const handleSave = async (data: Omit<Movement, 'id' | 'createdAt'>) => {
     try {
-      await MovementService.addMovement(data);
+      if (editingMovement) {
+        await MovementService.updateMovement(editingMovement.id, data);
+      } else {
+        await MovementService.addMovement(data);
+      }
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving movement:', error);
       alert('Erro ao registrar movimentação.');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Deseja realmente enviar esta movimentação para a lixeira?')) {
+      try {
+        await MovementService.softDeleteMovement(id);
+      } catch (error) {
+        console.error('Error deleting movement:', error);
+        alert('Erro ao excluir movimentação.');
+      }
     }
   };
 
@@ -1423,7 +1474,7 @@ const MovementsPage = ({
         </div>
         {canCreate && (
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => { setEditingMovement(null); setIsModalOpen(true); }}
             className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
           >
             <Plus size={20} />
@@ -1507,6 +1558,7 @@ const MovementsPage = ({
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Diagnóstico</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Resp. Técnico</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Observação</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -1550,6 +1602,28 @@ const MovementsPage = ({
                     <td className="px-6 py-4">
                        <p className="text-xs text-gray-500 max-w-[200px] truncate" title={m.observations}>{m.observations || '-'}</p>
                     </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        {canEdit && (
+                          <button 
+                            onClick={() => { setEditingMovement(m); setIsModalOpen(true); }}
+                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" 
+                            title="Editar"
+                          >
+                            <Edit size={16} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button 
+                            onClick={() => handleDelete(m.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" 
+                            title="Excluir"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -1564,6 +1638,7 @@ const MovementsPage = ({
         onSave={handleSave} 
         patients={patients}
         availableProfessionals={availableProfessionals}
+        editingMovement={editingMovement}
       />
     </motion.div>
   );
@@ -1645,6 +1720,7 @@ export default function App() {
       case 'professionals': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'municipalities': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'diagnoses': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+      case 'trash': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação';
       case 'users': return false;
       default: return false;
     }
@@ -1759,6 +1835,15 @@ export default function App() {
               collapsed={sidebarCollapsed}
             />
           )}
+          {canAccess('trash') && (
+            <SidebarItem 
+              icon={Trash2} 
+              label="Lixeira" 
+              active={currentPage === 'trash'} 
+              onClick={() => setCurrentPage('trash')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
         </nav>
 
         {!sidebarCollapsed && (
@@ -1837,6 +1922,9 @@ export default function App() {
             )}
             {currentPage === 'users' && canAccess('users') && (
               <UsersPage onReload={() => {}} />
+            )}
+            {currentPage === 'trash' && canAccess('trash') && (
+              <TrashPage currentUser={currentUser} />
             )}
             {currentPage === 'profile' && (
               <ProfilePage user={currentUser} onUpdate={(updated) => setCurrentUser(updated)} />

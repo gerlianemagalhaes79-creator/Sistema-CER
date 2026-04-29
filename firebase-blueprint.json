@@ -34,7 +34,8 @@
         "observations": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "updatedBy": { "type": "string" }
+        "updatedBy": { "type": "string" },
+        "deletedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "name", "medicalRecordNumber", "status"]
     },
@@ -54,7 +55,8 @@
         "date": { "type": "string", "format": "date-time" },
         "observations": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "createdBy": { "type": "string" }
+        "createdBy": { "type": "string" },
+        "deletedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "patientId", "type", "date"]
     },

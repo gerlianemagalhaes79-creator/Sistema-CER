@@ -1,12 +1,12 @@
 import { 
   collection, 
   doc, 
-  addDoc, 
   getDocs, 
   updateDoc, 
   deleteDoc, 
   query, 
   orderBy,
+  where,
   onSnapshot,
   setDoc
 } from 'firebase/firestore';
@@ -17,9 +17,9 @@ export const PatientService = {
   getPatients: async (): Promise<Patient[]> => {
     const PATH = 'pacientes';
     try {
-      const q = query(collection(db, PATH), orderBy('createdAt', 'desc'));
+      const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('name', 'asc'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Patient));
+      return snapshot.docs.map(doc => doc.data() as Patient);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
       return [];
@@ -28,22 +28,34 @@ export const PatientService = {
 
   subscribeToPatients: (callback: (patients: Patient[]) => void) => {
     const PATH = 'pacientes';
-    const q = query(collection(db, PATH), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('name', 'asc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Patient)));
+      callback(snapshot.docs.map(doc => doc.data() as Patient));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });
   },
 
-  addPatient: async (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>): Promise<Patient> => {
+  subscribeToDeletedPatients: (callback: (patients: Patient[]) => void) => {
+    const PATH = 'pacientes';
+    const q = query(collection(db, PATH), where('deletedAt', '!=', null), orderBy('deletedAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => doc.data() as Patient));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+    });
+  },
+
+  addPatient: async (patient: Omit<Patient, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<Patient> => {
     const PATH = 'pacientes';
     const id = crypto.randomUUID();
+    const now = new Date().toISOString();
     const newPatient: Patient = {
       ...patient,
       id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null
     };
     
     try {
@@ -71,7 +83,32 @@ export const PatientService = {
     }
   },
 
-  deletePatient: async (id: string): Promise<void> => {
+  softDeletePatient: async (id: string): Promise<void> => {
+    const PATH = 'pacientes';
+    try {
+      await updateDoc(doc(db, PATH, id), {
+        deletedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      throw error;
+    }
+  },
+
+  restorePatient: async (id: string): Promise<void> => {
+    const PATH = 'pacientes';
+    try {
+      await updateDoc(doc(db, PATH, id), {
+        deletedAt: null,
+        updatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      throw error;
+    }
+  },
+
+  deletePatientPermanently: async (id: string): Promise<void> => {
     const PATH = 'pacientes';
     try {
       await deleteDoc(doc(db, PATH, id));

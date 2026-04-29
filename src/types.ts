@@ -31,6 +31,7 @@ export interface Movement {
   observations?: string;
   createdAt: string;
   createdBy?: string; // email of the user who created it
+  deletedAt?: string | null;
 }
 
 export type PatientStatus = 'Ativo' | 'Alta' | 'Investigação' | 'Espera';
@@ -51,6 +52,7 @@ export interface Patient {
   createdAt: string;
   updatedAt: string;
   updatedBy?: string; // email of the user who last updated it
+  deletedAt?: string | null;
 }
 
 export interface Professional {

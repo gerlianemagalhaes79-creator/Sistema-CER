@@ -1,11 +1,12 @@
 import { 
   collection, 
   doc, 
-  addDoc, 
   getDocs, 
+  updateDoc,
   deleteDoc, 
   query, 
   orderBy,
+  where,
   onSnapshot,
   setDoc
 } from 'firebase/firestore';
@@ -17,9 +18,9 @@ export const MovementService = {
   getMovements: async (): Promise<Movement[]> => {
     const PATH = 'movimentacoes';
     try {
-      const q = query(collection(db, PATH), orderBy('date', 'desc'));
+      const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('date', 'desc'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Movement));
+      return snapshot.docs.map(doc => doc.data() as Movement);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
       return [];
@@ -28,22 +29,33 @@ export const MovementService = {
 
   subscribeToMovements: (callback: (movements: Movement[]) => void) => {
     const PATH = 'movimentacoes';
-    const q = query(collection(db, PATH), orderBy('date', 'desc'));
+    const q = query(collection(db, PATH), where('deletedAt', '==', null), orderBy('date', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Movement)));
+      callback(snapshot.docs.map(doc => doc.data() as Movement));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });
   },
 
-  addMovement: async (movement: Omit<Movement, 'id' | 'createdAt'>): Promise<Movement> => {
+  subscribeToDeletedMovements: (callback: (movements: Movement[]) => void) => {
+    const PATH = 'movimentacoes';
+    const q = query(collection(db, PATH), where('deletedAt', '!=', null), orderBy('deletedAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => doc.data() as Movement));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, PATH);
+    });
+  },
+
+  addMovement: async (movement: Omit<Movement, 'id' | 'createdAt' | 'deletedAt'>): Promise<Movement> => {
     const PATH = 'movimentacoes';
     const id = crypto.randomUUID();
     const newMovement: Movement = {
       ...movement,
       id,
       createdAt: new Date().toISOString(),
-      createdBy: auth.currentUser?.email || 'unknown'
+      createdBy: auth.currentUser?.email || 'unknown',
+      deletedAt: null
     };
     
     try {
@@ -64,7 +76,41 @@ export const MovementService = {
     }
   },
 
-  deleteMovement: async (id: string): Promise<void> => {
+  updateMovement: async (id: string, updates: Partial<Movement>): Promise<void> => {
+    const PATH = 'movimentacoes';
+    try {
+      await updateDoc(doc(db, PATH, id), updates);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      throw error;
+    }
+  },
+
+  softDeleteMovement: async (id: string): Promise<void> => {
+    const PATH = 'movimentacoes';
+    try {
+      await updateDoc(doc(db, PATH, id), {
+        deletedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      throw error;
+    }
+  },
+
+  restoreMovement: async (id: string): Promise<void> => {
+    const PATH = 'movimentacoes';
+    try {
+      await updateDoc(doc(db, PATH, id), {
+        deletedAt: null
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      throw error;
+    }
+  },
+
+  deleteMovementPermanently: async (id: string): Promise<void> => {
     const PATH = 'movimentacoes';
     try {
       await deleteDoc(doc(db, PATH, id));
