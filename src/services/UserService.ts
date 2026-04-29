@@ -37,7 +37,7 @@ export const UserService = {
   getUsers: async (): Promise<User[]> => {
     const PATH = 'usuarios';
     try {
-      const q = query(collection(db, PATH));
+      const q = query(collection(db, PATH), where('status', '==', 'Active'));
       const snapshot = await getDocs(q);
       return snapshot.docs.map(doc => doc.data() as User);
     } catch (error) {
@@ -48,7 +48,8 @@ export const UserService = {
 
   subscribeToUsers: (callback: (users: User[]) => void) => {
     const PATH = 'usuarios';
-    return onSnapshot(collection(db, PATH), (snapshot) => {
+    const q = query(collection(db, PATH), where('status', '==', 'Active'));
+    return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => doc.data() as User));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
@@ -98,9 +99,11 @@ export const UserService = {
   deleteUser: async (id: string) => {
     const PATH = 'usuarios';
     try {
-      await deleteDoc(doc(db, PATH, id));
+      // Soft delete: Change status instead of deleting doc
+      // This prevents issues with orphaned Firebase Auth records
+      await updateDoc(doc(db, PATH, id), { status: 'Inactive' });
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, PATH);
+      handleFirestoreError(error, OperationType.UPDATE, PATH);
     }
   },
 
@@ -160,14 +163,29 @@ export const UserService = {
       const firebaseUser = userCredential.user;
       
       const userDoc = await getDoc(doc(db, PATH, firebaseUser.uid));
+      let userData: User | null = null;
       
       if (userDoc.exists()) {
-        const userData = userDoc.data() as User;
+        userData = userDoc.data() as User;
+      } else if (firebaseUser.email) {
+        const q = query(
+          collection(db, PATH), 
+          where('email', '==', firebaseUser.email), 
+          where('status', '==', 'Active'), 
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          userData = querySnapshot.docs[0].data() as User;
+        }
+      }
+
+      if (userData) {
         if (userData.status === 'Active') {
           return userData;
         } else {
           await signOut(auth);
-          throw new Error('Usuário inativo');
+          throw new Error('Sua conta está inativa. Entre em contato com a administração.');
         }
       } else if (firebaseUser.email === 'gerlianemagalhaes79@gmail.com') {
         // Bootstrap the first admin user
@@ -184,7 +202,7 @@ export const UserService = {
         return newAdmin;
       } else {
         await signOut(auth);
-        throw new Error('Perfil do usuário não encontrado. Entre em contato com o administrador.');
+        throw new Error('Acesso negado. Seu e-mail não possui um perfil cadastrado no sistema CER. Entre em contato com a administração.');
       }
     } catch (error: any) {
       console.error('Google Sign-In Error:', error);

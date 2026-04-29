@@ -1714,29 +1714,9 @@ export default function App() {
 }
 
 const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-    try {
-      const user = await UserService.authenticate(email, password);
-      if (user) {
-        onLogin(user);
-      } else {
-        setError('Credenciais inválidas ou acesso negado');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Erro ao conectar ao servidor');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleGoogleLogin = async () => {
     setLoading(true);
     setError('');
@@ -1769,80 +1749,44 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
           <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">Acesso Restrito</p>
         </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex flex-col items-center gap-6">
           {error && (
-            <div className="bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex flex-col gap-2 border border-red-100">
-              <div className="flex items-center gap-2">
+            <div className="w-full bg-red-50 text-red-600 p-4 rounded-xl text-xs font-bold flex flex-col gap-2 border border-red-100">
+              <div className="flex items-center gap-2 text-center justify-center w-full">
                 <AlertCircle size={16} />
                 {error}
               </div>
-              {error.includes('auth/operation-not-allowed') && (
-                <p className="mt-2 text-[10px] text-red-400 font-medium">
-                  Nota: Para usar e-mail/senha, ative o provedor no console: 
-                  <a 
-                    href="https://console.firebase.google.com/project/gen-lang-client-0302716869/authentication/providers" 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="underline block mt-1"
-                  >
-                    Abrir Console Firebase
-                  </a>
-                </p>
-              )}
             </div>
           )}
-          <div>
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">E-mail Institucional</label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
-                placeholder="Ex: profissional@cer.com.br"
-                required
-              />
-            </div>
+
+          <div className="text-center space-y-2 mb-4">
+            <p className="text-gray-500 font-medium px-4 text-sm">
+              Acesse o sistema utilizando sua conta autorizada pelo Google.
+            </p>
           </div>
-          <div>
-            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">Senha de Acesso</label>
-            <div className="relative">
-              <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-          <button 
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#064e3b] text-white py-4 rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
-          >
-            {loading ? (
-              <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-            ) : 'Entrar no Sistema'}
-          </button>
 
           <button 
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full bg-white text-gray-700 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-50 border border-gray-100 shadow-sm transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+            className="w-full bg-[#064e3b] text-white py-5 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-4 disabled:opacity-50"
           >
-            <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="G" referrerPolicy="no-referrer" />
-            Entrar com Google
+            {loading ? (
+              <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              <>
+                <img src="https://www.google.com/favicon.ico" className="w-6 h-6 p-1 bg-white rounded-full" alt="G" referrerPolicy="no-referrer" />
+                Entrar com Google
+              </>
+            )}
           </button>
           
-          <div className="text-center">
-             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Acesso padrão: admin@cer.com.br / admin</p>
+          <div className="pt-4 text-center">
+             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed">
+               Acesso exclusivo para profissionais<br/>previamente cadastrados pela administração
+             </p>
           </div>
-        </form>
+        </div>
         
         <div className="mt-12 flex items-center justify-center gap-4">
           <div className="h-px bg-gray-100 flex-1"></div>
