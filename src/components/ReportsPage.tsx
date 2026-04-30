@@ -291,7 +291,7 @@ export const ReportsPage = ({
                   <div className={`p-2 rounded-xl ${selectedReport === report.id ? 'bg-white/20' : 'bg-white'}`}>
                     <report.icon size={18} className={selectedReport === report.id ? 'text-white' : `text-${report.color}-600`} />
                   </div>
-                  <span className="text-sm font-bold truncate">{report.title}</span>
+                  <span className="text-sm font-bold flex-1">{report.title}</span>
                   {selectedReport === report.id && <ChevronRight size={16} className="ml-auto" />}
                 </button>
               ))}

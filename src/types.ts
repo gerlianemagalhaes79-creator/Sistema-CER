@@ -16,7 +16,7 @@ export interface User {
   createdAt: string;
 }
 
-export type MovementType = 'Entrada' | 'Alta' | 'Transferência' | 'Mudança de profissional' | 'Atualização cadastral' | 'Atendimento';
+export type MovementType = 'Entrada' | 'Alta' | 'Transferência' | 'Mudança de profissional' | 'Atualização cadastral' | 'Atendimento' | 'Absenteísmo';
 
 export interface Movement {
   id: string;
@@ -53,6 +53,7 @@ export interface Patient {
   updatedAt: string;
   updatedBy?: string; // email of the user who last updated it
   deletedAt?: string | null;
+  absenteeismCount?: number;
 }
 
 export interface Professional {

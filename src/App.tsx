@@ -503,6 +503,7 @@ const MovementTypeBadge = ({ type }: { type: MovementType }) => {
     'Mudança de profissional': 'bg-amber-100 text-amber-800 border-amber-200',
     'Atualização cadastral': 'bg-gray-100 text-gray-600 border-gray-200',
     'Atendimento': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    'Absenteísmo': 'bg-red-100 text-red-800 border-red-200',
   };
 
   return (
@@ -688,6 +689,7 @@ const MovementFormModal = ({
                 <option value="Transferência">Transferência</option>
                 <option value="Mudança de profissional">Mudança de profissional</option>
                 <option value="Atualização cadastral">Atualização cadastral</option>
+                <option value="Absenteísmo">Absenteísmo</option>
               </select>
             </div>
             <div>
@@ -785,8 +787,9 @@ const DashboardPage = ({
     const waiting = filteredPatients.filter(p => p.status === 'Espera').length;
     const monthlyDischarges = filteredMovements.filter(m => m.type === 'Alta').length;
     const monthlyEntries = filteredMovements.filter(m => m.type === 'Entrada').length;
+    const absentees = filteredPatients.filter(p => (p.absenteeismCount || 0) > 0).length;
 
-    return { total, active, investigation, waiting, monthlyDischarges, monthlyEntries };
+    return { total, active, investigation, waiting, monthlyDischarges, monthlyEntries, absentees };
   }, [filteredPatients, filteredMovements]);
 
   // Data for Charts
@@ -907,11 +910,12 @@ const DashboardPage = ({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
         <Card title="Total Geral" value={stats.total.toString()} subtitle="Pacientes Base" icon={Users} />
         <Card title="Ativos" value={stats.active.toString()} subtitle="Em Tratamento" colorClass="text-emerald-600" icon={Activity} />
         <Card title="Investigação" value={stats.investigation.toString()} subtitle="Triagem Inicial" colorClass="text-amber-500" icon={Search} />
         <Card title="Em Espera" value={stats.waiting.toString()} subtitle="Fila de Acesso" colorClass="text-blue-500" icon={Clock} />
+        <Card title="Absenteísmo" value={stats.absentees.toString()} subtitle="Com Faltas" colorClass="text-red-600" icon={AlertCircle} />
         <Card title="Altas no Mês" value={stats.monthlyDischarges.toString()} subtitle="Ciclo Completo" colorClass="text-rose-600" icon={ArrowUpRight} />
         <Card title="Entradas no Mês" value={stats.monthlyEntries.toString()} subtitle="Novas Admissões" colorClass="text-indigo-600" icon={ArrowDownRight} />
       </div>
@@ -1151,9 +1155,10 @@ const PatientsPage = ({
   const [filterCity, setFilterCity] = useState('');
   const [filterProfessional, setFilterProfessional] = useState('');
   const [filterStatus, setFilterStatus] = useState<PatientStatus | ''>('');
+  const [showOnlyAbsentees, setShowOnlyAbsentees] = useState(false);
 
   const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
-  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação';
+  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
@@ -1169,9 +1174,10 @@ const PatientsPage = ({
       const matchCity = filterCity ? p.city === filterCity : true;
       const matchPro = filterProfessional ? p.professionals.includes(filterProfessional) : true;
       const matchStatus = filterStatus ? p.status === filterStatus : true;
-      return matchSearch && matchCity && matchPro && matchStatus;
+      const matchAbsentees = showOnlyAbsentees ? (p.absenteeismCount || 0) > 0 : true;
+      return matchSearch && matchCity && matchPro && matchStatus && matchAbsentees;
     });
-  }, [patients, search, filterCity, filterProfessional, filterStatus, currentUser]);
+  }, [patients, search, filterCity, filterProfessional, filterStatus, showOnlyAbsentees, currentUser]);
 
   const handleSave = async (data: Omit<Patient, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -1191,9 +1197,16 @@ const PatientsPage = ({
     if (window.confirm('Deseja realmente enviar este paciente para a lixeira?')) {
       try {
         await PatientService.softDeletePatient(id);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting patient:', error);
-        alert('Erro ao excluir paciente.');
+        let msg = 'Erro ao excluir paciente.';
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error.includes('permission')) {
+            msg += ' Permissão insuficiente.';
+          }
+        } catch (e) {}
+        alert(msg);
       }
     }
   };
@@ -1274,6 +1287,17 @@ const PatientsPage = ({
             </select>
           </div>
         </div>
+        <div className="flex items-center gap-4 pt-2">
+           <label className="flex items-center gap-2 cursor-pointer group">
+             <input 
+               type="checkbox"
+               className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+               checked={showOnlyAbsentees}
+               onChange={e => setShowOnlyAbsentees(e.target.checked)}
+             />
+             <span className="text-xs font-bold text-gray-500 group-hover:text-emerald-700 transition-colors">Ver apenas pacientes com absenteísmo</span>
+           </label>
+        </div>
       </div>
 
       {/* Table */}
@@ -1305,9 +1329,16 @@ const PatientsPage = ({
                   <tr key={p.id} className="hover:bg-emerald-50/20 transition-colors group">
                     <td className="px-6 py-4 text-sm font-black text-emerald-700 tracking-tighter">#{p.medicalRecordNumber}</td>
                     <td className="px-6 py-4">
-                      <div>
-                        <p className="text-sm font-bold text-gray-900 leading-none mb-1">{p.name}</p>
-                        <p className="text-[10px] text-gray-400 uppercase font-black">{p.city}</p>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900 leading-none mb-1">{p.name}</p>
+                          <p className="text-[10px] text-gray-400 uppercase font-black">{p.city}</p>
+                        </div>
+                        {p.absenteeismCount && p.absenteeismCount > 0 && (
+                          <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter shadow-sm border ${p.absenteeismCount >= 3 ? 'bg-red-500 text-white border-red-600 animate-bounce' : 'bg-amber-100 text-amber-800 border-amber-200'}`} title={`${p.absenteeismCount} absenteísmos`}>
+                            {p.absenteeismCount} ABS
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-600">{PatientService.calculateAge(p.birthDate)} anos</td>
@@ -1410,7 +1441,7 @@ const MovementsPage = ({
 
   const canCreate = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
   const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
-  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação';
+  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
 
   const filteredMovements = useMemo(() => {
     return movements
@@ -1440,17 +1471,41 @@ const MovementsPage = ({
     return { entries, discharges, activePatients, total: currentMonth.length };
   }, [filteredMovements, patients]);
 
-  const handleSave = async (data: Omit<Movement, 'id' | 'createdAt'>) => {
+  const handleSave = async (data: Omit<Movement, 'id' | 'createdAt' | 'deletedAt'>) => {
     try {
+      const patient = patients.find(p => p.id === data.patientId);
+      
       if (editingMovement) {
+        // Logica para ajuste de contador de absenteísmo se o tipo mudar
+        if (patient && editingMovement.type !== data.type) {
+          let newCount = patient.absenteeismCount || 0;
+          if (editingMovement.type === 'Absenteísmo') newCount--;
+          if (data.type === 'Absenteísmo') newCount++;
+          
+          await PatientService.updatePatient(patient.id, { 
+            absenteeismCount: Math.max(0, newCount)
+          });
+        }
         await MovementService.updateMovement(editingMovement.id, data);
       } else {
         await MovementService.addMovement(data);
+        
+        // Se for um novo absenteísmo, incrementa o contador
+        if (data.type === 'Absenteísmo' && patient) {
+          const newCount = (patient.absenteeismCount || 0) + 1;
+          const updates: Partial<Patient> = { absenteeismCount: newCount };
+          
+          if (newCount >= 3) {
+            alert(`ATENÇÃO: O paciente ${patient.name} atingiu 3 absenteísmos e perderá a vaga (status alterado para Alta).`);
+            updates.status = 'Alta';
+          }
+          
+          await PatientService.updatePatient(patient.id, updates);
+        }
       }
 
       // Se for uma movimentação de ALTA, atualiza o status do paciente
       if (data.type === 'Alta') {
-        const patient = patients.find(p => p.id === data.patientId);
         if (patient) {
           await PatientService.updatePatient(patient.id, { 
             status: 'Alta',
@@ -1461,7 +1516,6 @@ const MovementsPage = ({
       } 
       // Se for uma ENTRADA, garante que o paciente esteja ATIVO
       else if (data.type === 'Entrada') {
-        const patient = patients.find(p => p.id === data.patientId);
         if (patient) {
           await PatientService.updatePatient(patient.id, { 
             status: 'Ativo',
@@ -1486,20 +1540,34 @@ const MovementsPage = ({
       try {
         await MovementService.softDeleteMovement(id);
         
+        const patient = patients.find(p => p.id === movement.patientId);
+        
         // Se a movimentação sendo apagada for de ALTA, o paciente deve voltar para ATIVO
-        if (movement.type === 'Alta') {
-          const patient = patients.find(p => p.id === movement.patientId);
-          if (patient) {
-            await PatientService.updatePatient(patient.id, { 
-              status: 'Ativo',
-              updatedAt: new Date().toISOString(),
-              updatedBy: currentUser.email
-            });
-          }
+        if (movement.type === 'Alta' && patient) {
+          await PatientService.updatePatient(patient.id, { 
+            status: 'Ativo',
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.email
+          });
         }
-      } catch (error) {
+
+        // Se apagar um absenteísmo, decrementa o contador
+        if (movement.type === 'Absenteísmo' && patient) {
+          const newCount = Math.max(0, (patient.absenteeismCount || 0) - 1);
+          await PatientService.updatePatient(patient.id, { 
+            absenteeismCount: newCount
+          });
+        }
+      } catch (error: any) {
         console.error('Error deleting movement:', error);
-        alert('Erro ao excluir movimentação.');
+        let msg = 'Erro ao excluir movimentação.';
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error.includes('permission')) {
+            msg += ' Permissão insuficiente.';
+          }
+        } catch (e) {}
+        alert(msg);
       }
     }
   };

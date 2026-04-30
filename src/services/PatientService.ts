@@ -96,7 +96,9 @@ export const PatientService = {
     const PATH = 'pacientes';
     try {
       await updateDoc(doc(db, PATH, id), {
-        deletedAt: new Date().toISOString()
+        deletedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: auth.currentUser?.email || 'unknown'
       });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, PATH);

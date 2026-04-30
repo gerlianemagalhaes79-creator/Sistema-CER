@@ -34,9 +34,16 @@ export const TrashPage = ({ currentUser }: { currentUser: User }) => {
     if (window.confirm(`Deseja restaurar o paciente "${p.name}"?`)) {
       try {
         await PatientService.restorePatient(p.id);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error restoring patient:', error);
-        alert('Erro ao restaurar paciente.');
+        let msg = 'Erro ao restaurar paciente.';
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error.includes('permission')) {
+            msg += ' Permissão insuficiente.';
+          }
+        } catch (e) {}
+        alert(msg);
       }
     }
   };
@@ -45,9 +52,16 @@ export const TrashPage = ({ currentUser }: { currentUser: User }) => {
     if (window.confirm(`AVISO: Esta ação é definitiva. Deseja excluir permanentemente o paciente "${p.name}"?`)) {
       try {
         await PatientService.deletePatientPermanently(p.id);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting patient permanently:', error);
-        alert('Erro ao excluir permanentemente.');
+        let msg = 'Erro ao excluir permanentemente.';
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error.includes('permission')) {
+            msg += ' Permissão insuficiente.';
+          }
+        } catch (e) {}
+        alert(msg);
       }
     }
   };
@@ -65,9 +79,34 @@ export const TrashPage = ({ currentUser }: { currentUser: User }) => {
             updatedBy: currentUser.email
           });
         }
-      } catch (error) {
+
+        // Se restaurar um absenteísmo, incrementa o contador
+        if (m.type === 'Absenteísmo') {
+          // Nota: Precisamos buscar o paciente para saber o contador atual se quisermos alertar,
+          // mas aqui vamos apenas atualizar o contador. 
+          // Idealmente buscaríamos o paciente primeiro ou usaríamos increment() do firestore.
+          // Para consistência com App.tsx, vou apenas atualizar o contador.
+          // Como não temos a lista de pacientes aqui, vamos usar a função de atualização.
+          // O PatientService já trata o updatedAt/updatedBy.
+          const patients = await PatientService.getPatients();
+          const patient = patients.find(p => p.id === m.patientId);
+          if (patient) {
+            const newCount = (patient.absenteeismCount || 0) + 1;
+            await PatientService.updatePatient(patient.id, { 
+              absenteeismCount: newCount 
+            });
+          }
+        }
+      } catch (error: any) {
         console.error('Error restoring movement:', error);
-        alert('Erro ao restaurar movimentação.');
+        let msg = 'Erro ao restaurar movimentação.';
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error.includes('permission')) {
+            msg += ' Permissão insuficiente.';
+          }
+        } catch (e) {}
+        alert(msg);
       }
     }
   };
@@ -76,9 +115,16 @@ export const TrashPage = ({ currentUser }: { currentUser: User }) => {
     if (window.confirm(`AVISO: Esta ação é definitiva. Deseja excluir permanentemente esta movimentação?`)) {
       try {
         await MovementService.deleteMovementPermanently(m.id);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting movement permanently:', error);
-        alert('Erro ao excluir permanentemente.');
+        let msg = 'Erro ao excluir permanentemente.';
+        try {
+          const errData = JSON.parse(error.message);
+          if (errData.error.includes('permission')) {
+            msg += ' Permissão insuficiente.';
+          }
+        } catch (e) {}
+        alert(msg);
       }
     }
   };

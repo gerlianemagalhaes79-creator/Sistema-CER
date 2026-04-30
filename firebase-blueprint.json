@@ -35,7 +35,8 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
         "updatedBy": { "type": "string" },
-        "deletedAt": { "type": "string", "format": "date-time" }
+        "deletedAt": { "type": "string", "format": "date-time" },
+        "absenteeismCount": { "type": "integer", "default": 0 }
       },
       "required": ["id", "name", "medicalRecordNumber", "status"]
     },
@@ -51,7 +52,7 @@
         "diagnoses": { "type": "array", "items": { "type": "string" } },
         "professionals": { "type": "array", "items": { "type": "string" } },
         "responsibleProfessional": { "type": "string" },
-        "type": { "enum": ["Entrada", "Alta", "Transferência", "Mudança de profissional", "Atualização cadastral", "Atendimento"] },
+        "type": { "enum": ["Entrada", "Alta", "Transferência", "Mudança de profissional", "Atualização cadastral", "Atendimento", "Absenteísmo"] },
         "date": { "type": "string", "format": "date-time" },
         "observations": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
