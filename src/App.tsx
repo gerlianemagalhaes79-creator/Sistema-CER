@@ -787,9 +787,10 @@ const DashboardPage = ({
     const waiting = filteredPatients.filter(p => p.status === 'Espera').length;
     const monthlyDischarges = filteredMovements.filter(m => m.type === 'Alta').length;
     const monthlyEntries = filteredMovements.filter(m => m.type === 'Entrada').length;
+    const monthlyAbsentees = filteredMovements.filter(m => m.type === 'Absenteísmo').length;
     const absentees = filteredPatients.filter(p => (p.absenteeismCount || 0) > 0).length;
 
-    return { total, active, investigation, waiting, monthlyDischarges, monthlyEntries, absentees };
+    return { total, active, investigation, waiting, monthlyDischarges, monthlyEntries, absentees, monthlyAbsentees };
   }, [filteredPatients, filteredMovements]);
 
   // Data for Charts
@@ -910,12 +911,13 @@ const DashboardPage = ({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         <Card title="Total Geral" value={stats.total.toString()} subtitle="Pacientes Base" icon={Users} />
         <Card title="Ativos" value={stats.active.toString()} subtitle="Em Tratamento" colorClass="text-emerald-600" icon={Activity} />
         <Card title="Investigação" value={stats.investigation.toString()} subtitle="Triagem Inicial" colorClass="text-amber-500" icon={Search} />
         <Card title="Em Espera" value={stats.waiting.toString()} subtitle="Fila de Acesso" colorClass="text-blue-500" icon={Clock} />
-        <Card title="Absenteísmo" value={stats.absentees.toString()} subtitle="Com Faltas" colorClass="text-red-600" icon={AlertCircle} />
+        <Card title="Pacientes c/ Falta" value={stats.absentees.toString()} subtitle="Base de Absenteísmo" colorClass="text-red-600" icon={AlertCircle} />
+        <Card title="Faltas no Mês" value={stats.monthlyAbsentees.toString()} subtitle="Total Absenteísmo" colorClass="text-orange-600" icon={AlertCircle} />
         <Card title="Altas no Mês" value={stats.monthlyDischarges.toString()} subtitle="Ciclo Completo" colorClass="text-rose-600" icon={ArrowUpRight} />
         <Card title="Entradas no Mês" value={stats.monthlyEntries.toString()} subtitle="Novas Admissões" colorClass="text-indigo-600" icon={ArrowDownRight} />
       </div>
@@ -1467,8 +1469,9 @@ const MovementsPage = ({
     const currentMonth = filteredMovements;
     const entries = currentMonth.filter(m => m.type === 'Entrada').length;
     const discharges = currentMonth.filter(m => m.type === 'Alta').length;
+    const absentees = currentMonth.filter(m => m.type === 'Absenteísmo').length;
     const activePatients = patients.filter(p => p.status === 'Ativo').length;
-    return { entries, discharges, activePatients, total: currentMonth.length };
+    return { entries, discharges, activePatients, absentees, total: currentMonth.length };
   }, [filteredMovements, patients]);
 
   const handleSave = async (data: Omit<Movement, 'id' | 'createdAt' | 'deletedAt'>) => {
@@ -1596,11 +1599,12 @@ const MovementsPage = ({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card title="Entradas no Mês" value={stats.entries.toString()} subtitle="Novos pacientes" icon={Plus} />
         <Card title="Altas no Mês" value={stats.discharges.toString()} subtitle="Ciclos finalizados" icon={ClipboardList} />
+        <Card title="Faltas no Mês" value={stats.absentees.toString()} subtitle="Total absenteísmo" colorClass="text-red-600" icon={AlertCircle} />
         <Card title="Pacientes Ativos" value={stats.activePatients.toString()} subtitle="Base atual" icon={Users} />
-        <Card title="Total Movimentações" value={stats.total.toString()} subtitle="No período selecionado" icon={Clock} />
+        <Card title="Total Movimentos" value={stats.total.toString()} subtitle="No período" icon={Clock} />
       </div>
 
       {/* Filters */}
