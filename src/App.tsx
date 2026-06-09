@@ -92,15 +92,15 @@ const SidebarItem = ({
 }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-200 text-xs font-bold leading-tight ${
       active 
-        ? 'bg-[#064e3b] text-white shadow-md' 
+        ? 'bg-[#064e3b] text-white shadow-sm' 
         : 'text-gray-600 hover:bg-gray-100 hover:text-[#064e3b]'
     }`}
     title={collapsed ? label : ''}
   >
-    <Icon size={20} className="shrink-0" />
-    {!collapsed && <span className="font-medium whitespace-nowrap">{label}</span>}
+    <Icon size={15} className="shrink-0" />
+    {!collapsed && <span className="whitespace-nowrap">{label}</span>}
   </button>
 );
 

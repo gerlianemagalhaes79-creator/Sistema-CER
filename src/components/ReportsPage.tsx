@@ -37,6 +37,7 @@ import {
   Line
 } from 'recharts';
 import { jsPDF } from 'jspdf';
+import * as htmlToImage from 'html-to-image';
 import { User, EvaluationForm, SectorEvaluation } from '../types';
 
 interface ReportsPageProps {
@@ -61,6 +62,7 @@ export const ReportsPage = ({
   const [reportLoading, setReportLoading] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Dynamic state for the current active AI report
   const [aiReport, setAiReport] = useState<{
@@ -119,6 +121,8 @@ export const ReportsPage = ({
   // 2. COMPUTE MULTIPLE SATISFACTION METRICS
   const metrics = useMemo(() => {
     const totalForms = filteredForms.length;
+    const physicalFormsCount = filteredForms.filter(f => f.source === 'physical').length;
+
     if (totalForms === 0) {
       return {
         totalEvaluations: 0,
@@ -128,6 +132,7 @@ export const ReportsPage = ({
         neutralsPercent: 0,
         detractorsPercent: 0,
         technicalQualityIndex: 0,
+        physicalFormsCount: 0,
         sectorsPerformance: {} as Record<string, { positivePercent: number; negativePercent: number; total: number; ratings: Record<string, number> }>
       };
     }
@@ -206,7 +211,8 @@ export const ReportsPage = ({
       neutralsPercent,
       detractorsPercent,
       technicalQualityIndex,
-      sectorsPerformance
+      sectorsPerformance,
+      physicalFormsCount
     };
   }, [filteredForms, filteredEvaluations, activeSectors]);
 
@@ -316,6 +322,55 @@ export const ReportsPage = ({
       setChatMessage(backupMessage);
     } finally {
       setChatLoading(false);
+    }
+  };
+
+  // 5.1 EXPORT PORTAL/DASHBOARD REPORT (html-to-image + jsPDF Async)
+  const handleExportDashboardPDF = async () => {
+    const node = document.getElementById('id_reports_page_root');
+    if (!node) {
+      alert('Elemento do painel não encontrado.');
+      return;
+    }
+
+    setExporting(true);
+    try {
+      // Delay to ensure any transitions or animations are rendered
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      
+      const dataUrl = await htmlToImage.toPng(node, {
+        backgroundColor: '#F9FAFB', // Light off-white matching page bg
+        quality: 0.98,
+        pixelRatio: 1.8, // Elegant compromise for high resolution and fast build
+      });
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      const monthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || '';
+      pdf.save(`Relatorio_Consolidado_Ouvidoria_${monthLabel}_${selectedYear}.pdf`);
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      alert('Erro ao exportar o Painel para PDF.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -518,6 +573,129 @@ export const ReportsPage = ({
     }).filter(s => s['Aprovação'] > 0 || s['Insatisfação'] > 0);
   }, [metrics]);
 
+  // NPS Trend evolution in the last 6 months
+  const last6MonthsNpsData = useMemo(() => {
+    const data = [];
+    for (let i = 5; i >= 0; i--) {
+      let m = selectedMonth - i;
+      let y = selectedYear;
+      if (m <= 0) {
+        m += 12;
+        y -= 1;
+      }
+
+      const monthForms = forms.filter(f => {
+        const d = new Date(f.createdAt);
+        return (d.getMonth() + 1) === m && d.getFullYear() === y;
+      });
+
+      const total = monthForms.length;
+      let npsValue = 0;
+      if (total > 0) {
+        let promoters = 0;
+        let detractors = 0;
+        monthForms.forEach(f => {
+          if (f.npsScore >= 9) promoters++;
+          else if (f.npsScore <= 6) detractors++;
+        });
+        npsValue = Math.round(((promoters - detractors) / total) * 100);
+      }
+
+      const mInfo = MONTHS.find(item => item.value === m);
+      const mLabel = mInfo ? mInfo.label.substring(0, 3) : `${m}`;
+      data.push({
+        name: `${mLabel}/${String(y).substring(2)}`,
+        'NPS': npsValue,
+        total
+      });
+    }
+    return data;
+  }, [forms, selectedMonth, selectedYear]);
+
+  // Aggregate global ratings for Pie composition
+  const compositeRatings = useMemo(() => {
+    let otimo = 0;
+    let bom = 0;
+    let regular = 0;
+    let ruim = 0;
+
+    Object.values(metrics.sectorsPerformance).forEach((sectorData: any) => {
+      if (sectorData && sectorData.ratings) {
+        otimo += sectorData.ratings.Otimo || 0;
+        bom += sectorData.ratings.Bom || 0;
+        regular += sectorData.ratings.Regular || 0;
+        ruim += sectorData.ratings.Ruim || 0;
+      }
+    });
+
+    const total = otimo + bom + regular + ruim;
+    return { otimo, bom, regular, ruim, total };
+  }, [metrics]);
+
+  // Composition data for the Pie Chart
+  const compositionPieData = useMemo(() => {
+    const { otimo, bom, regular, ruim, total } = compositeRatings;
+    if (total === 0) {
+      return [
+        { name: 'Ótimo', value: 0, percentage: 0, color: '#10B981' },
+        { name: 'Bom', value: 0, percentage: 0, color: '#3B82F6' },
+        { name: 'Regular', value: 0, percentage: 0, color: '#F59E0B' },
+        { name: 'Ruim', value: 0, percentage: 0, color: '#EF4444' }
+      ];
+    }
+    return [
+      { name: 'Ótimo', value: otimo, percentage: Math.round((otimo / total) * 100), color: '#10B981' },
+      { name: 'Bom', value: bom, percentage: Math.round((bom / total) * 100), color: '#3B82F6' },
+      { name: 'Regular', value: regular, percentage: Math.round((regular / total) * 100), color: '#F59E0B' },
+      { name: 'Ruim', value: ruim, percentage: Math.round((ruim / total) * 100), color: '#EF4444' }
+    ];
+  }, [compositeRatings]);
+
+  // Get elegant status badge for sectors based on performance
+  const getSectorStatus = (data: { ratings: { Otimo: number; Bom: number; Regular: number; Ruim: number }; positivePercent: number; negativePercent: number; total: number }) => {
+    if (data.total === 0) {
+      return { 
+        label: 'Sem Avaliações Registradas', 
+        color: 'bg-gray-50 text-gray-400 border-gray-200/50',
+        textColor: 'text-gray-400',
+        icon: ClipboardList
+      };
+    }
+    
+    const ruimPercent = Math.round((data.ratings.Ruim / data.total) * 100);
+    
+    if (ruimPercent > 15) {
+      return { 
+        label: 'Alerta Crítico (>15% Ruim)', 
+        color: 'bg-red-50 text-red-700 border-red-200/60',
+        textColor: 'text-red-700',
+        icon: AlertTriangle
+      };
+    }
+    if (data.positivePercent >= 85) {
+      return { 
+        label: 'Excelência Operacional', 
+        color: 'bg-emerald-50 text-emerald-800 border-emerald-250/60',
+        textColor: 'text-emerald-800',
+        icon: CheckCircle2
+      };
+    }
+    if (data.positivePercent >= 70) {
+      return { 
+        label: 'Bom Desempenho', 
+        color: 'bg-blue-50 text-blue-700 border-blue-200/60',
+        textColor: 'text-blue-700',
+        icon: ThumbsUp
+      };
+    }
+    return { 
+      label: 'Atenção Necessária', 
+      color: 'bg-amber-50 text-amber-700 border-amber-200/60',
+      textColor: 'text-amber-700',
+      icon: AlertCircle
+    };
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 15 }}
@@ -527,35 +705,122 @@ export const ReportsPage = ({
       id="id_reports_page_root"
     >
       {/* Header and Filter banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-6 bg-white rounded-3xl border border-gray-100 shadow-sm">
         <div>
-          <span className="text-[10px] font-black tracking-widest text-emerald-800 uppercase bg-emerald-50 px-3 py-1 rounded-full">Análise SUS</span>
+          <span className="text-[10px] font-black tracking-widest text-[#01402E] uppercase bg-emerald-50/70 px-3 py-1 rounded-full">Análise de Desempenho</span>
           <h2 className="text-2xl font-black text-[#01402E] tracking-tight mt-2">Relatórios da Ouvidoria</h2>
           <p className="text-xs text-gray-500 font-medium">Relatórios Gerenciais, NPS e Inteligência Artificial</p>
         </div>
 
-        {/* Dynamic Filters */}
+        {/* Dynamic Filters and PDF Generation */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-2xl border border-gray-150">
-            <FilterIcon size={14} className="text-[#01402E]" />
-            <span className="text-xs font-bold text-gray-500">Filtrar:</span>
+          <div className="flex items-center gap-2 bg-gray-50 px-3.5 py-2 rounded-2xl border border-gray-150">
+            <FilterIcon size={13} className="text-[#01402E]" />
+            <span className="text-xs font-black text-gray-550">Filtrar:</span>
           </div>
 
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="px-4 py-2 bg-white border border-gray-150 rounded-2xl text-xs font-bold text-[#01402E] focus:outline-none focus:ring-2 focus:ring-[#01402E]"
-          >
-            {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+          <div className="relative">
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="appearance-none pl-4 pr-10 py-2.5 bg-white border border-gray-150 rounded-2xl text-xs font-extrabold text-[#01402E] focus:outline-none focus:ring-2 focus:ring-[#01402E] cursor-pointer"
+            >
+              {MONTHS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[#01402E]">
+              <ChevronRight size={12} className="rotate-90 text-[#01402E]/60 inline-block" />
+            </div>
+          </div>
 
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="px-4 py-2 bg-white border border-gray-150 rounded-2xl text-xs font-bold text-[#01402E] focus:outline-none focus:ring-2 focus:ring-[#01402E]"
+          <div className="relative">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="appearance-none pl-4 pr-10 py-2.5 bg-white border border-gray-150 rounded-2xl text-xs font-extrabold text-[#01402E] focus:outline-none focus:ring-2 focus:ring-[#01402E] cursor-pointer"
+            >
+              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-[#01402E]">
+              <ChevronRight size={12} className="rotate-90 text-[#01402E]/60 inline-block" />
+            </div>
+          </div>
+
+          <button
+            onClick={handleExportDashboardPDF}
+            disabled={exporting}
+            className="px-5 py-2.5 bg-[#01402E] hover:bg-[#064e40] duration-150 text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95 cursor-pointer shrink-0"
           >
-            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
+            {exporting ? (
+              <>
+                <Loader2 size={13} className="animate-spin" /> Gerando PDF...
+              </>
+            ) : (
+              <>
+                <Download size={13} /> Exportar PDF
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 4 Minimalist Stat Cards - Rounded with up to 3xl corners */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Card 1: Total de Avaliações */}
+        <div className="bg-white p-6 rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition duration-200">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Total de Avaliações</span>
+            <div className="text-3xl font-black text-[#01402E]">{metrics.totalEvaluations}</div>
+            <span className="text-[10px] font-bold text-gray-500">no mês selecionado</span>
+          </div>
+          <div className="p-3.5 bg-emerald-50 text-[#01402E] rounded-2xl shrink-0">
+            <Users size={18} />
+          </div>
+        </div>
+
+        {/* Card 2: Índice de Qualidade Técnica */}
+        <div className="bg-white p-6 rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition duration-200">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Qualidade Técnica</span>
+            <div className="text-3xl font-black text-emerald-600">
+              {metrics.totalEvaluations > 0 ? `${metrics.technicalQualityIndex}%` : '0%'}
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">Ótimo & Bom (Soma)</span>
+          </div>
+          <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-2xl shrink-0">
+            <CheckCircle2 size={18} />
+          </div>
+        </div>
+
+        {/* Card 3: NPS Global */}
+        <div className="bg-white p-6 rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition duration-200">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">NPS Global</span>
+            <div className={`text-3xl font-black ${
+              metrics.totalEvaluations === 0 ? 'text-gray-400' :
+              metrics.npsGlobal >= 50 ? 'text-emerald-700' :
+              metrics.npsGlobal >= 0 ? 'text-amber-600' : 'text-red-900'
+            }`}>
+              {metrics.totalEvaluations > 0 ? `${metrics.npsGlobal > 0 ? '+' : ''}${metrics.npsGlobal}` : 'N/A'}
+            </div>
+            <span className="text-[10px] font-extrabold uppercase text-[#01402E]">
+              {metrics.totalEvaluations > 0 ? metrics.npsClassification : 'Sem dados'}
+            </span>
+          </div>
+          <div className="p-3.5 bg-emerald-50 text-emerald-700 rounded-2xl shrink-0">
+            <Activity size={18} />
+          </div>
+        </div>
+
+        {/* Card 4: Formulários Físicos */}
+        <div className="bg-white p-6 rounded-[1.5rem] md:rounded-[2rem] border border-gray-100 shadow-sm flex items-center justify-between hover:shadow-md transition duration-200">
+          <div className="space-y-1">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Formulários Físicos</span>
+            <div className="text-3xl font-black text-gray-700">{metrics.physicalFormsCount}</div>
+            <span className="text-[10px] font-bold text-gray-400">amostras em papel</span>
+          </div>
+          <div className="p-3.5 bg-gray-50 text-gray-500 rounded-2xl shrink-0">
+            <FileText size={18} />
+          </div>
         </div>
       </div>
 
@@ -580,32 +845,7 @@ export const ReportsPage = ({
           {/* Main Column - KPIs & Charts */}
           <div className="lg:col-span-2 space-y-8">
             
-            {/* Visual KPI Cards Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 flex flex-col justify-between shadow-sm">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Amostras Coletadas</span>
-                <span className="text-3xl font-black text-[#01402E] mt-3">{metrics.totalEvaluations}</span>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md mt-2 w-max">Totens & Físicos</span>
-              </div>
-
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 flex flex-col justify-between shadow-sm">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Aprovação Técnica</span>
-                <span className="text-3xl font-black text-emerald-600 mt-3">{metrics.technicalQualityIndex}%</span>
-                <span className="text-[10px] font-bold text-gray-400 mt-2">Médicos, recepção e limpeza</span>
-              </div>
-
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 flex flex-col justify-between shadow-sm">
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Net Promoter Score (NPS)</span>
-                <span className={`text-3xl font-black mt-3 ${metrics.npsGlobal >= 50 ? 'text-emerald-700' : metrics.npsGlobal >= 0 ? 'text-amber-600' : 'text-red-600'}`}>
-                  {metrics.npsGlobal}%
-                </span>
-                <span className="text-[10px] font-extrabold uppercase mt-2 text-[#01402E]">
-                  Classif: {metrics.npsClassification}
-                </span>
-              </div>
-
-            </div>
+            {/* Removed legacy duplicate kpi cards row */}
 
             {/* Dissatisfaction alert if critical > 15% */}
             {criticalSectorsAlerts.length > 0 && (
@@ -629,88 +869,173 @@ export const ReportsPage = ({
               </div>
             )}
 
-            {/* Recharts - Sector Comparison Bar Chart */}
+            {/* 1. Painel de Análise Profunda do NPS */}
             <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
               <div className="flex items-center justify-between border-b border-gray-50 pb-4">
-                <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Nível de Aprovação por Setor (%)</h3>
-                <Activity size={18} className="text-emerald-600" />
-              </div>
-              
-              {sectorChartData.length === 0 ? (
-                <div className="text-center py-10 text-xs text-gray-400">Insuficiência de dados setoriais para o gráfico.</div>
-              ) : (
-                <div className="h-64 font-sans">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={sectorChartData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} />
-                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} />
-                      <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
-                      <Bar dataKey="Aprovação" fill="#10b981" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Insatisfação" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                <div>
+                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Painel de Análise Profunda do NPS</h3>
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Visão segmentada e evolução temporal de promotores e detratores/passivos</p>
                 </div>
-              )}
+                <Activity size={18} className="text-[#01402E]" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                {/* Column Left: Category Progress Bars */}
+                <div className="space-y-5">
+                  <h4 className="text-xs font-black text-[#01402E] uppercase tracking-widest">Distribuição de Respondentes</h4>
+                  
+                  {/* Promoters (9-10) */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-extrabold text-[#01402E] flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span>
+                        Promotores (Nota 9-10)
+                      </span>
+                      <span className="font-black text-emerald-600">{metrics.promotersPercent}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-[#10b981] h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${metrics.promotersPercent}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-semibold uppercase">Altamente satisfeitos, com alta probabilidade de indicação ativa.</p>
+                  </div>
+
+                  {/* Neutrals (7-8) */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-extrabold text-amber-700 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]"></span>
+                        Passivos (Nota 7-8)
+                      </span>
+                      <span className="font-black text-amber-600">{metrics.neutralsPercent}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-[#f59e0b] h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${metrics.neutralsPercent}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-semibold uppercase">Satisfeitos, porém indiferentes. Vulneráveis à concorrência operacional.</p>
+                  </div>
+
+                  {/* Detractors (0-6) */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-extrabold text-red-700 flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
+                        Detratores (Nota 0-6)
+                      </span>
+                      <span className="font-black text-red-600">{metrics.detractorsPercent}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-[#ef4444] h-full rounded-full transition-all duration-500" 
+                        style={{ width: `${metrics.detractorsPercent}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-semibold uppercase">Insatisfeitos. Potenciais detratores da reputação técnica do serviço.</p>
+                  </div>
+                </div>
+
+                {/* Column Right: Elegant Bar Chart (Last 6 Months NPS) */}
+                <div className="space-y-4">
+                  <h4 className="text-xs font-black text-[#01402E] uppercase tracking-widest text-center md:text-left">Evolução do NPS Mensal (Últimos 6 Meses)</h4>
+                  <div className="h-48 font-sans">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={last6MonthsNpsData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold' }} />
+                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold' }} domain={[-100, 100]} />
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px' }} 
+                          formatter={(value: any) => [`${value}%`, 'Índice NPS']}
+                        />
+                        <Bar dataKey="NPS" radius={[4, 4, 0, 0]}>
+                          {last6MonthsNpsData.map((entry, index) => {
+                            const isPositive = entry.NPS >= 50;
+                            const isCritical = entry.NPS < 0;
+                            let fill = '#3b82f6'; 
+                            if (isPositive) fill = '#10b981'; 
+                            else if (isCritical) fill = '#ef4444'; 
+                            else if (entry.NPS >= 0 && entry.NPS < 50) fill = '#f59e0b'; 
+                            return <Cell key={`cell-${index}`} fill={fill} />;
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-[9px] text-gray-400 font-bold uppercase text-center md:text-left">
+                    Meta de Qualidade SUS: Manter índice acima de 50% (Zona de Especialização/Excelência).
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Recharts - NPS Pie Representation */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* 2. Composição da Média Mensal */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
+              {/* Pie/Donut Chart for Ratings Composition */}
               <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-4">Perfil NPS Coletado</h3>
-                <div className="h-44 flex items-center justify-center relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: 'Promotores (9-10)', value: metrics.promotersPercent, color: '#10b981' },
-                          { name: 'Neutros (7-8)', value: metrics.neutralsPercent, color: '#f59e0b' },
-                          { name: 'Detratores (0-6)', value: metrics.detractorsPercent, color: '#ef4444' }
-                        ]}
-                        innerRadius={50}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        <Cell fill="#10b981" />
-                        <Cell fill="#f59e0b" />
-                        <Cell fill="#ef4444" />
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute text-center">
-                    <span className="block text-2xl font-black text-[#01402E]">{metrics.npsGlobal}%</span>
-                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">NPS Global</span>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Composição de Notas (Percentual)</h3>
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Proporção absoluta das notas individuais atribuídas</p>
                 </div>
+                
+                {compositeRatings.total === 0 ? (
+                  <div className="text-center py-12 text-xs text-gray-400">Insuficiência de dados para o gráfico de composição.</div>
+                ) : (
+                  <>
+                    <div className="h-44 flex items-center justify-center relative">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={compositionPieData}
+                            innerRadius={50}
+                            outerRadius={70}
+                            paddingAngle={4}
+                            dataKey="value"
+                          >
+                            {compositionPieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: any, name: any, props: any) => [`${value} votos (${props.payload.percentage}%)`, name]} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute text-center">
+                        <span className="block text-2xl font-black text-[#01402E]">{compositeRatings.total}</span>
+                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Avaliações Totais</span>
+                      </div>
+                    </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-extrabold text-gray-500">
-                  <div className="p-2 bg-emerald-50/50 rounded-xl">
-                    <span className="block text-emerald-700">{metrics.promotersPercent}%</span>
-                    Promotores
-                  </div>
-                  <div className="p-2 bg-amber-50/50 rounded-xl">
-                    <span className="block text-amber-700">{metrics.neutralsPercent}%</span>
-                    Neutros
-                  </div>
-                  <div className="p-2 bg-red-50/50 rounded-xl">
-                    <span className="block text-red-700">{metrics.detractorsPercent}%</span>
-                    Detratores
-                  </div>
-                </div>
+                    <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-extrabold text-gray-500">
+                      {compositionPieData.map((item, idx) => (
+                        <div key={idx} className="p-2 rounded-xl border border-gray-50/50 bg-gray-50/20 flex flex-col justify-center items-center">
+                          <span className="block text-xs font-black" style={{ color: item.color }}>
+                            {item.percentage}%
+                          </span>
+                          <span className="text-gray-400 uppercase tracking-wider text-[8px] mt-0.5">{item.name} ({item.value})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
-              {/* Feedbacks samples raw list inside reports view */}
+              {/* Feedbacks em tempo real */}
               <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 pb-4 mb-4">Feedbacks Recentes ({patientComments.length})</h3>
-                <div className="flex-1 overflow-y-auto space-y-3 max-h-[220px] pr-1">
+                <div>
+                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Feedbacks Recentes</h3>
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Últimas avaliações e comentários dos pacientes</p>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-3 max-h-[220px] pr-1 mt-6">
                   {patientComments.length === 0 ? (
                     <div className="text-center text-xs text-gray-400 py-12">Nenhum comentário textual neste mês.</div>
                   ) : (
                     patientComments.slice(0, 5).map((comment, i) => (
-                      <div key={i} className="p-3 bg-gray-50/70 rounded-xl border border-gray-100 text-xs font-medium text-gray-600 line-clamp-3 leading-relaxed">
+                      <div key={i} className="p-3 bg-gray-50/70 rounded-xl border border-gray-100 text-xs font-semibold text-gray-600 line-clamp-3 leading-relaxed">
                         {comment}
                       </div>
                     ))
@@ -718,6 +1043,74 @@ export const ReportsPage = ({
                 </div>
               </div>
 
+            </div>
+
+            {/* 3. Performance por Setor */}
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+                <div>
+                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Desempenho Detalhado por Setor</h3>
+                  <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Índice real de aprovação regulatória e selo técnico de classificação</p>
+                </div>
+                <ClipboardList size={18} className="text-[#01402E]" />
+              </div>
+
+              <div className="divide-y divide-gray-100">
+                {activeSectors.map((sector) => {
+                  const data = metrics.sectorsPerformance[sector] || {
+                    ratings: { Otimo: 0, Bom: 0, Regular: 0, Ruim: 0 },
+                    positivePercent: 0,
+                    negativePercent: 0,
+                    total: 0
+                  };
+
+                  const status = getSectorStatus(data);
+                  const StatusIcon = status.icon;
+
+                  return (
+                    <div key={sector} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-150 hover:bg-gray-50/50 px-3 rounded-2xl">
+                      {/* Left information */}
+                      <div className="space-y-1 min-w-[180px]">
+                        <h4 className="text-sm font-extrabold text-[#01402E]">{sector}</h4>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold">
+                          <Users size={11} />
+                          <span>{data.total} {data.total === 1 ? 'avaliação' : 'avaliações'}</span>
+                        </div>
+                      </div>
+
+                      {/* Stacked visualization track */}
+                      <div className="flex-1 max-w-md w-full space-y-1.5">
+                        <div className="flex justify-between text-xs font-bold text-gray-500">
+                          <span>Aprovação Ótimo/Bom</span>
+                          <span className="text-[#01402E]">{data.positivePercent}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+                          <div 
+                            className="bg-emerald-500 h-full transition-all duration-500" 
+                            style={{ width: `${data.positivePercent}%` }}
+                          ></div>
+                          <div 
+                            className="bg-red-400 h-full transition-all duration-500" 
+                            style={{ width: `${data.total > 0 ? ((data.ratings.Ruim) / data.total) * 100 : 0}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex justify-between text-[8px] uppercase tracking-wider font-extrabold text-gray-400">
+                          <span>Aprovados ({data.ratings.Otimo + data.ratings.Bom})</span>
+                          <span>Incompatível ({data.ratings.Ruim})</span>
+                        </div>
+                      </div>
+
+                      {/* Status seal */}
+                      <div className="shrink-0 flex items-center">
+                        <span className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs ${status.color}`}>
+                          <StatusIcon size={12} className={status.textColor} />
+                          <span>{status.label}</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
           </div>

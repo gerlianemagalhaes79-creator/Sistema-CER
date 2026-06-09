@@ -35,7 +35,7 @@ export const ShareSurveyModal = ({ isOpen, onClose, surveyUrl }: ShareSurveyProp
       printWindow.document.write(`
         <html>
           <head>
-            <title>Imprimir Placa de Avaliação - SUS</title>
+            <title>Imprimir Placa de Avaliação</title>
             <style>
               body {
                 font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -53,17 +53,6 @@ export const ShareSurveyModal = ({ isOpen, onClose, surveyUrl }: ShareSurveyProp
                 margin: 40px auto;
                 box-shadow: 0 20px 40px rgba(1, 64, 46, 0.08);
                 border: 4px solid #10b981;
-              }
-              .logo {
-                display: inline-block;
-                background: #01402E;
-                color: white;
-                font-size: 26px;
-                font-weight: 900;
-                padding: 15px 30px;
-                border-radius: 20px;
-                margin-bottom: 25px;
-                letter-spacing: 1px;
               }
               h1 {
                 font-size: 26px;
@@ -127,9 +116,8 @@ export const ShareSurveyModal = ({ isOpen, onClose, surveyUrl }: ShareSurveyProp
           </head>
           <body>
             <div class="card">
-              <div class="logo">SUS</div>
               <h1>POLICLÍNICA BERNARDO FÉLIX</h1>
-              <h2>Sua opinião importa!<br/>Ajude-nos a aprimorar nosso atendimento público.</h2>
+              <h2>Sua opinião importa!<br/>Ajude-nos a aprimorar nosso atendimento.</h2>
               <div class="qr-container">
                 <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(actualUrl)}" alt="QR Code" />
               </div>
