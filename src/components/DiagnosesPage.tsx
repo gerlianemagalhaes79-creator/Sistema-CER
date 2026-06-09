@@ -4,10 +4,9 @@ import {
   Search, 
   Edit, 
   Trash2, 
-  ClipboardList,
+  Tag,
   CheckCircle2,
-  X,
-  Activity
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Diagnosis } from '../types';
@@ -31,12 +30,12 @@ export const DiagnosesPage = () => {
   }, [diagnoses, search]);
 
   const handleDelete = async (d: Diagnosis) => {
-    if (window.confirm(`Tem certeza que deseja remover o diagnóstico "${d.name}"?`)) {
+    if (window.confirm(`Tem certeza que deseja remover o assunto "${d.name}"?`)) {
       try {
         await DiagnosisService.deleteDiagnosis(d.id);
       } catch (error) {
-        console.error('Error deleting diagnosis:', error);
-        alert('Erro ao remover diagnóstico.');
+        console.error('Error deleting topic:', error);
+        alert('Erro ao remover assunto.');
       }
     }
   };
@@ -50,15 +49,15 @@ export const DiagnosesPage = () => {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Cadastro de Diagnósticos</h2>
-          <p className="text-sm font-medium text-gray-500">Gestão de diagnósticos padrões para os pacientes</p>
+          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Assuntos e Temários</h2>
+          <p className="text-sm font-medium text-gray-500 font-sans">Classifique as manifestações por temas (ex: Tempo de Espera, Mau Atendimento)</p>
         </div>
         <button 
           onClick={() => { setEditingDiagnosis(null); setIsModalOpen(true); }}
           className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
         >
           <Plus size={20} />
-          Novo Diagnóstico
+          Novo Assunto
         </button>
       </div>
 
@@ -67,7 +66,7 @@ export const DiagnosesPage = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
-            placeholder="Buscar por nome do diagnóstico..."
+            placeholder="Buscar por nome do assunto..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium"
@@ -75,12 +74,12 @@ export const DiagnosesPage = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden font-sans">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Diagnóstico</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Assunto da Manifestação</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Ações</th>
               </tr>
             </thead>
@@ -89,15 +88,15 @@ export const DiagnosesPage = () => {
                 <tr key={d.id} className="hover:bg-emerald-50/20 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 font-black border border-emerald-100">
-                        <Activity size={20} />
+                      <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 font-black border border-emerald-100 font-sans">
+                        <Tag size={18} />
                       </div>
                       <p className="text-sm font-bold text-gray-900">{d.name}</p>
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
-                      <button 
+                       <button 
                         onClick={() => { setEditingDiagnosis(d); setIsModalOpen(true); }}
                         className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" 
                         title="Editar"
@@ -118,7 +117,7 @@ export const DiagnosesPage = () => {
               {filteredDiagnoses.length === 0 && (
                 <tr>
                   <td colSpan={2} className="px-6 py-12 text-center text-gray-400 font-medium italic">
-                    Nenhum diagnóstico cadastrado.
+                    Nenhum assunto cadastrado.
                   </td>
                 </tr>
               )}
@@ -168,8 +167,8 @@ const DiagnosisFormModal = ({ isOpen, onClose, editingDiagnosis }: { isOpen: boo
       }
       onClose();
     } catch (error: any) {
-      console.error('Error saving diagnosis:', error);
-      alert('Erro ao salvar diagnóstico.');
+      console.error('Error saving topic:', error);
+      alert('Erro ao salvar assunto.');
     } finally {
       setLoading(false);
     }
@@ -194,8 +193,8 @@ const DiagnosisFormModal = ({ isOpen, onClose, editingDiagnosis }: { isOpen: boo
           >
             <div className="p-8 pb-4 flex justify-between items-center bg-gray-50/50">
               <div>
-                <h3 className="text-2xl font-black text-[#064e3b] tracking-tight">{editingDiagnosis ? 'Editar Diagnóstico' : 'Novo Diagnóstico'}</h3>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Cadastro Base</p>
+                <h3 className="text-2xl font-black text-[#064e3b] tracking-tight">{editingDiagnosis ? 'Editar Assunto' : 'Novo Assunto'}</h3>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest font-sans">Classificações da Ouvidoria</p>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-colors text-gray-400 hover:text-gray-600">
                 <X size={24} />
@@ -205,16 +204,16 @@ const DiagnosisFormModal = ({ isOpen, onClose, editingDiagnosis }: { isOpen: boo
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nome do Diagnóstico</label>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1 font-sans">Tema / Assunto</label>
                   <div className="relative">
-                    <ClipboardList className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
+                    <Tag className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
                     <input 
                       type="text" 
                       required
                       value={formData.name}
                       onChange={e => setFormData({...formData, name: e.target.value})}
                       className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
-                      placeholder="Ex: TEA (Transtorno do Espectro Autista)"
+                      placeholder="Ex: Demora na entrega de exames..."
                     />
                   </div>
                 </div>
@@ -224,21 +223,21 @@ const DiagnosisFormModal = ({ isOpen, onClose, editingDiagnosis }: { isOpen: boo
                 <button 
                   type="button" 
                   onClick={onClose}
-                  className="flex-1 px-6 py-4 rounded-2xl border border-gray-100 font-black text-gray-400 uppercase tracking-widest hover:bg-gray-50 transition-all"
+                  className="flex-1 px-6 py-4 rounded-2xl border border-gray-100 font-black text-gray-400 uppercase tracking-widest hover:bg-gray-50 transition-all font-sans"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-[#064e3b] text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 bg-[#064e3b] text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-sans"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                   ) : (
                     <>
                       <CheckCircle2 size={20} />
-                      {editingDiagnosis ? 'Salvar Alterações' : 'Cadastrar'}
+                      {editingDiagnosis ? 'Salvar Alterações' : 'Cadastrar Assunto'}
                     </>
                   )}
                 </button>

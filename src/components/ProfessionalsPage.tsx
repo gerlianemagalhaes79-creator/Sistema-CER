@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Users, 
+  Building2, 
   Plus, 
   Search, 
   Edit, 
@@ -8,7 +8,7 @@ import {
   User as UserIcon,
   CheckCircle2,
   X,
-  Stethoscope
+  Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Professional } from '../types';
@@ -34,12 +34,12 @@ export const ProfessionalsPage = () => {
   }, [professionals, search]);
 
   const handleDelete = async (p: Professional) => {
-    if (window.confirm(`Tem certeza que deseja remover ${p.name}?`)) {
+    if (window.confirm(`Tem certeza que deseja remover o setor "${p.name}"?`)) {
       try {
         await ProfessionalService.deleteProfessional(p.id);
       } catch (error) {
-        console.error('Error deleting professional:', error);
-        alert('Erro ao remover profissional.');
+        console.error('Error deleting sector:', error);
+        alert('Erro ao remover setor.');
       }
     }
   };
@@ -53,15 +53,15 @@ export const ProfessionalsPage = () => {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Equipe Multidisciplinar</h2>
-          <p className="text-sm font-medium text-gray-500">Cadastro de profissionais e suas especialidades</p>
+          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Setores da Policlínica</h2>
+          <p className="text-sm font-medium text-gray-500 font-sans">Gestão de setores, departamentos e serviços auditados pela Ouvidoria</p>
         </div>
         <button 
           onClick={() => { setEditingProfessional(null); setIsModalOpen(true); }}
           className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
         >
           <Plus size={20} />
-          Novo Profissional
+          Novo Setor
         </button>
       </div>
 
@@ -70,7 +70,7 @@ export const ProfessionalsPage = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
-            placeholder="Buscar por nome ou área..."
+            placeholder="Buscar por setor ou responsável..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium"
@@ -80,11 +80,11 @@ export const ProfessionalsPage = () => {
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse font-sans">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Profissional</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Especialidade</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Setor / Departamento</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Responsável / Encarregado</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Ações</th>
               </tr>
             </thead>
@@ -94,14 +94,14 @@ export const ProfessionalsPage = () => {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 font-black border border-emerald-100">
-                        {p.name.charAt(0).toUpperCase()}
+                        <Building2 size={18} />
                       </div>
                       <p className="text-sm font-bold text-gray-900">{p.name}</p>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-500">
                     <span className="flex items-center gap-2">
-                       <Stethoscope size={14} className="text-emerald-600" />
+                       <Briefcase size={14} className="text-emerald-600" />
                        {p.area}
                     </span>
                   </td>
@@ -128,7 +128,7 @@ export const ProfessionalsPage = () => {
               {filteredProfessionals.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-6 py-12 text-center text-gray-400 font-medium italic">
-                    Nenhum profissional encontrado.
+                    Nenhum setor cadastrado.
                   </td>
                 </tr>
               )}
@@ -181,8 +181,8 @@ const ProfessionalFormModal = ({ isOpen, onClose, editingProfessional }: { isOpe
       }
       onClose();
     } catch (error: any) {
-      console.error('Error saving professional:', error);
-      alert('Erro ao salvar profissional.');
+      console.error('Error saving sector:', error);
+      alert('Erro ao salvar setor.');
     } finally {
       setLoading(false);
     }
@@ -207,8 +207,8 @@ const ProfessionalFormModal = ({ isOpen, onClose, editingProfessional }: { isOpe
           >
             <div className="p-8 pb-4 flex justify-between items-center bg-gray-50/50">
               <div>
-                <h3 className="text-2xl font-black text-[#064e3b] tracking-tight">{editingProfessional ? 'Editar Profissional' : 'Novo Profissional'}</h3>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Informações da Equipe</p>
+                <h3 className="text-2xl font-black text-[#064e3b] tracking-tight">{editingProfessional ? 'Editar Setor' : 'Novo Setor/Serviço'}</h3>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest font-sans">Cadastros da Policlínica</p>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-white rounded-xl transition-colors text-gray-400 hover:text-gray-600">
                 <X size={24} />
@@ -218,31 +218,31 @@ const ProfessionalFormModal = ({ isOpen, onClose, editingProfessional }: { isOpe
             <form onSubmit={handleSubmit} className="p-8 space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo</label>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1 font-sans">Nome do Setor / Serviço</label>
                   <div className="relative">
-                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
+                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
                     <input 
                       type="text" 
                       required
                       value={formData.name}
                       onChange={e => setFormData({...formData, name: e.target.value})}
                       className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
-                      placeholder="Ex: Nome do Profissional"
+                      placeholder="Ex: Recepção, Corpo Clínico, Higienização..."
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Especialidade</label>
+                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1 font-sans">Responsável / Supervisor</label>
                   <div className="relative">
-                    <Stethoscope className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={18} />
                     <input 
                       type="text" 
                       required
                       value={formData.area}
                       onChange={e => setFormData({...formData, area: e.target.value})}
                       className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#064e3b]"
-                      placeholder="Ex: Especialidade"
+                      placeholder="Ex: Dra. Ana Carla, Coord. Roberto..."
                     />
                   </div>
                 </div>
@@ -252,21 +252,21 @@ const ProfessionalFormModal = ({ isOpen, onClose, editingProfessional }: { isOpe
                 <button 
                   type="button" 
                   onClick={onClose}
-                  className="flex-1 px-6 py-4 rounded-2xl border border-gray-100 font-black text-gray-400 uppercase tracking-widest hover:bg-gray-50 transition-all"
+                  className="flex-1 px-6 py-4 rounded-2xl border border-gray-100 font-black text-gray-400 uppercase tracking-widest hover:bg-gray-50 transition-all font-sans"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-[#064e3b] text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="flex-1 bg-[#064e3b] text-white px-6 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 font-sans"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                   ) : (
                     <>
                       <CheckCircle2 size={20} />
-                      {editingProfessional ? 'Salvar Alterações' : 'Cadastrar'}
+                      {editingProfessional ? 'Salvar Alterações' : 'Cadastrar Setor'}
                     </>
                   )}
                 </button>

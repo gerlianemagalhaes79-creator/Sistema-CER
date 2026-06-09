@@ -11,28 +11,24 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function hasUserDoc() {
+      return isSignedIn() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
     function getUserData() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
     function isAdmin() {
       return isSignedIn() && (
-        (exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) && getUserData().accessType == 'Administrador') || 
+        (hasUserDoc() && getUserData().accessType == 'Administrador') || 
         request.auth.token.email == 'gerlianemagalhaes79@gmail.com' ||
         request.auth.token.email == 'cer2polisobral@gmail.com'
       );
     }
 
     function isCoordination() {
-      return isSignedIn() && getUserData().accessType == 'Coordenação';
-    }
-
-    function isReception() {
-      return isSignedIn() && getUserData().accessType == 'Recepção';
-    }
-
-    function isProfessional() {
-      return isSignedIn() && getUserData().accessType == 'Profissional';
+      return isSignedIn() && hasUserDoc() && getUserData().accessType == 'Coordenação';
     }
 
     // Usuarios collection
@@ -44,19 +40,25 @@ service cloud.firestore {
     // Pacientes collection
     match /pacientes/{patientId} {
       allow read: if isSignedIn() && (
-        isAdmin() || isCoordination() || isReception() || 
-        (isProfessional() && resource.data.professionals.hasAny([getUserData().name]))
+        isAdmin() || isCoordination() || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional' && resource.data.professionals.hasAny([getUserData().name]))
       );
-      allow write: if isAdmin() || isCoordination() || isReception();
+      allow write: if isAdmin() || isCoordination() || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional');
     }
 
     // Movimentacoes collection
     match /movimentacoes/{movementId} {
       allow read: if isSignedIn() && (
-        isAdmin() || isCoordination() || isReception() || 
-        (isProfessional() && resource.data.professionals.hasAny([getUserData().name]))
+        isAdmin() || isCoordination() || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional' && resource.data.professionals.hasAny([getUserData().name]))
       );
-      allow write: if isAdmin() || isCoordination() || isReception();
+      allow write: if isAdmin() || isCoordination() || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
+        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional');
     }
 
     // Profissionais collection
@@ -75,6 +77,20 @@ service cloud.firestore {
     match /diagnosticos/{diagnosisId} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || isCoordination();
+    }
+
+    // Forms collection
+    match /forms/{formId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || isCoordination() || (isSignedIn() && hasUserDoc() && (getUserData().accessType == 'Profissional' || getUserData().accessType == 'Recepção')));
+      allow update, delete: if isAdmin() || isCoordination();
+    }
+
+    // Evaluations collection
+    match /evaluations/{evaluationId} {
+      allow create: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || isCoordination() || (isSignedIn() && hasUserDoc() && (getUserData().accessType == 'Profissional' || getUserData().accessType == 'Recepção')));
+      allow update, delete: if isAdmin() || isCoordination();
     }
   }
 }

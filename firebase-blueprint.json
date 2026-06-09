@@ -97,6 +97,33 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "name", "status"]
+    },
+    "Form": {
+      "title": "Form",
+      "description": "NPS satisfaction forms submitted by patients or imported from physical entries",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "npsScore": { "type": "integer" },
+        "generalComment": { "type": "string" },
+        "source": { "enum": ["patient", "physical"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "npsScore", "source", "createdAt"]
+    },
+    "Evaluation": {
+      "title": "Evaluation",
+      "description": "Granular sector-by-sector smiles satisfaction feedback",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "formId": { "type": "string" },
+        "sector": { "type": "string" },
+        "rating": { "enum": ["Otimo", "Bom", "Regular", "Ruim"] },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "formId", "sector", "rating", "createdAt"]
     }
   },
   "firestore": {
@@ -123,6 +150,14 @@
     "/diagnosticos/{diagnosisId}": {
       "schema": "Diagnosis",
       "description": "Collection of diagnosis options"
+    },
+    "/forms/{formId}": {
+      "schema": "Form",
+      "description": "NPS Forms"
+    },
+    "/evaluations/{evaluationId}": {
+      "schema": "Evaluation",
+      "description": "Specific sector satisfaction evaluations"
     }
   }
 }

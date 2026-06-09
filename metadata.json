@@ -1,6 +1,8 @@
 {
-  "name": "CER Controle de Pacientes",
-  "description": "Sistema de controle de pacientes para o Centro Especializado em Reabilitação (CER) da Policlínica.",
+  "name": "Ouvidoria Policlínica Bernardo Félix",
+  "description": "Sistema de Ouvidoria e Pesquisa de Satisfação de Pacientes para a Policlínica Bernardo Félix da Silva.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

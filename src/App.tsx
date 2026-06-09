@@ -27,18 +27,23 @@ import {
   Mail,
   Key,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Building2,
+  QrCode,
+  Share2,
+  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './lib/firebase';
-import { Patient, PatientStatus, Movement, MovementType, CITIES, PROFESSIONALS, User, AccessType, Professional, Municipality, Diagnosis } from './types';
+import { Patient, PatientStatus, Movement, MovementType, CITIES, User, AccessType, Professional, Municipality, Diagnosis, EvaluationForm, SectorEvaluation } from './types';
 import { PatientService } from './services/PatientService';
 import { MovementService } from './services/MovementService';
 import { UserService } from './services/UserService';
 import { ProfessionalService } from './services/ProfessionalService';
 import { MunicipalityService } from './services/MunicipalityService';
 import { DiagnosisService } from './services/DiagnosisService';
+import { SurveyService } from './services/SurveyService';
 import { UsersPage } from './components/UsersPage';
 import { ProfilePage } from './components/ProfilePage';
 import { ReportsPage } from './components/ReportsPage';
@@ -46,6 +51,9 @@ import { ProfessionalsPage } from './components/ProfessionalsPage';
 import { MunicipalitiesPage } from './components/MunicipalitiesPage';
 import { DiagnosesPage } from './components/DiagnosesPage';
 import { TrashPage } from './components/TrashPage';
+import { NewFormPage } from './components/NewFormPage';
+import { ShareSurveyModal } from './components/ShareSurveyModal';
+import { PatientSurveyPage } from './components/PatientSurveyPage';
 import { 
   BarChart, 
   Bar, 
@@ -59,11 +67,13 @@ import {
   Cell, 
   AreaChart, 
   Area,
-  Legend
+  Legend,
+  LineChart,
+  Line
 } from 'recharts';
 
 // --- Types ---
-type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile' | 'professionals' | 'municipalities' | 'diagnoses' | 'trash';
+type Page = 'dashboard' | 'patients' | 'movements' | 'reports' | 'users' | 'profile' | 'professionals' | 'municipalities' | 'diagnoses' | 'trash' | 'new-form';
 
 // --- UI Components ---
 
@@ -135,8 +145,8 @@ const Header = ({
         <div className="w-8 h-8 bg-[#064e3b] rounded-lg flex items-center justify-center lg:hidden">
           <UserSquare2 size={18} className="text-white" />
         </div>
-        <h1 className="text-lg font-bold text-[#064e3b] hidden sm:block">CER Controle de Pacientes</h1>
-        <h1 className="text-lg font-bold text-[#064e3b] sm:hidden">CER</h1>
+        <h1 className="text-lg font-bold text-[#064e3b] hidden sm:block">Ouvidoria Policlínica</h1>
+        <h1 className="text-lg font-bold text-[#064e3b] sm:hidden">Ouvidoria</h1>
       </div>
     </div>
     
@@ -306,8 +316,8 @@ const PatientFormModal = ({
       >
         <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-emerald-50/50">
           <div>
-            <h3 className="text-xl font-bold text-gray-900">{editingPatient ? 'Editar Paciente' : 'Novo Paciente'}</h3>
-            <p className="text-sm text-gray-500">Preencha as informações clínicas básicas</p>
+            <h3 className="text-xl font-bold text-gray-900">{editingPatient ? 'Editar Cadastro de Cidadão' : 'Novo Cadastro de Cidadão'}</h3>
+            <p className="text-sm text-gray-500">Preencha os dados de contato do manifestante e de identificação</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
             <X size={20} className="text-gray-500" />
@@ -319,7 +329,7 @@ const PatientFormModal = ({
             {/* Informações Básicas */}
             <div className="col-span-full border-b border-gray-100 pb-2 mb-2">
               <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-                <UserSquare2 size={14} /> Dados Pessoais
+                <UserSquare2 size={14} /> Dados do Cidadão / Manifestante
               </h4>
             </div>
             
@@ -335,13 +345,13 @@ const PatientFormModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Nº Prontuário</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">CNS ou CPF (Identificação)</label>
               <input 
                 type="text" 
                 value={formData.medicalRecordNumber}
                 onChange={e => setFormData({...formData, medicalRecordNumber: e.target.value})}
                 className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
-                placeholder="Ex: 2024.001"
+                placeholder="Ex: CPF ou Cartão SUS"
               />
             </div>
 
@@ -377,7 +387,7 @@ const PatientFormModal = ({
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Município</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Município de Residência</label>
               <select 
                 value={formData.city}
                 onChange={e => setFormData({...formData, city: e.target.value})}
@@ -391,13 +401,13 @@ const PatientFormModal = ({
             {/* Dados Clínicos */}
             <div className="col-span-full border-b border-gray-100 pb-2 mt-4 mb-2">
               <h4 className="text-xs font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-2">
-                <Stethoscope size={14} /> Informações Clínicas
+                <Stethoscope size={14} /> Temas, Assuntos e Setores de Interesse
               </h4>
             </div>
 
             <div className="lg:col-span-2">
               <MultiSelect 
-                label="Diagnósticos" 
+                label="Assuntos e Temas Recorrentes" 
                 options={availableDiagnoses} 
                 selected={formData.diagnoses} 
                 onChange={val => setFormData({...formData, diagnoses: val})} 
@@ -405,22 +415,22 @@ const PatientFormModal = ({
             </div>
 
             <div className="lg:col-span-1">
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Situação</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Situação Cadastral</label>
               <select 
                 value={formData.status}
                 onChange={e => setFormData({...formData, status: e.target.value as PatientStatus})}
                 className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
               >
                 <option value="Ativo">Ativo</option>
-                <option value="Alta">Alta</option>
-                <option value="Investigação">Investigação</option>
-                <option value="Espera">Espera</option>
+                <option value="Alta">Alta / Resposta Final</option>
+                <option value="Investigação">Em Análise / Investigação</option>
+                <option value="Espera">Espera / Pendência</option>
               </select>
             </div>
 
             <div className="lg:col-span-3">
               <MultiSelect 
-                label="Profissionais Responsáveis" 
+                label="Setores Policlínica (Envolvidos)" 
                 options={availableProfessionals} 
                 selected={formData.professionals} 
                 onChange={val => setFormData({...formData, professionals: val})} 
@@ -429,7 +439,7 @@ const PatientFormModal = ({
 
             <div className="grid grid-cols-2 gap-4 lg:col-span-1">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Data Entrada</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Data Cadastro</label>
                 <input 
                   type="date" 
                   value={formData.entryDate}
@@ -438,7 +448,7 @@ const PatientFormModal = ({
                 />
               </div>
               <div>
-                <label className={`block text-sm font-semibold text-gray-700 mb-1.5 ${formData.status !== 'Alta' ? 'opacity-30' : ''}`}>Data Alta</label>
+                <label className={`block text-sm font-semibold text-gray-700 mb-1.5 ${formData.status !== 'Alta' ? 'opacity-30' : ''}`}>Data Resolução</label>
                 <input 
                   type="date" 
                   disabled={formData.status !== 'Alta'}
@@ -455,7 +465,7 @@ const PatientFormModal = ({
                 value={formData.observations}
                 onChange={e => setFormData({...formData, observations: e.target.value})}
                 className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none min-h-[80px]"
-                placeholder="Informações relevantes sobre o tratamento, convênios ou restrições..."
+                placeholder="Insira observações relevantes sobre o histórico do cidadão ou trâmites de contato..."
               />
             </div>
           </div>
@@ -472,7 +482,7 @@ const PatientFormModal = ({
             onClick={() => onSave(formData)}
             className="px-8 py-2.5 rounded-lg font-bold bg-[#064e3b] text-white hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all"
           >
-            {editingPatient ? 'Salvar Alterações' : 'Cadastrar Paciente'}
+            {editingPatient ? 'Salvar Alterações' : 'Cadastrar Cidadão'}
           </button>
         </div>
       </motion.div>
@@ -606,8 +616,8 @@ const MovementFormModal = ({
       >
         <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-emerald-50/50">
           <div>
-            <h3 className="text-xl font-bold text-gray-900">Nova Movimentação</h3>
-            <p className="text-sm text-gray-500">Registre entradas, altas ou mudanças clínicas</p>
+            <h3 className="text-xl font-bold text-gray-900">{editingMovement ? 'Editar Manifestação / Protocolo' : 'Nova Manifestação / Protocolo'}</h3>
+            <p className="text-sm text-gray-500">Registre reclamações, denúncias, elogios, sugestões ou ocorrências</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
             <X size={20} className="text-gray-500" />
@@ -617,7 +627,7 @@ const MovementFormModal = ({
         <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
           {/* Patient Selection */}
           <div className="relative">
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Buscar Paciente</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Buscar Cidadão / Manifestante</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input 
@@ -630,12 +640,12 @@ const MovementFormModal = ({
                 }}
                 onFocus={() => setShowPatientList(true)}
                 className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
-                placeholder="Digite o nome ou prontuário..."
+                placeholder="Digite o nome ou identificação (CPF)..."
               />
             </div>
             
             {showPatientList && filteredPatients.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+               <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
                 {filteredPatients.map(p => (
                   <button
                     key={p.id}
@@ -661,7 +671,7 @@ const MovementFormModal = ({
               className="bg-emerald-50/30 p-4 rounded-xl border border-emerald-100/50 grid grid-cols-2 gap-4"
             >
               <div>
-                <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1">Diagnóstico(s)</p>
+                <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1">Assunto(s) do Cidadão</p>
                 <div className="flex flex-wrap gap-1">
                    {formData.diagnoses.map(d => (
                      <span key={d} className="bg-white/60 px-2 py-0.5 rounded text-[10px] font-bold text-gray-600 border border-emerald-100">{d}</span>
@@ -669,7 +679,7 @@ const MovementFormModal = ({
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1">Equipe</p>
+                <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest mb-1">Setor(es) Relacionado(s)</p>
                 <p className="text-[10px] font-bold text-gray-600 truncate">{formData.professionals.join(', ') || 'Nenhum'}</p>
               </div>
             </motion.div>
@@ -677,34 +687,37 @@ const MovementFormModal = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tipo de Movimentação</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tipo de Manifestação</label>
               <select 
                 value={formData.type}
                 onChange={e => setFormData({...formData, type: e.target.value as MovementType})}
                 className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
               >
-                <option value="Atendimento">Atendimento</option>
-                <option value="Entrada">Entrada</option>
-                <option value="Alta">Alta</option>
-                <option value="Transferência">Transferência</option>
-                <option value="Mudança de profissional">Mudança de profissional</option>
-                <option value="Atualização cadastral">Atualização cadastral</option>
+                <option value="Reclamação">Reclamação</option>
+                <option value="Denúncia">Denúncia</option>
+                <option value="Sugestão">Sugestão</option>
+                <option value="Elogio">Elogio</option>
+                <option value="Solicitação">Solicitação</option>
                 <option value="Absenteísmo">Absenteísmo</option>
+                <option value="Atendimento">Atendimento / Ocorrência Geral</option>
+                <option value="Entrada">Entrada</option>
+                <option value="Alta">Alta / Resolução</option>
+                <option value="Transferência">Transferência de Setor</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Profissional Responsável</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Setor Encarregado</label>
               <select 
                 value={formData.responsibleProfessional}
                 onChange={e => setFormData({...formData, responsibleProfessional: e.target.value})}
                 className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none"
               >
-                <option value="">Selecione o profissional...</option>
+                <option value="">Selecione o setor...</option>
                 {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Data da Ocorrência</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Data do Registro</label>
               <input 
                 type="date" 
                 value={formData.date}
@@ -715,12 +728,12 @@ const MovementFormModal = ({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Observações Detalhadas</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Relato Detalhado & Trâmites da Ouvidoria</label>
             <textarea 
               value={formData.observations}
               onChange={e => setFormData({...formData, observations: e.target.value})}
               className="w-full p-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 transition-all outline-none min-h-[100px]"
-              placeholder="Descreva o motivo da movimentação ou detalhes importantes..."
+              placeholder="Descreva minuciosamente o relato do cidadão, manifestação registrada ou providências tomadas para resolução..."
             />
           </div>
         </div>
@@ -732,7 +745,7 @@ const MovementFormModal = ({
             onClick={() => onSave(formData)}
             className="px-8 py-2.5 rounded-lg font-bold bg-[#064e3b] text-white hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {editingMovement ? 'Salvar Alterações' : 'Registrar Movimentação'}
+            {editingMovement ? 'Salvar Protocolo' : 'Registrar Protocolo'}
           </button>
         </div>
       </motion.div>
@@ -747,13 +760,17 @@ const DashboardPage = ({
   movements,
   availableCities,
   availableProfessionals,
-  availableDiagnoses
+  availableDiagnoses,
+  forms = [],
+  evaluations = []
 }: { 
   patients: Patient[], 
   movements: Movement[],
   availableCities: string[],
   availableProfessionals: string[],
   availableDiagnoses: string[],
+  forms?: EvaluationForm[],
+  evaluations?: SectorEvaluation[],
   key?: string 
 }) => {
   const [filterCity, setFilterCity] = useState('');
@@ -780,18 +797,83 @@ const DashboardPage = ({
     });
   }, [movements, filterProfessional, filterMonth]);
 
+  const filteredFormsByMonth = useMemo(() => {
+    return forms.filter(f => {
+      return !filterMonth || (f.createdAt && f.createdAt.startsWith(filterMonth));
+    });
+  }, [forms, filterMonth]);
+
+  const filteredEvaluationsByMonth = useMemo(() => {
+    return evaluations.filter(e => {
+      return !filterMonth || (e.createdAt && e.createdAt.startsWith(filterMonth));
+    });
+  }, [evaluations, filterMonth]);
+
   const stats = useMemo(() => {
     const total = filteredPatients.length;
     const active = filteredPatients.filter(p => p.status === 'Ativo').length;
-    const investigation = filteredPatients.filter(p => p.status === 'Investigação').length;
-    const waiting = filteredPatients.filter(p => p.status === 'Espera').length;
-    const monthlyDischarges = filteredMovements.filter(m => m.type === 'Alta').length;
-    const monthlyEntries = filteredMovements.filter(m => m.type === 'Entrada').length;
-    const monthlyAbsentees = filteredMovements.filter(m => m.type === 'Absenteísmo').length;
-    const absentees = filteredPatients.filter(p => (p.absenteeismCount || 0) > 0).length;
+    const totalManifests = filteredMovements.length;
+    const reclamacoes = filteredMovements.filter(m => m.type === 'Reclamação').length;
+    const denuncias = filteredMovements.filter(m => m.type === 'Denúncia').length;
+    const sugestoes = filteredMovements.filter(m => m.type === 'Sugestão').length;
+    const elogios = filteredMovements.filter(m => m.type === 'Elogio').length;
+    const absentees = filteredMovements.filter(m => m.type === 'Absenteísmo').length;
 
-    return { total, active, investigation, waiting, monthlyDischarges, monthlyEntries, absentees, monthlyAbsentees };
-  }, [filteredPatients, filteredMovements]);
+    // NPS calculations on current month filtered forms
+    const totalForms = filteredFormsByMonth.length;
+    let npsGlobal = 0;
+    let promotersPercent = 0;
+    let neutralsPercent = 0;
+    let detractorsPercent = 0;
+    let npsZone = 'Razoável';
+    
+    if (totalForms > 0) {
+      let promoters = 0;
+      let neutrals = 0;
+      let detractors = 0;
+      filteredFormsByMonth.forEach(f => {
+        if (f.npsScore >= 9) promoters++;
+        else if (f.npsScore >= 7) neutrals++;
+        else detractors++;
+      });
+      promotersPercent = Math.round((promoters / totalForms) * 100);
+      neutralsPercent = Math.round((neutrals / totalForms) * 100);
+      detractorsPercent = Math.round((detractors / totalForms) * 100);
+      npsGlobal = Math.round(promotersPercent - detractorsPercent);
+
+      // excellent: >75, muito bom: 50 a 74, razoavel: 0 a 49, critico: <0
+      if (npsGlobal >= 75) npsZone = 'Excelente';
+      else if (npsGlobal >= 50) npsZone = 'Muito Bom';
+      else if (npsGlobal >= 0) npsZone = 'Razoável';
+      else npsZone = 'Crítico';
+    }
+
+    // Approval Index (percentage of Ótimo + Bom over all current month filtered evaluations)
+    const totalAnswers = filteredEvaluationsByMonth.length;
+    let positiveCount = 0;
+    filteredEvaluationsByMonth.forEach(e => {
+      if (e.rating === 'Otimo' || e.rating === 'Bom') positiveCount++;
+    });
+    const approvalIndex = totalAnswers > 0 ? Math.round((positiveCount / totalAnswers) * 100) : 0;
+
+    return { 
+      total, 
+      active, 
+      totalManifests, 
+      reclamacoes, 
+      denuncias, 
+      sugestoes, 
+      elogios, 
+      absentees,
+      totalForms,
+      npsGlobal,
+      promotersPercent,
+      neutralsPercent,
+      detractorsPercent,
+      npsZone,
+      approvalIndex
+    };
+  }, [filteredPatients, filteredMovements, filteredFormsByMonth, filteredEvaluationsByMonth]);
 
   // Data for Charts
   const diagnosisData = useMemo(() => {
@@ -830,23 +912,75 @@ const DashboardPage = ({
       .sort((a, b) => b.value - a.value);
   }, [filteredPatients]);
 
-  const trendData = useMemo(() => {
-    // Last 6 months
+  const criticalSectorsDashboard = useMemo(() => {
+    const list: Record<string, { positive: number; total: number; ruins: number }> = {};
+    filteredEvaluationsByMonth.forEach(e => {
+      if (!list[e.sector]) {
+        list[e.sector] = { positive: 0, total: 0, ruins: 0 };
+      }
+      list[e.sector].total++;
+      if (e.rating === 'Otimo' || e.rating === 'Bom') {
+        list[e.sector].positive++;
+      }
+      if (e.rating === 'Ruim') {
+        list[e.sector].ruins++;
+      }
+    });
+
+    return Object.entries(list)
+      .map(([sector, data]) => {
+        const negativePercent = data.total > 0 ? Math.round(((data.total - data.positive) / data.total) * 100) : 0;
+        return { sector, negativePercent, total: data.total, ruins: data.ruins };
+      })
+      .filter(s => s.total > 0 && (s.negativePercent > 15 || s.ruins >= 1));
+  }, [filteredEvaluationsByMonth]);
+
+  const chartSectorsData = useMemo(() => {
+    const list: Record<string, { approval: number; total: number }> = {};
+    filteredEvaluationsByMonth.forEach(e => {
+      if (!list[e.sector]) {
+        list[e.sector] = { approval: 0, total: 0 };
+      }
+      list[e.sector].total++;
+      if (e.rating === 'Otimo' || e.rating === 'Bom') {
+        list[e.sector].approval++;
+      }
+    });
+
+    return Object.entries(list)
+      .map(([name, data]) => ({
+        name,
+        'Aprovação (%)': data.total > 0 ? Math.round((data.approval / data.total) * 100) : 0,
+        Votos: data.total
+      }))
+      .sort((a, b) => b['Aprovação (%)'] - a['Aprovação (%)'])
+      .slice(0, 10);
+  }, [filteredEvaluationsByMonth]);
+
+  const satisfactionTrendData = useMemo(() => {
     const data = [];
+    const now = new Date();
+    // Last 6 months
     for (let i = 5; i >= 0; i--) {
-      const d = new Date();
-      d.setMonth(d.getMonth() - i);
-      const monthStr = d.toISOString().substring(0, 7);
-      const entries = movements.filter(m => m.type === 'Entrada' && m.date.startsWith(monthStr)).length;
-      const discharges = movements.filter(m => m.type === 'Alta' && m.date.startsWith(monthStr)).length;
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const monthNum = d.getMonth() + 1;
+      const monthStr = `${year}-${String(monthNum).padStart(2, '0')}`;
+      
+      const monthEvals = evaluations.filter(e => e.createdAt && e.createdAt.startsWith(monthStr));
+      const total = monthEvals.length;
+      const positive = monthEvals.filter(e => e.rating === 'Otimo' || e.rating === 'Bom').length;
+      const satPercent = total > 0 ? Math.round((positive / total) * 100) : 0;
+      
+      const monthName = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
       data.push({
-        name: d.toLocaleDateString('pt-BR', { month: 'short' }),
-        entradas: entries,
-        altas: discharges
+        name: monthName,
+        'Satisfação (%)': satPercent,
+        'Total Votos': total
       });
     }
     return data;
-  }, [movements]);
+  }, [evaluations]);
 
   const PIE_COLORS = ['#064e3b', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5'];
 
@@ -860,22 +994,23 @@ const DashboardPage = ({
       {/* Dashboard Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black text-[#064e3b] tracking-tight">Painel de Controle</h2>
-          <p className="text-sm font-semibold text-gray-400 mt-1 uppercase tracking-widest">Inteligência Clínica e Gerencial</p>
+          <h2 className="text-3xl font-black text-[#01402E] tracking-tight">Painel da Ouvidoria</h2>
+          <p className="text-sm font-semibold text-gray-400 mt-1 uppercase tracking-widest">Secretaria Municipal de Saúde - Policlínica</p>
         </div>
         
         <div className="bg-white p-2 rounded-2xl border border-gray-100 shadow-sm flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 px-3 border-r border-gray-100 last:border-none">
-            <Calendar size={14} className="text-emerald-600" />
+            <Calendar size={14} className="text-[#01402E]" />
             <input 
               type="month" 
               value={filterMonth}
               onChange={e => setFilterMonth(e.target.value)}
               className="text-xs font-bold text-gray-600 outline-none bg-transparent"
+              title="Filtrar Mês"
             />
           </div>
           <div className="flex items-center gap-2 px-3 border-r border-gray-100 last:border-none">
-            <MapPin size={14} className="text-emerald-600" />
+            <MapPin size={14} className="text-[#01402E]" />
             <select 
               value={filterCity}
               onChange={e => setFilterCity(e.target.value)}
@@ -886,119 +1021,142 @@ const DashboardPage = ({
             </select>
           </div>
           <div className="flex items-center gap-2 px-3 border-r border-gray-100 last:border-none">
-            <ClipboardList size={14} className="text-emerald-600" />
+            <ClipboardList size={14} className="text-[#01402E]" />
             <select 
               value={filterDiagnosis}
               onChange={e => setFilterDiagnosis(e.target.value)}
               className="text-xs font-bold text-gray-600 outline-none bg-transparent max-w-[150px]"
             >
-              <option value="">Todos Diagnósticos</option>
+              <option value="">Todos Assuntos</option>
               {availableDiagnoses.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2 px-3">
-            <Stethoscope size={14} className="text-emerald-600" />
+            <Stethoscope size={14} className="text-[#01402E]" />
             <select 
               value={filterProfessional}
               onChange={e => setFilterProfessional(e.target.value)}
               className="text-xs font-bold text-gray-600 outline-none bg-transparent max-w-[150px]"
             >
-              <option value="">Equipe Multidisciplinar</option>
+              <option value="">Todos os Setores</option>
               {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
         </div>
       </div>
 
+      {/* Real-time Sector Dissatisfaction warning alerts */}
+      {criticalSectorsDashboard.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-[2rem] p-6 flex gap-4 shadow-sm" id="id_sector_alarm_dashboard">
+          <div className="w-12 h-12 rounded-2xl bg-red-650 text-white flex items-center justify-center shrink-0 shadow-md">
+            <AlertCircle size={24} className="text-red-700" />
+          </div>
+          <div>
+            <h4 className="text-sm font-black text-red-950 uppercase tracking-tight">ALERTA CRÍTICO: ALTA INSATISFAÇÃO</h4>
+            <p className="text-xs text-red-700 mt-1 uppercase font-semibold">
+              Os seguintes setores registram insatisfação acumulada de pacientes superior a 15% (LGPD sob conformidade SUS):
+            </p>
+            <div className="flex flex-wrap gap-2.5 mt-3">
+              {criticalSectorsDashboard.map(s => (
+                <span key={s.sector} className="px-3.5 py-1.5 bg-white border border-red-200 text-red-700 text-[10px] font-black rounded-xl shadow-xs uppercase">
+                  {s.sector}: {s.negativePercent}% Reclamações ({s.total} avaliações)
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-        <Card title="Total Geral" value={stats.total.toString()} subtitle="Pacientes Base" icon={Users} />
-        <Card title="Ativos" value={stats.active.toString()} subtitle="Em Tratamento" colorClass="text-emerald-600" icon={Activity} />
-        <Card title="Investigação" value={stats.investigation.toString()} subtitle="Triagem Inicial" colorClass="text-amber-500" icon={Search} />
-        <Card title="Em Espera" value={stats.waiting.toString()} subtitle="Fila de Acesso" colorClass="text-blue-500" icon={Clock} />
-        <Card title="Pacientes c/ Falta" value={stats.absentees.toString()} subtitle="Base de Absenteísmo" colorClass="text-red-600" icon={AlertCircle} />
-        <Card title="Faltas no Mês" value={stats.monthlyAbsentees.toString()} subtitle="Total Absenteísmo" colorClass="text-orange-600" icon={AlertCircle} />
-        <Card title="Altas no Mês" value={stats.monthlyDischarges.toString()} subtitle="Ciclo Completo" colorClass="text-rose-600" icon={ArrowUpRight} />
-        <Card title="Entradas no Mês" value={stats.monthlyEntries.toString()} subtitle="Novas Admissões" colorClass="text-indigo-600" icon={ArrowDownRight} />
+        <Card title="Pesquisas SUS" value={stats.totalForms.toString()} subtitle="Pesquisas Totem" icon={Users} />
+        <Card 
+          title="NPS Global" 
+          value={stats.totalForms > 0 ? `${stats.npsGlobal > 0 ? '+' : ''}${stats.npsGlobal}` : 'N/A'} 
+          subtitle={stats.totalForms > 0 ? `Zona: ${stats.npsZone}` : 'Sem dados'} 
+          colorClass={
+            stats.npsZone === 'Excelente' ? "text-emerald-700" :
+            stats.npsZone === 'Muito Bom' ? "text-teal-600" :
+            stats.npsZone === 'Razoável' ? "text-amber-600 font-bold" :
+            stats.npsZone === 'Crítico' ? "text-red-700 font-extrabold animate-pulse" : "text-gray-400"
+          } 
+          icon={Activity} 
+        />
+        <Card title="Aprovação SUS" value={`${stats.approvalIndex}%`} subtitle="Ótimo & Bom" colorClass="text-emerald-600" icon={CheckCircle2} />
+        <Card title="Total Protocolos" value={stats.totalManifests.toString()} subtitle="Ouvidoria Geral" colorClass="text-blue-500" icon={ClipboardList} />
+        <Card title="Reclamações" value={stats.reclamacoes.toString()} subtitle="Manifestações" colorClass="text-orange-600" icon={AlertCircle} />
+        <Card title="Denúncias" value={stats.denuncias.toString()} subtitle="Casos Graves" colorClass="text-red-600" icon={Shield} />
+        <Card title="Elogios" value={stats.elogios.toString()} subtitle="Pontos Pró" colorClass="text-indigo-600" icon={ArrowUpRight} />
+        <Card title="Sugestões" value={stats.sugestoes.toString()} subtitle="Aprimoramentos" colorClass="text-amber-500" icon={Plus} />
       </div>
+
+      {stats.totalForms > 0 && (
+        <div className="bg-gray-50/50 p-4 rounded-2xl border border-gray-100 flex flex-wrap items-center justify-between gap-4 text-xs font-semibold text-gray-500 shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+            <span>Promotores (9-10): <strong className="text-emerald-700 font-black">{stats.promotersPercent}%</strong></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+            <span>Neutros/Passivos (7-8): <strong className="text-amber-600 font-black">{stats.neutralsPercent}%</strong></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0"></span>
+            <span>Detratores (0-6): <strong className="text-red-650 font-black">{stats.detractorsPercent}%</strong></span>
+          </div>
+          <div className="text-[10px] uppercase font-bold text-gray-400 border-l border-gray-100 pl-4">
+            Cálculo NPS: <span className="bg-white px-2 py-0.5 rounded-md border border-gray-100 font-bold text-gray-600">% Promotores - % Detratores ({stats.promotersPercent}% - {stats.detractorsPercent}% = {stats.npsGlobal > 0 ? '+' : ''}{stats.npsGlobal})</span>
+          </div>
+        </div>
+      )}
 
       {/* Grid of Main Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Trend Chart */}
+        {/* Trend Chart (Evolução de Satisfação) */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"
         >
           <div className="flex items-center justify-between mb-8">
-            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-               <ArrowUpRight size={16} className="text-emerald-600" /> Fluxo de Atendimento (Semestral)
-            </h3>
+            <div>
+              <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                 <TrendingUp size={16} className="text-[#01402E]" /> Gráfico de Satisfação Mensal (%)
+              </h3>
+              <p className="text-xs text-gray-400 mt-1 uppercase font-semibold">Tendência histórica global de aprovação (votos Ótimo/Bom) nos últimos 6 meses</p>
+            </div>
+            <span className="text-[10px] uppercase font-black text-[#01402E] bg-emerald-50 px-3 py-1 rounded-xl">linha de evolução</span>
           </div>
           <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trendData}>
-                <defs>
-                  <linearGradient id="colorEntradas" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#064e3b" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#064e3b" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorAltas" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#e11d48" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#e11d48" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', fontSize: '12px' }}
-                />
-                <Legend iconType="circle" />
-                <Area type="monotone" dataKey="entradas" stroke="#064e3b" strokeWidth={3} fillOpacity={1} fill="url(#colorEntradas)" />
-                <Area type="monotone" dataKey="altas" stroke="#e11d48" strokeWidth={3} fillOpacity={1} fill="url(#colorAltas)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-
-        {/* Diagnosis Distribution */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"
-        >
-          <div className="mb-8">
-            <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-               <Stethoscope size={16} className="text-emerald-600" /> Pacientes por Diagnóstico
-            </h3>
-          </div>
-          <div className="h-[300px] w-full flex items-center justify-center">
-            {diagnosisData.length > 0 ? (
-               <ResponsiveContainer width="100%" height="100%">
-               <PieChart>
-                 <Pie
-                   data={diagnosisData}
-                   cx="50%"
-                   cy="50%"
-                   innerRadius={60}
-                   outerRadius={100}
-                   paddingAngle={5}
-                   dataKey="value"
-                 >
-                   {diagnosisData.map((entry, index) => (
-                     <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                   ))}
-                 </Pie>
-                 <Tooltip />
-                 <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 700 }} />
-               </PieChart>
-             </ResponsiveContainer>
+            {satisfactionTrendData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={satisfactionTrendData}>
+                  <defs>
+                    <linearGradient id="colorSatisfaction" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#01402E" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#01402E" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
+                  <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} unit="%" />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', fontSize: '12px' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    name="Satisfação (%)" 
+                    dataKey="Satisfação (%)" 
+                    stroke="#01402E" 
+                    strokeWidth={4} 
+                    dot={{ stroke: '#01402E', strokeWidth: 3, r: 5, fill: '#ffffff' }}
+                    activeDot={{ r: 8, strokeWidth: 0, fill: '#01402E' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="text-center text-gray-300">
-                <p className="text-sm font-bold">Sem dados para exibir</p>
-                <p className="text-xs">Cadastre pacientes para ver estatísticas</p>
+              <div className="h-full flex items-center justify-center text-center text-gray-300">
+                <p className="text-sm font-bold uppercase text-xs">Sem dados suficientes</p>
               </div>
             )}
           </div>
@@ -1013,7 +1171,7 @@ const DashboardPage = ({
         >
           <div className="mb-8">
             <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-               <MapPin size={16} className="text-emerald-600" /> Distribuição por Município
+               <MapPin size={16} className="text-[#01402E]" /> Distribuição por Origem (Cidadão)
             </h3>
           </div>
           <div className="h-[300px] w-full">
@@ -1023,10 +1181,86 @@ const DashboardPage = ({
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} width={100} />
                 <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none' }} />
-                <Bar dataKey="value" fill="#064e3b" radius={[0, 10, 10, 0]} barSize={20} />
+                <Bar dataKey="value" fill="#01402E" radius={[0, 10, 10, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </motion.div>
+
+        {/* Performance de Aprovação por Setor (%) with both Columns Chart and Table side-by-side */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2"
+        >
+          <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                 <Building2 size={16} className="text-[#01402E]" /> Performance de Aprovação por Setor (%)
+              </h3>
+              <p className="text-xs text-gray-400 mt-1 uppercase font-semibold">Avaliação desagregada baseada em votos digitados no Totem Eletrônico no mês corrente (Ótimo & Bom)</p>
+            </div>
+            {chartSectorsData.length > 0 && (
+              <span className="text-[10px] uppercase font-black text-[#01402E] bg-emerald-50 px-3 py-1 rounded-xl self-start">
+                {chartSectorsData.length} Setores Avaliados
+              </span>
+            )}
+          </div>
+          
+          {chartSectorsData.length > 0 ? (
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+              {/* Columns Chart */}
+              <div className="xl:col-span-7 h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartSectorsData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fill: '#64748b', fontWeight: 'bold'}} />
+                    <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#64748b', fontWeight: 'bold'}} unit="%" />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }} />
+                    <Bar dataKey="Aprovação (%)" fill="#01402E" radius={[6, 6, 0, 0]} barSize={35} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Data Table */}
+              <div className="xl:col-span-5 overflow-hidden rounded-2xl border border-gray-100">
+                <div className="max-h-[320px] overflow-y-auto pr-1">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50/50 border-b border-gray-100 text-gray-400 uppercase tracking-wider sticky top-0">
+                        <th className="p-3 font-black text-[10px]">Setor</th>
+                        <th className="p-3 font-black text-[10px] text-center">Nº Avaliações</th>
+                        <th className="p-3 font-black text-[10px] text-right">Aprovação (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 text-gray-700">
+                      {chartSectorsData.map((s) => (
+                        <tr key={s.name} className="hover:bg-gray-50/50 transition">
+                          <td className="p-3 font-bold text-gray-850">{s.name}</td>
+                          <td className="p-3 text-center font-bold text-gray-500">{s.Votos}</td>
+                          <td className="p-3 text-right">
+                            <span className={`inline-block px-2.5 py-1 rounded-lg font-black text-[10px] ${
+                              s['Aprovação (%)'] >= 75 ? 'bg-emerald-50 text-emerald-700' :
+                              s['Aprovação (%)'] >= 50 ? 'bg-teal-50 text-teal-700' :
+                              s['Aprovação (%)'] >= 30 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-700'
+                            }`}>
+                              {s['Aprovação (%)']}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="py-12 text-center text-gray-300">
+              <p className="text-sm font-bold uppercase text-xs">Sem dados setoriais para exibir</p>
+              <p className="text-xs mt-1">Colete pesquisas no totem para alimentar as aprovações.</p>
+            </div>
+          )}
         </motion.div>
 
         {/* Professional Capacity */}
@@ -1038,7 +1272,7 @@ const DashboardPage = ({
         >
           <div className="mb-8">
             <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-               <UserSquare2 size={16} className="text-emerald-600" /> Pacientes por Profissional
+               <UserSquare2 size={16} className="text-[#01402E]" /> Manifestações por Setor Demandado
             </h3>
           </div>
           <div className="h-[300px] w-full">
@@ -1046,7 +1280,7 @@ const DashboardPage = ({
               <BarChart data={professionalData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 9, fontWeight: 700, fill: '#64748b'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#64748b'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWight: 700, fill: '#64748b'}} />
                 <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none' }} />
                 <Bar dataKey="value" fill="#10b981" radius={[10, 10, 0, 0]} barSize={30} />
               </BarChart>
@@ -1057,35 +1291,40 @@ const DashboardPage = ({
 
       {/* Recent Activity Lists */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-        {/* Recent Patients */}
+        {/* Recent Totem Feedbacks */}
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm"
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-black text-[#064e3b] tracking-tight uppercase text-xs flex items-center gap-2">
-              <Plus size={14} /> Adicionados Recentemente
+            <h3 className="font-black text-[#01402E] tracking-tight uppercase text-xs flex items-center gap-2">
+              <Plus size={14} /> Comentários Recentes do Totem
             </h3>
-            <button className="text-[10px] font-black text-emerald-600 uppercase hover:underline">Ver Todos</button>
           </div>
-          <div className="space-y-4">
-            {patients.slice(-5).reverse().map(p => (
-              <div key={p.id} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-emerald-50/20 transition-all border border-transparent hover:border-emerald-50 group">
-                <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-[#064e3b] font-black group-hover:bg-white group-hover:shadow-sm">
-                  {p.name.charAt(0)}
+          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">
+            {forms.filter(f => f.generalComment).slice(0, 5).map(f => (
+              <div key={f.id} className="p-4 bg-gray-50/50 rounded-2xl border border-gray-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-[#01402E]">Pesquisa Eletrônica</span>
+                  <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${
+                    f.npsScore >= 9 ? 'bg-emerald-50 text-emerald-700' : f.npsScore >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-700'
+                  }`}>
+                    Nota NPS: {f.npsScore}
+                  </span>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-gray-900 truncate">{p.name}</p>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">#{p.medicalRecordNumber} • {p.city}</p>
+                <p className="text-xs font-semibold text-gray-600 leading-relaxed italic">
+                  "{f.generalComment}"
+                </p>
+                <div className="text-right text-[8px] font-bold text-gray-400">
+                  {new Date(f.createdAt).toLocaleDateString('pt-BR')} às {new Date(f.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <StatusBadge status={p.status} />
               </div>
             ))}
-            {patients.length === 0 && (
-               <div className="py-10 text-center text-gray-300">
-                  <Users size={32} className="mx-auto mb-2 opacity-10" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest">Sem registros recentes</p>
+            {forms.filter(f => f.generalComment).length === 0 && (
+               <div className="py-12 text-center text-gray-300">
+                  <Users size={32} className="mx-auto mb-2 opacity-10 text-emerald-800" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Sem comentários recém-registrados</p>
                </div>
             )}
           </div>
@@ -1099,7 +1338,7 @@ const DashboardPage = ({
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-black text-[#064e3b] tracking-tight uppercase text-xs flex items-center gap-2">
-              <Clock size={14} /> Últimas Movimentações
+              <Clock size={14} /> Últimas Manifestações Registradas
             </h3>
             <button className="text-[10px] font-black text-emerald-600 uppercase hover:underline">Histórico Completo</button>
           </div>
@@ -1159,8 +1398,8 @@ const PatientsPage = ({
   const [filterStatus, setFilterStatus] = useState<PatientStatus | ''>('');
   const [showOnlyAbsentees, setShowOnlyAbsentees] = useState(false);
 
-  const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
-  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+  const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
+  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
 
   const filteredPatients = useMemo(() => {
     return patients.filter(p => {
@@ -1191,21 +1430,21 @@ const PatientsPage = ({
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving patient:', error);
-      alert('Erro ao salvar paciente. Verifique as permissões.');
+      alert('Erro ao salvar cadastro. Verifique suas credenciais de acesso.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Deseja realmente enviar este paciente para a lixeira?')) {
+    if (window.confirm('Deseja realmente enviar este registro de cidadão para a lixeira?')) {
       try {
         await PatientService.softDeletePatient(id);
       } catch (error: any) {
         console.error('Error deleting patient:', error);
-        let msg = 'Erro ao excluir paciente.';
+        let msg = 'Erro ao excluir cidadão.';
         try {
           const errData = JSON.parse(error.message);
           if (errData.error.includes('permission')) {
-            msg += ' Permissão insuficiente.';
+            msg += ' Permissão insuficiente de banco de dados.';
           }
         } catch (e) {}
         alert(msg);
@@ -1222,8 +1461,8 @@ const PatientsPage = ({
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Pacientes</h2>
-          <p className="text-sm font-medium text-gray-500">Gestão centralizada do cadastro de pacientes</p>
+          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Cidadãos e Manifestantes</h2>
+          <p className="text-sm font-medium text-gray-500">Gestão centralizada do cadastro de cidadãos e manifestantes da Policlínica</p>
         </div>
         {canEdit && (
           <button 
@@ -1231,7 +1470,7 @@ const PatientsPage = ({
             className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
           >
             <Plus size={20} />
-            Novo Paciente
+            Novo Cadastro
           </button>
         )}
       </div>
@@ -1243,7 +1482,7 @@ const PatientsPage = ({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar por nome ou prontuário..."
+              placeholder="Buscar por nome ou CPF/CNS..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium"
@@ -1269,7 +1508,7 @@ const PatientsPage = ({
               onChange={e => setFilterProfessional(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium appearance-none"
             >
-              <option value="">Equipe Multidisciplinar</option>
+              <option value="">Todos os Setores</option>
               {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
@@ -1283,9 +1522,9 @@ const PatientsPage = ({
             >
               <option value="">Todas as Situações</option>
               <option value="Ativo">Ativo</option>
-              <option value="Alta">Alta</option>
-              <option value="Investigação">Investigação</option>
-              <option value="Espera">Espera</option>
+              <option value="Alta">Alta / Resposta Final</option>
+              <option value="Investigação">Em Análise / Investigação</option>
+              <option value="Espera">Espera / Pendência</option>
             </select>
           </div>
         </div>
@@ -1297,7 +1536,7 @@ const PatientsPage = ({
                checked={showOnlyAbsentees}
                onChange={e => setShowOnlyAbsentees(e.target.checked)}
              />
-             <span className="text-xs font-bold text-gray-500 group-hover:text-emerald-700 transition-colors">Ver apenas pacientes com absenteísmo</span>
+             <span className="text-xs font-bold text-gray-500 group-hover:text-emerald-700 transition-colors">Ver apenas cidadãos com registro de absenteísmo</span>
            </label>
         </div>
       </div>
@@ -1308,12 +1547,12 @@ const PatientsPage = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Prontuário</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Paciente</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Identificação (CPF)</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Cidadão / Manifestante</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Idade</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Diagnóstico Principal</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Resp. Técnico</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Assunto Principal</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Setores Vinculados</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Situação</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Ações</th>
               </tr>
             </thead>
@@ -1322,8 +1561,8 @@ const PatientsPage = ({
                 <tr>
                   <td colSpan={7} className="px-6 py-20 text-center text-gray-400">
                     <Users size={48} className="mx-auto mb-4 opacity-10" />
-                    <p className="font-bold">Nenhum paciente encontrado</p>
-                    <p className="text-xs">Tente ajustar seus filtros ou cadastrar um novo paciente</p>
+                    <p className="font-bold">Nenhum cidadão ou manifestante encontrado</p>
+                    <p className="text-xs">Tente ajustar seus filtros de busca ou registrar um novo cidadão</p>
                   </td>
                 </tr>
               ) : (
@@ -1403,7 +1642,7 @@ const PatientsPage = ({
           </table>
         </div>
         <div className="px-6 py-4 bg-gray-50/30 border-t border-gray-100 flex items-center justify-between">
-           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Listando {filteredPatients.length} de {patients.length} pacientes</p>
+           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Listando {filteredPatients.length} de {patients.length} cidadãos</p>
         </div>
       </div>
 
@@ -1441,9 +1680,9 @@ const MovementsPage = ({
   const [filterProfessional, setFilterProfessional] = useState('');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
 
-  const canCreate = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
-  const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
-  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
+  const canCreate = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
+  const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
+  const canDelete = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
 
   const filteredMovements = useMemo(() => {
     return movements
@@ -1467,8 +1706,8 @@ const MovementsPage = ({
 
   const stats = useMemo(() => {
     const currentMonth = filteredMovements;
-    const entries = currentMonth.filter(m => m.type === 'Entrada').length;
-    const discharges = currentMonth.filter(m => m.type === 'Alta').length;
+    const entries = currentMonth.filter(m => m.type === 'Elogio' || m.type === 'Sugestão' || m.type === 'Entrada').length;
+    const discharges = currentMonth.filter(m => m.type === 'Alta' || m.type === 'Reclamação' || m.type === 'Denúncia').length;
     const absentees = currentMonth.filter(m => m.type === 'Absenteísmo').length;
     const activePatients = patients.filter(p => p.status === 'Ativo').length;
     return { entries, discharges, activePatients, absentees, total: currentMonth.length };
@@ -1493,13 +1732,13 @@ const MovementsPage = ({
       } else {
         await MovementService.addMovement(data);
         
-        // Se for um novo absenteísmo, incrementa o contador
+        // Se for um novo absenteísmo, incrementa o contador e se >= 3 altera para alta/vaga perdida
         if (data.type === 'Absenteísmo' && patient) {
           const newCount = (patient.absenteeismCount || 0) + 1;
           const updates: Partial<Patient> = { absenteeismCount: newCount };
           
           if (newCount >= 3) {
-            alert(`ATENÇÃO: O paciente ${patient.name} atingiu 3 absenteísmos e perderá a vaga (status alterado para Alta).`);
+            alert(`ATENÇÃO: O(A) cidadão(ã) ${patient.name} atingiu 3 marcações de absenteísmo e perderá a vaga de atendimento (situação cadastral alterada automaticamente para Alta/Resolvido).`);
             updates.status = 'Alta';
           }
           
@@ -1507,7 +1746,7 @@ const MovementsPage = ({
         }
       }
 
-      // Se for uma movimentação de ALTA, atualiza o status do paciente
+      // Se for uma movimentação de ALTA, atualiza o status do cidadão
       if (data.type === 'Alta') {
         if (patient) {
           await PatientService.updatePatient(patient.id, { 
@@ -1517,7 +1756,7 @@ const MovementsPage = ({
           });
         }
       } 
-      // Se for uma ENTRADA, garante que o paciente esteja ATIVO
+      // Se for uma ENTRADA ou positiva, garante que o cidadão esteja ATIVO de contato
       else if (data.type === 'Entrada') {
         if (patient) {
           await PatientService.updatePatient(patient.id, { 
@@ -1531,7 +1770,7 @@ const MovementsPage = ({
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving movement:', error);
-      alert('Erro ao registrar movimentação.');
+      alert('Erro ao registrar protocolo. Verifique suas credenciais.');
     }
   };
 
@@ -1539,7 +1778,7 @@ const MovementsPage = ({
     const movement = movements.find(m => m.id === id);
     if (!movement) return;
 
-    if (window.confirm('Deseja realmente enviar esta movimentação para a lixeira?')) {
+    if (window.confirm('Deseja realmente enviar esta manifestação de ouvidoria para a lixeira?')) {
       try {
         await MovementService.softDeleteMovement(id);
         
@@ -1563,11 +1802,11 @@ const MovementsPage = ({
         }
       } catch (error: any) {
         console.error('Error deleting movement:', error);
-        let msg = 'Erro ao excluir movimentação.';
+        let msg = 'Erro ao excluir manifestação.';
         try {
           const errData = JSON.parse(error.message);
           if (errData.error.includes('permission')) {
-            msg += ' Permissão insuficiente.';
+            msg += ' Permissão insuficiente no banco.';
           }
         } catch (e) {}
         alert(msg);
@@ -1584,8 +1823,8 @@ const MovementsPage = ({
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Movimentações</h2>
-          <p className="text-sm font-medium text-gray-500">Controle mensal de entradas, altas e fluxos</p>
+          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Manifestações e Protocolos</h2>
+          <p className="text-sm font-medium text-gray-500">Histórico de reclamações, elogios, denúncias e registros de ouvidoria</p>
         </div>
         {canCreate && (
           <button 
@@ -1593,18 +1832,18 @@ const MovementsPage = ({
             className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
           >
             <Plus size={20} />
-            Nova Movimentação
+            Nova Manifestação
           </button>
         )}
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <Card title="Entradas no Mês" value={stats.entries.toString()} subtitle="Novos pacientes" icon={Plus} />
-        <Card title="Altas no Mês" value={stats.discharges.toString()} subtitle="Ciclos finalizados" icon={ClipboardList} />
-        <Card title="Faltas no Mês" value={stats.absentees.toString()} subtitle="Total absenteísmo" colorClass="text-red-600" icon={AlertCircle} />
-        <Card title="Pacientes Ativos" value={stats.activePatients.toString()} subtitle="Base atual" icon={Users} />
-        <Card title="Total Movimentos" value={stats.total.toString()} subtitle="No período" icon={Clock} />
+        <Card title="Positivos / Entradas" value={stats.entries.toString()} subtitle="Elogios e Sugestões" icon={Plus} />
+        <Card title="Altas / Críticas" value={stats.discharges.toString()} subtitle="Resoluções e Demandas" icon={ClipboardList} />
+        <Card title="Ocor. Absenteísmo" value={stats.absentees.toString()} subtitle="Total absenteísmo" colorClass="text-red-600" icon={AlertCircle} />
+        <Card title="Cidadãos Ativos" value={stats.activePatients.toString()} subtitle="Base de contato atual" icon={Users} />
+        <Card title="Total Manifestações" value={stats.total.toString()} subtitle="No período filtrado" icon={Clock} />
       </div>
 
       {/* Filters */}
@@ -1614,7 +1853,7 @@ const MovementsPage = ({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
-              placeholder="Nome ou prontuário..."
+              placeholder="Nome ou identificação (CPF)..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium"
@@ -1638,7 +1877,7 @@ const MovementsPage = ({
               onChange={e => setFilterProfessional(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium appearance-none"
             >
-              <option value="">Todos Profissionais</option>
+              <option value="">Todos os Setores</option>
               {availableProfessionals.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
@@ -1650,13 +1889,17 @@ const MovementsPage = ({
               onChange={e => setFilterType(e.target.value as any)}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium appearance-none"
             >
-              <option value="">Todos os Tipos</option>
-              <option value="Atendimento">Atendimento</option>
+              <option value="">Todos os Tipos de Registros</option>
+              <option value="Reclamação">Reclamação</option>
+              <option value="Denúncia">Denúncia</option>
+              <option value="Sugestão">Sugestão</option>
+              <option value="Elogio">Elogio</option>
+              <option value="Solicitação">Solicitação</option>
+              <option value="Absenteísmo">Absenteísmo</option>
+              <option value="Atendimento">Atendimento / Ocorrência Geral</option>
               <option value="Entrada">Entrada</option>
-              <option value="Alta">Alta</option>
-              <option value="Transferência">Transferência</option>
-              <option value="Mudança de profissional">Mudança de profissional</option>
-              <option value="Atualização cadastral">Atualização cadastral</option>
+              <option value="Alta">Alta / Resolução</option>
+              <option value="Transferência">Transferência de Setor</option>
             </select>
           </div>
         </div>
@@ -1668,22 +1911,22 @@ const MovementsPage = ({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Data</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Data Registro</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Tipo</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Paciente</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Diagnóstico</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Resp. Técnico</th>
-                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Observação</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Cidadão / Manifestante</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Assunto / Tema</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Setor Demandado</th>
+                <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest">Relato / Trâmite</th>
                 <th className="px-6 py-4 text-[11px] font-black text-gray-400 uppercase tracking-widest text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredMovements.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center text-gray-400">
+                  <td colSpan={7} className="px-6 py-20 text-center text-gray-400">
                     <ClipboardList size={48} className="mx-auto mb-4 opacity-10" />
-                    <p className="font-bold">Nenhuma movimentação no período</p>
-                    <p className="text-xs">Registre uma nova ocorrência clicando no botão acima</p>
+                    <p className="font-bold">Nenhuma manifestação no período</p>
+                    <p className="text-xs">Registre uma nova ocorrência de ouvidoria clicando no botão acima</p>
                   </td>
                 </tr>
               ) : (
@@ -1713,7 +1956,7 @@ const MovementsPage = ({
                     </td>
                     <td className="px-6 py-4">
                        <p className="text-[10px] font-bold text-[#064e3b]">{m.responsibleProfessional || '-'}</p>
-                       <p className="text-[9px] text-gray-400">Equipe original: {m.professionals.join(', ') || '-'}</p>
+                       <p className="text-[9px] text-gray-400">Setores vincl.: {m.professionals.join(', ') || '-'}</p>
                     </td>
                     <td className="px-6 py-4">
                        <p className="text-xs text-gray-500 max-w-[200px] truncate" title={m.observations}>{m.observations || '-'}</p>
@@ -1766,11 +2009,23 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
+  const [forms, setForms] = useState<EvaluationForm[]>([]);
+  const [evaluations, setEvaluations] = useState<SectorEvaluation[]>([]);
+  const [isPatientMode, setIsPatientMode] = useState(false);
+
+  useEffect(() => {
+    // Detect ?mode=paciente
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'paciente') {
+      setIsPatientMode(true);
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -1801,6 +2056,8 @@ export default function App() {
     const unsubscribePros = ProfessionalService.subscribeToProfessionals(setProfessionals);
     const unsubscribeMunis = MunicipalityService.subscribeToMunicipalities(setMunicipalities);
     const unsubscribeDiagnoses = DiagnosisService.subscribeToDiagnoses(setDiagnoses);
+    const unsubscribeForms = SurveyService.subscribeToForms(setForms);
+    const unsubscribeEvals = SurveyService.subscribeToEvaluations(setEvaluations);
 
     return () => {
       unsubscribePatients();
@@ -1808,6 +2065,8 @@ export default function App() {
       unsubscribePros();
       unsubscribeMunis();
       unsubscribeDiagnoses();
+      unsubscribeForms();
+      unsubscribeEvals();
     };
   }, [isLoggedIn]);
 
@@ -1832,21 +2091,26 @@ export default function App() {
       case 'profile': return true;
       case 'patients': return true;
       case 'movements': return true;
+      case 'new-form': return true;
       case 'reports': return currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Administrador';
       case 'professionals': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'municipalities': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'diagnoses': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção';
       case 'trash': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação';
-      case 'users': return false;
+      case 'users': return currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação';
       default: return false;
     }
   };
 
+  if (isPatientMode) {
+    return <PatientSurveyPage availableSectors={professionals.filter(p => p.status === 'Active').map(p => p.name)} />;
+  }
+
   if (!isInitialized) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-        <div className="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mb-4"></div>
-        <p className="text-[#064e3b] font-black uppercase tracking-widest text-xs">Carregando Sistema...</p>
+        <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-indigo-600 font-black uppercase tracking-widest text-[#01402E] text-xs">Carregando Ouvidoria...</p>
       </div>
     );
   }
@@ -1859,26 +2123,30 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar - Desktop */}
       <motion.aside 
-        animate={{ width: sidebarCollapsed ? 80 : 260 }}
-        className={`bg-white border-r border-[#064e3b]/5 hidden lg:flex flex-col fixed h-full z-40 transition-all ${sidebarCollapsed ? 'items-center' : 'p-5'}`}
+        animate={{ width: sidebarCollapsed ? 80 : 280 }}
+        className={`bg-white border-r border-gray-100 hidden lg:flex flex-col fixed h-full z-40 transition-all ${sidebarCollapsed ? 'items-center px-2 py-5' : 'p-6'}`}
       >
-        <div className={`flex items-center mb-10 h-10 ${sidebarCollapsed ? 'justify-center' : 'justify-between px-2'}`}>
-          {!sidebarCollapsed && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#064e3b] rounded-xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
-                <UserSquare2 size={18} className="text-white" />
+        {/* Header App Brand */}
+        <div className={`flex items-center mb-8 h-12 ${sidebarCollapsed ? 'justify-center' : 'justify-between px-2'}`}>
+          {!sidebarCollapsed ? (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20 text-white font-black text-lg">
+                P
               </div>
-              <span className="font-extrabold text-[#064e3b] tracking-tighter text-xl">CER</span>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-gray-800 tracking-tight text-base leading-none">Ouvidoria</span>
+                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">Policlínica</span>
+              </div>
             </div>
-          )}
-          {sidebarCollapsed && (
-             <div className="w-12 h-12 bg-[#064e3b] rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-900/20">
-                <UserSquare2 size={24} className="text-white" />
-             </div>
+          ) : (
+            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20 text-white font-black text-xl">
+              P
+            </div>
           )}
         </div>
 
-        <nav className="space-y-2 flex-1">
+        {/* Navigation list */}
+        <nav className="space-y-1.5 flex-1 overflow-y-auto pr-1">
           {canAccess('dashboard') && (
             <SidebarItem 
               icon={LayoutDashboard} 
@@ -1888,24 +2156,7 @@ export default function App() {
               collapsed={sidebarCollapsed}
             />
           )}
-          {canAccess('patients') && (
-            <SidebarItem 
-              icon={Users} 
-              label="Pacientes" 
-              active={currentPage === 'patients'} 
-              onClick={() => setCurrentPage('patients')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
-          {canAccess('movements') && (
-            <SidebarItem 
-              icon={ClipboardList} 
-              label="Movimentações" 
-              active={currentPage === 'movements'} 
-              onClick={() => setCurrentPage('movements')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
+
           {canAccess('reports') && (
             <SidebarItem 
               icon={BarChart3} 
@@ -1915,69 +2166,97 @@ export default function App() {
               collapsed={sidebarCollapsed}
             />
           )}
+
+          {canAccess('new-form') && (
+            <SidebarItem 
+              icon={Plus} 
+              label="Novo Formulário" 
+              active={currentPage === 'new-form'} 
+              onClick={() => setCurrentPage('new-form')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
+
+          {canAccess('movements') && (
+            <SidebarItem 
+              icon={ClipboardList} 
+              label="Histórico" 
+              active={currentPage === 'movements'} 
+              onClick={() => setCurrentPage('movements')}
+              collapsed={sidebarCollapsed}
+            />
+          )}
+
           {canAccess('professionals') && (
             <SidebarItem 
-              icon={Stethoscope} 
-              label="Equipe" 
+              icon={Building2} 
+              label="Gestão de Setores" 
               active={currentPage === 'professionals'} 
               onClick={() => setCurrentPage('professionals')}
               collapsed={sidebarCollapsed}
             />
           )}
-          {canAccess('municipalities') && (
-            <SidebarItem 
-              icon={MapPin} 
-              label="Municípios" 
-              active={currentPage === 'municipalities'} 
-              onClick={() => setCurrentPage('municipalities')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
-          {canAccess('diagnoses') && (
-            <SidebarItem 
-              icon={ClipboardList} 
-              label="Diagnósticos" 
-              active={currentPage === 'diagnoses'} 
-              onClick={() => setCurrentPage('diagnoses')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
+
           {canAccess('users') && (
             <SidebarItem 
-              icon={Shield} 
-              label="Usuários" 
+              icon={Users} 
+              label="Gerenciar Equipe" 
               active={currentPage === 'users'} 
               onClick={() => setCurrentPage('users')}
               collapsed={sidebarCollapsed}
             />
           )}
-          {canAccess('trash') && (
-            <SidebarItem 
-              icon={Trash2} 
-              label="Lixeira" 
-              active={currentPage === 'trash'} 
-              onClick={() => setCurrentPage('trash')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
+
+
         </nav>
 
-        {!sidebarCollapsed && (
-          <div className="mt-auto p-5 bg-emerald-50/50 rounded-2xl border border-emerald-100/50">
-            <p className="text-[9px] font-black text-emerald-800/40 uppercase tracking-[0.2em] mb-2">Segurança & Auditoria</p>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse"></div>
-              <span className="text-xs text-[#064e3b] font-extrabold uppercase tracking-tight">Ambiente Monitorado</span>
+        {/* Call to action "Divulgar Pesquisa" and User Info */}
+        <div className="space-y-4 pt-4 border-t border-gray-100">
+          
+          {/* Share Survey CTA */}
+          <button
+            onClick={() => setIsShareModalOpen(true)}
+            className={`w-full py-3 px-4 rounded-2xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100/70 text-indigo-700 transition-all font-black text-xs uppercase tracking-wider flex items-center gap-2 justify-center cursor-pointer ${
+              sidebarCollapsed ? 'p-3' : ''
+            }`}
+            title="Divulgar Pesquisa de Satisfação"
+          >
+            <QrCode size={16} />
+            {!sidebarCollapsed && <span>Divulgar Pesquisa</span>}
+          </button>
+
+          {/* User Institution Profile Section */}
+          {!sidebarCollapsed ? (
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2.5xl border border-gray-100">
+              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-sm shrink-0 uppercase">
+                {currentUser?.name.charAt(0) || 'P'}
+              </div>
+              <div className="flex flex-col truncate">
+                <span className="text-xs font-black text-gray-800 leading-snug">Policlínica</span>
+                <span className="text-[10px] text-gray-400 font-bold truncate">{currentUser?.email || 'poli.ouvidoria@gmail.com'}</span>
+              </div>
             </div>
-            <p className="text-[9px] text-gray-400 font-medium italic leading-relaxed">
-              DADOS SENSÍVEIS: Todo acesso é registrado.
-            </p>
-          </div>
-        )}
+          ) : (
+            <div className="w-12 h-12 rounded-2xl bg-gray-50 text-indigo-750 border border-gray-100 font-black flex items-center justify-center text-lg uppercase shadow-sm">
+              {currentUser?.name.charAt(0) || 'P'}
+            </div>
+          )}
+
+          {/* Sair Button */}
+          <button
+            onClick={handleLogout}
+            className={`w-full flex items-center gap-3 py-2 px-4 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-700 transition-all font-black text-xs uppercase tracking-wider cursor-pointer ${
+              sidebarCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <LogOut size={16} />
+            {!sidebarCollapsed && <span>Sair</span>}
+          </button>
+        </div>
       </motion.aside>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col transition-all lg:ml-[260px] ${sidebarCollapsed ? 'lg:!ml-20' : ''}`}>
+      <div className={`flex-1 flex flex-col transition-all lg:ml-[280px] ${sidebarCollapsed ? 'lg:!ml-20' : ''}`}>
         <Header 
           user={currentUser} 
           onLogout={handleLogout} 
@@ -1997,6 +2276,17 @@ export default function App() {
                 availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
                 availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
                 availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
+              />
+            )}
+            {currentPage === 'new-form' && (
+              <NewFormPage 
+                key="new-form"
+                patients={patients}
+                currentUser={currentUser}
+                availableSectors={professionals.filter(p => p.status === 'Active').map(p => p.name)}
+                availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
+                availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
+                onNavigateToHistory={() => setCurrentPage('movements')}
               />
             )}
             {currentPage === 'patients' && (
@@ -2022,12 +2312,10 @@ export default function App() {
             )}
             {currentPage === 'reports' && canAccess('reports') && (
               <ReportsPage 
-                patients={patients} 
-                movements={movements} 
+                forms={forms}
+                evaluations={evaluations}
                 currentUser={currentUser} 
-                availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
-                availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
-                availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
+                availableSectors={professionals.filter(p => p.status === 'Active').map(p => p.name)}
               />
             )}
             {currentPage === 'professionals' && canAccess('professionals') && (
@@ -2050,6 +2338,11 @@ export default function App() {
             )}
           </AnimatePresence>
         </main>
+
+        <ShareSurveyModal 
+          isOpen={isShareModalOpen} 
+          onClose={() => setIsShareModalOpen(false)} 
+        />
       </div>
     </div>
   );
