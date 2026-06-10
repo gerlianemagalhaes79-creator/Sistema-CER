@@ -20,7 +20,10 @@ export const PatientService = {
       const q = query(collection(db, PATH), orderBy('name', 'asc'));
       const snapshot = await getDocs(q);
       return snapshot.docs
-        .map(doc => doc.data() as Patient)
+        .map(doc => {
+          const data = doc.data() as Patient;
+          return { ...data, id: doc.id };
+        })
         .filter(p => !p.deletedAt);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
@@ -33,7 +36,10 @@ export const PatientService = {
     const q = query(collection(db, PATH), orderBy('name', 'asc'));
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs
-        .map(doc => doc.data() as Patient)
+        .map(doc => {
+          const data = doc.data() as Patient;
+          return { ...data, id: doc.id };
+        })
         .filter(p => !p.deletedAt)
       );
     }, (error) => {
@@ -46,7 +52,10 @@ export const PatientService = {
     const q = query(collection(db, PATH), orderBy('deletedAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs
-        .map(doc => doc.data() as Patient)
+        .map(doc => {
+          const data = doc.data() as Patient;
+          return { ...data, id: doc.id };
+        })
         .filter(p => !!p.deletedAt)
       );
     }, (error) => {

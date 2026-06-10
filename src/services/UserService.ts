@@ -31,7 +31,10 @@ export const UserService = {
     try {
       const q = query(collection(db, PATH), where('status', '==', 'Active'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as User);
+      return snapshot.docs.map(doc => {
+        const data = doc.data() as User;
+        return { ...data, id: doc.id };
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
       return [];
@@ -42,7 +45,10 @@ export const UserService = {
     const PATH = 'usuarios';
     const q = query(collection(db, PATH), where('status', '==', 'Active'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as User));
+      callback(snapshot.docs.map(doc => {
+        const data = doc.data() as User;
+        return { ...data, id: doc.id };
+      }));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });

@@ -21,7 +21,10 @@ export const MovementService = {
       const q = query(collection(db, PATH), orderBy('date', 'desc'));
       const snapshot = await getDocs(q);
       return snapshot.docs
-        .map(doc => doc.data() as Movement)
+        .map(doc => {
+          const data = doc.data() as Movement;
+          return { ...data, id: doc.id };
+        })
         .filter(m => !m.deletedAt);
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
@@ -34,7 +37,10 @@ export const MovementService = {
     const q = query(collection(db, PATH), orderBy('date', 'desc'));
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs
-        .map(doc => doc.data() as Movement)
+        .map(doc => {
+          const data = doc.data() as Movement;
+          return { ...data, id: doc.id };
+        })
         .filter(m => !m.deletedAt)
       );
     }, (error) => {
@@ -47,7 +53,10 @@ export const MovementService = {
     const q = query(collection(db, PATH), orderBy('deletedAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs
-        .map(doc => doc.data() as Movement)
+        .map(doc => {
+          const data = doc.data() as Movement;
+          return { ...data, id: doc.id };
+        })
         .filter(m => !!m.deletedAt)
       );
     }, (error) => {

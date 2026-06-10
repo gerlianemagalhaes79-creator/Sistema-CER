@@ -31,7 +31,11 @@ import {
   Building2,
   QrCode,
   Share2,
-  TrendingUp
+  TrendingUp,
+  FileText,
+  PlusCircle,
+  ListOrdered,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -41,19 +45,21 @@ import { PatientService } from './services/PatientService';
 import { MovementService } from './services/MovementService';
 import { UserService } from './services/UserService';
 import { ProfessionalService } from './services/ProfessionalService';
+import { SectorService } from './services/SectorService';
 import { MunicipalityService } from './services/MunicipalityService';
 import { DiagnosisService } from './services/DiagnosisService';
 import { SurveyService } from './services/SurveyService';
 import { UsersPage } from './components/UsersPage';
 import { ProfilePage } from './components/ProfilePage';
 import { ReportsPage } from './components/ReportsPage';
-import { ProfessionalsPage } from './components/ProfessionalsPage';
+import { SectorsPage } from './components/SectorsPage';
 import { MunicipalitiesPage } from './components/MunicipalitiesPage';
 import { DiagnosesPage } from './components/DiagnosesPage';
 import { TrashPage } from './components/TrashPage';
 import { NewFormPage } from './components/NewFormPage';
 import { ShareSurveyModal } from './components/ShareSurveyModal';
 import { PatientSurveyPage } from './components/PatientSurveyPage';
+import { EvaluationList } from './components/EvaluationList';
 import { 
   BarChart, 
   Bar, 
@@ -82,25 +88,43 @@ const SidebarItem = ({
   label, 
   active, 
   onClick, 
-  collapsed 
+  collapsed,
+  isNewForm,
+  isHistory
 }: { 
+  key?: any,
   icon: any, 
   label: string, 
   active: boolean, 
   onClick: () => void, 
-  collapsed: boolean 
+  collapsed: boolean,
+  isNewForm?: boolean,
+  isHistory?: boolean
 }) => (
   <button
     onClick={onClick}
-    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-200 text-xs font-bold leading-tight ${
+    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-xs font-bold leading-tight ${
       active 
-        ? 'bg-[#064e3b] text-white shadow-sm' 
-        : 'text-gray-600 hover:bg-gray-100 hover:text-[#064e3b]'
+        ? isNewForm 
+          ? 'bg-blue-50 text-blue-700 shadow-sm font-black' 
+          : isHistory
+            ? 'text-[#4169e1] shadow-sm font-black' 
+            : 'bg-[#064e3b] text-white shadow-sm' 
+        : 'text-slate-600 hover:bg-slate-50'
     }`}
+    style={active && isHistory ? { backgroundColor: 'rgba(112, 128, 144, 0.5)' } : undefined}
     title={collapsed ? label : ''}
   >
-    <Icon size={15} className="shrink-0" />
-    {!collapsed && <span className="whitespace-nowrap">{label}</span>}
+    <div className="flex items-center gap-2.5">
+      <Icon size={16} className={`shrink-0 ${active && isHistory ? 'text-[#4169e1]' : ''}`} />
+      {!collapsed && <span className="whitespace-nowrap font-sans">{label}</span>}
+    </div>
+    {active && isNewForm && !collapsed && (
+      <ChevronRight size={14} className="text-blue-500 shrink-0 ml-1 font-black" />
+    )}
+    {active && isHistory && !collapsed && (
+      <ChevronRight size={14} className="text-[#4169e1] shrink-0 ml-1 font-black animate-pulse" />
+    )}
   </button>
 );
 
@@ -1679,6 +1703,7 @@ const MovementsPage = ({
   const [filterType, setFilterType] = useState<MovementType | ''>('');
   const [filterProfessional, setFilterProfessional] = useState('');
   const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
+  const [activeTab, setActiveTab] = useState<'movements' | 'nps'>('movements');
 
   const canCreate = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
   const canEdit = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
@@ -1823,10 +1848,16 @@ const MovementsPage = ({
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">Manifestações e Protocolos</h2>
-          <p className="text-sm font-medium text-gray-500">Histórico de reclamações, elogios, denúncias e registros de ouvidoria</p>
+          <h2 className="text-2xl font-black text-[#064e3b] tracking-tight">
+            {activeTab === 'movements' ? 'Manifestações e Protocolos' : 'Histórico de Pesquisas NPS'}
+          </h2>
+          <p className="text-sm font-medium text-gray-500">
+            {activeTab === 'movements' 
+              ? 'Histórico de reclamações, elogios, denúncias e registros de ouvidoria' 
+              : 'Resultados em tempo real das pesquisas de satisfação e manifestações por setor'}
+          </p>
         </div>
-        {canCreate && (
+        {canCreate && activeTab === 'movements' && (
           <button 
             onClick={() => { setEditingMovement(null); setIsModalOpen(true); }}
             className="bg-[#064e3b] text-white px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-[#053d2e] shadow-lg shadow-emerald-900/10 transition-all active:scale-95"
@@ -1837,7 +1868,35 @@ const MovementsPage = ({
         )}
       </div>
 
-      {/* Stats Cards */}
+      {/* Tabs Selector */}
+      <div className="flex border-b border-gray-150 gap-2">
+        <button
+          onClick={() => setActiveTab('movements')}
+          className={`pb-3 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+            activeTab === 'movements'
+              ? 'border-[#064e3b] text-[#064e3b]'
+              : 'border-transparent text-gray-450 hover:text-gray-700'
+          }`}
+        >
+          Manifestações Ouvidoria
+        </button>
+        <button
+          onClick={() => setActiveTab('nps')}
+          className={`pb-3 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${
+            activeTab === 'nps'
+              ? 'border-[#064e3b] text-[#064e3b]'
+              : 'border-transparent text-gray-450 hover:text-gray-700'
+          }`}
+        >
+          Avaliações de Setores (Pesquisas)
+        </button>
+      </div>
+
+      {activeTab === 'nps' ? (
+        <EvaluationList />
+      ) : (
+        <>
+          {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card title="Positivos / Entradas" value={stats.entries.toString()} subtitle="Elogios e Sugestões" icon={Plus} />
         <Card title="Altas / Críticas" value={stats.discharges.toString()} subtitle="Resoluções e Demandas" icon={ClipboardList} />
@@ -1990,6 +2049,8 @@ const MovementsPage = ({
           </table>
         </div>
       </div>
+        </>
+      )}
 
       <MovementFormModal 
         isOpen={isModalOpen} 
@@ -2008,6 +2069,15 @@ export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'form' | 'reports' | 'movements' | 'professionals' | 'users' | 'profile' | 'trash' | 'municipalities' | 'diagnoses'>('dashboard');
+
+  const menuItems = [
+    { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'reports' as Page, label: 'Relatórios', icon: FileText },
+    { id: 'new-form' as Page, label: 'Novo Formulário', icon: PlusCircle, isNewForm: true },
+    { id: 'movements' as Page, label: 'Histórico', icon: ListOrdered },
+    { id: 'professionals' as Page, label: 'Gestão de Setores', icon: Settings }
+  ];
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -2018,6 +2088,16 @@ export default function App() {
   const [forms, setForms] = useState<EvaluationForm[]>([]);
   const [evaluations, setEvaluations] = useState<SectorEvaluation[]>([]);
   const [isPatientMode, setIsPatientMode] = useState(false);
+
+  useEffect(() => {
+    if (currentPage === 'new-form') {
+      setCurrentView('form');
+    } else if (currentPage === 'movements') {
+      setCurrentView('list');
+    } else {
+      setCurrentView(currentPage as any);
+    }
+  }, [currentPage]);
 
   useEffect(() => {
     // Detect ?mode=paciente
@@ -2049,15 +2129,45 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn && !isPatientMode) return;
 
-    const unsubscribePatients = PatientService.subscribeToPatients(setPatients);
-    const unsubscribeMovements = MovementService.subscribeToMovements(setMovements);
-    const unsubscribePros = ProfessionalService.subscribeToProfessionals(setProfessionals);
-    const unsubscribeMunis = MunicipalityService.subscribeToMunicipalities(setMunicipalities);
-    const unsubscribeDiagnoses = DiagnosisService.subscribeToDiagnoses(setDiagnoses);
-    const unsubscribeForms = SurveyService.subscribeToForms(setForms);
-    const unsubscribeEvals = SurveyService.subscribeToEvaluations(setEvaluations);
+    let unsubscribePatients = () => {};
+    let unsubscribeMovements = () => {};
+    let unsubscribePros = () => {};
+    let unsubscribeMunis = () => {};
+    let unsubscribeDiagnoses = () => {};
+    let unsubscribeForms = () => {};
+    let unsubscribeEvals = () => {};
+
+    if (isLoggedIn) {
+      unsubscribePatients = PatientService.subscribeToPatients(setPatients);
+      unsubscribeMovements = MovementService.subscribeToMovements(setMovements);
+      unsubscribePros = SectorService.subscribeToSectors((sectorList) => {
+        const mappedPros: Professional[] = sectorList.map(s => ({
+          id: s.id,
+          name: s.name,
+          area: 'Equipe',
+          status: s.active ? 'Active' : 'Inactive',
+          createdAt: new Date().toISOString()
+        }));
+        setProfessionals(mappedPros);
+      });
+      unsubscribeMunis = MunicipalityService.subscribeToMunicipalities(setMunicipalities);
+      unsubscribeDiagnoses = DiagnosisService.subscribeToDiagnoses(setDiagnoses);
+      unsubscribeForms = SurveyService.subscribeToForms(setForms);
+      unsubscribeEvals = SurveyService.subscribeToEvaluations(setEvaluations);
+    } else if (isPatientMode) {
+      unsubscribePros = SectorService.subscribeToSectors((sectorList) => {
+        const mappedPros: Professional[] = sectorList.map(s => ({
+          id: s.id,
+          name: s.name,
+          area: 'Equipe',
+          status: s.active ? 'Active' : 'Inactive',
+          createdAt: new Date().toISOString()
+        }));
+        setProfessionals(mappedPros);
+      });
+    }
 
     return () => {
       unsubscribePatients();
@@ -2068,7 +2178,7 @@ export default function App() {
       unsubscribeForms();
       unsubscribeEvals();
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, isPatientMode]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -2123,23 +2233,23 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar - Desktop */}
       <motion.aside 
-        animate={{ width: sidebarCollapsed ? 80 : 280 }}
-        className={`bg-white border-r border-gray-100 hidden lg:flex flex-col fixed h-full z-40 transition-all ${sidebarCollapsed ? 'items-center px-2 py-5' : 'p-6'}`}
+        animate={{ width: sidebarCollapsed ? 80 : 256 }}
+        className={`bg-white border-r border-slate-200 hidden lg:flex flex-col fixed h-full z-40 transition-all ${sidebarCollapsed ? 'items-center px-2 py-5' : 'p-6'}`}
       >
         {/* Header App Brand */}
         <div className={`flex items-center mb-8 h-12 ${sidebarCollapsed ? 'justify-center' : 'justify-between px-2'}`}>
           {!sidebarCollapsed ? (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20 text-white font-black text-lg">
+              <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 text-white font-black text-lg">
                 P
               </div>
               <div className="flex flex-col">
                 <span className="font-extrabold text-gray-800 tracking-tight text-base leading-none">Ouvidoria</span>
-                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mt-1">Policlínica</span>
+                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">Policlínica</span>
               </div>
             </div>
           ) : (
-            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20 text-white font-black text-xl">
+            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 text-white font-black text-xl">
               P
             </div>
           )}
@@ -2147,55 +2257,31 @@ export default function App() {
 
         {/* Navigation list */}
         <nav className="space-y-1.5 flex-1 overflow-y-auto pr-1">
-          {canAccess('dashboard') && (
-            <SidebarItem 
-              icon={LayoutDashboard} 
-              label="Dashboard" 
-              active={currentPage === 'dashboard'} 
-              onClick={() => setCurrentPage('dashboard')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
-
-          {canAccess('reports') && (
-            <SidebarItem 
-              icon={BarChart3} 
-              label="Relatórios" 
-              active={currentPage === 'reports'} 
-              onClick={() => setCurrentPage('reports')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
-
-          {canAccess('new-form') && (
-            <SidebarItem 
-              icon={Plus} 
-              label="Novo Formulário" 
-              active={currentPage === 'new-form'} 
-              onClick={() => setCurrentPage('new-form')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
-
-          {canAccess('movements') && (
-            <SidebarItem 
-              icon={ClipboardList} 
-              label="Histórico" 
-              active={currentPage === 'movements'} 
-              onClick={() => setCurrentPage('movements')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
-
-          {canAccess('professionals') && (
-            <SidebarItem 
-              icon={Building2} 
-              label="Gestão de Setores" 
-              active={currentPage === 'professionals'} 
-              onClick={() => setCurrentPage('professionals')}
-              collapsed={sidebarCollapsed}
-            />
-          )}
+          {menuItems.map((item) => {
+            const isHistoryItem = item.label === 'Histórico';
+            const isActive = isHistoryItem ? (currentView === 'list') : (currentPage === item.id);
+            return (
+              canAccess(item.id) && (
+                <SidebarItem 
+                  key={item.id}
+                  icon={item.icon} 
+                  label={item.label} 
+                  active={isActive} 
+                  onClick={() => {
+                    if (isHistoryItem) {
+                      setCurrentView('list');
+                      setCurrentPage('movements' as Page);
+                    } else {
+                      setCurrentPage(item.id);
+                    }
+                  }}
+                  collapsed={sidebarCollapsed}
+                  isNewForm={item.isNewForm}
+                  isHistory={isHistoryItem}
+                />
+              )
+            );
+          })}
 
           {canAccess('users') && (
             <SidebarItem 
@@ -2256,7 +2342,7 @@ export default function App() {
       </motion.aside>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col transition-all lg:ml-[280px] ${sidebarCollapsed ? 'lg:!ml-20' : ''}`}>
+      <div className={`flex-1 flex flex-col transition-all lg:ml-64 ${sidebarCollapsed ? 'lg:!ml-20' : ''}`}>
         <Header 
           user={currentUser} 
           onLogout={handleLogout} 
@@ -2278,16 +2364,24 @@ export default function App() {
                 availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
               />
             )}
-            {currentPage === 'new-form' && (
-              <NewFormPage 
+            {currentView === 'form' && (
+              <motion.div
                 key="new-form"
-                patients={patients}
-                currentUser={currentUser}
-                availableSectors={professionals.filter(p => p.status === 'Active').map(p => p.name)}
-                availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
-                availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
-                onNavigateToHistory={() => setCurrentPage('movements')}
-              />
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="w-full"
+              >
+                <NewFormPage 
+                  patients={patients}
+                  currentUser={currentUser}
+                  availableSectors={professionals.filter(p => p.status === 'Active').map(p => p.name)}
+                  availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
+                  availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
+                  onNavigateToHistory={() => setCurrentPage('movements')}
+                />
+              </motion.div>
             )}
             {currentPage === 'patients' && (
               <PatientsPage 
@@ -2300,7 +2394,19 @@ export default function App() {
                 onReload={() => {}} 
               />
             )}
-            {currentPage === 'movements' && (
+            {currentPage === 'movements' && currentView === 'list' && (
+              <motion.div
+                key="evaluation-list"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ duration: 0.2 }}
+                className="w-full"
+              >
+                <EvaluationList />
+              </motion.div>
+            )}
+            {currentPage === 'movements' && currentView !== 'list' && (
               <MovementsPage 
                 key="movements" 
                 movements={movements} 
@@ -2319,7 +2425,7 @@ export default function App() {
               />
             )}
             {currentPage === 'professionals' && canAccess('professionals') && (
-              <ProfessionalsPage />
+              <SectorsPage currentUser={currentUser} />
             )}
             {currentPage === 'municipalities' && canAccess('municipalities') && (
               <MunicipalitiesPage />

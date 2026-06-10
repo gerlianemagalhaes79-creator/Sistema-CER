@@ -1,686 +1,399 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { 
-  Search, 
-  Plus, 
-  UserPlus, 
+  ClipboardList, 
+  Calendar, 
+  MessageSquare, 
   CheckCircle2, 
   AlertCircle, 
-  Calendar, 
-  ClipboardList, 
-  Building2, 
-  UserCheck, 
-  Users,
-  ShieldAlert,
-  HelpCircle,
-  Clock,
-  Briefcase
+  Send, 
+  Smile,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Patient, Movement, Citizen, ManifestationType, SatisfactionLevel } from '../types';
-import { MovementService } from '../services/MovementService';
-import { PatientService } from '../services/PatientService';
+import { SurveyService } from '../services/SurveyService';
 
 interface NewFormPageProps {
   key?: string;
-  patients: Patient[];
-  currentUser: any;
-  availableSectors: string[];
-  availableDiagnoses: string[];
-  availableCities: string[];
-  onNavigateToHistory: () => void;
+  patients?: any[];
+  currentUser?: any;
+  availableSectors?: string[];
+  availableDiagnoses?: string[];
+  availableCities?: string[];
+  onNavigateToHistory?: () => void;
 }
 
 export const NewFormPage = ({
-  patients,
-  currentUser,
-  availableSectors,
-  availableDiagnoses,
-  availableCities,
-  onNavigateToHistory
+  availableSectors = [],
+  onNavigateToHistory,
+  currentUser
 }: NewFormPageProps) => {
-  // Navigation states within Form
-  const [activeTab, setActiveTab] = useState<'existing' | 'new-citizen' | 'anonymous'>('existing');
+  const defaultSectors = [
+    'Portaria / Recepção', 
+    'Acolhimento / Triagem', 
+    'Consultas Médicas', 
+    'Serviço Social / Ouvidoria', 
+    'Procedimentos / Laboratório', 
+    'Higienização / Copa'
+  ];
+  
+  const sectors = availableSectors.length > 0 ? availableSectors : defaultSectors;
 
-  // New Ticket State
-  const [ticketData, setTicketData] = useState({
-    patientId: '',
-    patientName: '',
-    medicalRecordNumber: '',
-    diagnoses: [] as string[],
-    professionals: [] as string[],
-    responsibleProfessional: '',
-    type: 'Reclamação' as ManifestationType,
-    date: new Date().toISOString().split('T')[0],
-    observations: '',
-    satisfaction: 'Satisfeito' as SatisfactionLevel
+  // Form State
+  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [npsScore, setNpsScore] = useState<number | null>(null);
+  const [ratings, setRatings] = useState<Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }>>(() => {
+    const initial: Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }> = {};
+    sectors.forEach(s => {
+      initial[s] = { rating: 'N', comment: '' };
+    });
+    return initial;
   });
+  const [generalComment, setGeneralComment] = useState('');
+  
+  // Interface state
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // Search Existing Citizen State
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showPatientList, setShowPatientList] = useState(false);
-  const [selectedCitizen, setSelectedCitizen] = useState<Patient | null>(null);
-
-  // New Citizen Creation Form (within same view, expands dynamically!)
-  const [newCitizen, setNewCitizen] = useState({
-    name: '',
-    medicalRecordNumber: '', // CPF/CNS
-    birthDate: '',
-    gender: 'M' as 'M' | 'F' | 'Outro',
-    city: 'Fortaleza',
-    diagnoses: [] as string[],
-    professionals: [] as string[],
-    status: 'Ativo' as const,
-    observations: ''
-  });
-
-  const [saving, setSaving] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-
-  // Filtering existing citizens
-  const filteredPatients = useMemo(() => {
-    if (!searchTerm) return [];
-    return patients.filter(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      p.medicalRecordNumber.includes(searchTerm)
-    ).slice(0, 5);
-  }, [patients, searchTerm]);
-
-  const selectExistingPatient = (p: Patient) => {
-    setSelectedCitizen(p);
-    setSearchTerm(p.name);
-    setTicketData(prev => ({
+  // Handle rating change
+  const handleRatingChange = (sector: string, rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N') => {
+    setRatings(prev => ({
       ...prev,
-      patientId: p.id,
-      patientName: p.name,
-      medicalRecordNumber: p.medicalRecordNumber,
-      diagnoses: p.diagnoses || [],
-      professionals: p.professionals || [],
-      responsibleProfessional: p.professionals[0] || availableSectors[0] || ''
+      [sector]: {
+        ...prev[sector],
+        rating
+      }
     }));
-    setShowPatientList(false);
   };
 
-  const handleSelectTab = (tab: 'existing' | 'new-citizen' | 'anonymous') => {
-    setActiveTab(tab);
-    // Reset specific states
-    if (tab === 'anonymous') {
-      setSelectedCitizen(null);
-      setSearchTerm('Anônimo / Coletivo');
-      setTicketData(prev => ({
-        ...prev,
-        patientId: 'anonymous',
-        patientName: 'Anônimo / Coletivo',
-        medicalRecordNumber: '999.999.999-99',
-        diagnoses: [],
-        professionals: []
-      }));
-    } else if (tab === 'new-citizen') {
-      setSelectedCitizen(null);
-      setSearchTerm('');
-      setTicketData(prev => ({
-        ...prev,
-        patientId: '',
-        patientName: '',
-        medicalRecordNumber: '',
-        diagnoses: [],
-        professionals: []
-      }));
-    } else {
-      setSelectedCitizen(null);
-      setSearchTerm('');
-      setTicketData(prev => ({
-        ...prev,
-        patientId: '',
-        patientName: '',
-        medicalRecordNumber: '',
-        diagnoses: [],
-        professionals: []
-      }));
-    }
+  // Handle comment change for sector
+  const handleCommentChange = (sector: string, comment: string) => {
+    setRatings(prev => ({
+      ...prev,
+      [sector]: {
+        ...prev[sector],
+        comment
+      }
+    }));
   };
 
-  const toggleDiagnosisSelection = (diag: string) => {
-    setTicketData(prev => {
-      const current = prev.diagnoses;
-      const next = current.includes(diag) 
-        ? current.filter(d => d !== diag)
-        : [...current, diag];
-      return { ...prev, diagnoses: next };
+  // Reset form
+  const handleReset = () => {
+    setNpsScore(null);
+    setDate(new Date().toISOString().split('T')[0]);
+    setGeneralComment('');
+    const resetRatings: Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }> = {};
+    sectors.forEach(s => {
+      resetRatings[s] = { rating: 'N', comment: '' };
     });
+    setRatings(resetRatings);
+    setSuccess(false);
+    setErrorMsg('');
   };
 
-  const toggleSectorSelection = (sector: string) => {
-    setTicketData(prev => {
-      const current = prev.professionals;
-      const next = current.includes(sector)
-        ? current.filter(s => s !== sector)
-        : [...current, sector];
-      return { ...prev, professionals: next };
-    });
-  };
-
-  const handleCreateAndSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving) return;
-
-    if (activeTab === 'existing' && !selectedCitizen) {
-      alert('Por favor, busque e selecione um Cidadão/Manifestante antes de enviar.');
+    if (npsScore === null) {
+      setErrorMsg('Por favor, selecione uma nota na Escala de Recomendação (NPS).');
       return;
     }
 
-    if (!ticketData.observations.trim()) {
-      alert('Descrição/Relato detalhado é requerido.');
-      return;
-    }
+    setSubmitting(true);
+    setErrorMsg('');
 
-    setSaving(true);
     try {
-      let finalPatientId = ticketData.patientId;
-      let finalPatientName = ticketData.patientName;
-      let finalMedRecord = ticketData.medicalRecordNumber;
+      // Filter out unanswered ratings ('N')
+      const sectorRatingsArray = sectors
+        .map(sector => ({
+          sector,
+          rating: ratings[sector]?.rating,
+          comment: ratings[sector]?.comment || ''
+        }))
+        .filter(item => item.rating && item.rating !== 'N') as { sector: string; rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim'; comment: string }[];
 
-      // Stage 1: Create Citizen if 'new-citizen' is active
-      if (activeTab === 'new-citizen') {
-        if (!newCitizen.name.trim() || !newCitizen.medicalRecordNumber.trim()) {
-          throw new Error('Nome e CPF/CNS do novo cidadão são obrigatórios.');
-        }
+      await SurveyService.submitSurvey(
+        npsScore,
+        generalComment,
+        sectorRatingsArray,
+        'physical',
+        date,
+        currentUser?.id,
+        currentUser?.name
+      );
 
-        const created = await PatientService.addPatient({
-          name: newCitizen.name.trim(),
-          medicalRecordNumber: newCitizen.medicalRecordNumber.trim(),
-          birthDate: newCitizen.birthDate || '1990-01-01',
-          gender: newCitizen.gender,
-          city: newCitizen.city,
-          diagnoses: ticketData.diagnoses, // Sync topics selected
-          professionals: ticketData.professionals, // Sync sectors selected
-          status: 'Ativo',
-          entryDate: new Date().toISOString().split('T')[0]
-        });
-
-        finalPatientId = created.id;
-        finalPatientName = created.name;
-        finalMedRecord = created.medicalRecordNumber;
-      }
-
-      // Stage 2: Create Manifestation Ticket
-      const payload = {
-        patientId: finalPatientId,
-        patientName: finalPatientName,
-        medicalRecordNumber: finalMedRecord,
-        diagnoses: ticketData.diagnoses,
-        professionals: ticketData.professionals,
-        responsibleProfessional: ticketData.responsibleProfessional || availableSectors[0] || 'Ouvidoria Geral',
-        type: ticketData.type,
-        date: ticketData.date,
-        observations: ticketData.observations.trim(),
-        satisfaction: ticketData.satisfaction
-      };
-
-      await MovementService.addMovement(payload);
-
-      // Side-effect counter absentees if needed
-      if (ticketData.type === 'Absenteísmo' && activeTab === 'existing' && selectedCitizen) {
-        const newCount = (selectedCitizen.absenteeismCount || 0) + 1;
-        const updates: Partial<Patient> = { absenteeismCount: newCount };
-        
-        if (newCount >= 3) {
-          updates.status = 'Bloqueado'; // Lose vaga/marked as inactive
-        }
-        await PatientService.updatePatient(selectedCitizen.id, updates);
-      }
-
-      setSuccessMsg(`Protocolo de ${ticketData.type} registrado com absoluto sucesso no Banco de Dados!`);
-      
-      // Clear forms
-      setTicketData({
-        patientId: '',
-        patientName: '',
-        medicalRecordNumber: '',
-        diagnoses: [],
-        professionals: [],
-        responsibleProfessional: '',
-        type: 'Reclamação',
-        date: new Date().toISOString().split('T')[0],
-        observations: '',
-        satisfaction: 'Satisfeito'
-      });
-      setNewCitizen({
-        name: '',
-        medicalRecordNumber: '',
-        birthDate: '',
-        gender: 'M',
-        city: 'Fortaleza',
-        diagnoses: [],
-        professionals: [],
-        status: 'Ativo',
-        observations: ''
-      });
-      setSelectedCitizen(null);
-      setSearchTerm('');
-
-    } catch (err: any) {
-      console.error('Error submitting dynamic form:', err);
-      alert(`Falha ao registrar formulário: ${err.message || err}`);
+      setSuccess(true);
+    } catch (error: any) {
+      console.error('Error submitting physical survey:', error);
+      setErrorMsg('Erro de segurança ou infraestrutura ao salvar os dados no banco de dados.');
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="space-y-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="max-w-5xl mx-auto space-y-8 p-1"
     >
-      {/* Header */}
-      <div className="flex justify-between items-center bg-[#01402E]/5 p-6 rounded-3xl border border-[#01402E]/10">
-        <div>
-          <h2 className="text-3xl font-black text-[#01402E] tracking-tight">Novo Protocolo de Ouvidoria</h2>
-          <p className="text-sm font-semibold text-gray-500 mt-1 uppercase tracking-widest leading-none">Canais Digitais de Solicitação & Transparência</p>
+      {/* Header Container Card */}
+      <div className="bg-slate-50/50 p-6 md:p-8 rounded-[2rem] border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-600/10 shrink-0">
+            <ClipboardList size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+              Lançar Formulário de Pesquisa
+            </h2>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              Área Administrativa para Lançamento Físico de Urna
+            </p>
+          </div>
         </div>
-        <button
-          onClick={onNavigateToHistory}
-          className="bg-[#01402E] text-white font-bold text-xs uppercase px-5 py-2.5 rounded-xl hover:bg-emerald-950 transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
-        >
-          <ClipboardList size={16} /> Ver Histórico
-        </button>
+
+        {/* Custom date input with calendar icon */}
+        <div className="relative w-full md:w-auto min-w-[200px]">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none">
+            <Calendar size={18} />
+          </span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full md:w-auto bg-white border border-slate-200 hover:border-slate-350 rounded-2xl py-3.5 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all cursor-pointer"
+          />
+        </div>
       </div>
 
       <AnimatePresence mode="wait">
-        {successMsg && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="p-5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-2xl flex items-center justify-between shadow-lg shadow-emerald-500/10"
+        {success ? (
+          <motion.div
+            key="success-container"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-blue-600 text-white p-10 md:p-14 rounded-[2.5rem] shadow-2xl text-center space-y-6 border border-blue-500 relative overflow-hidden"
           >
-            <div className="flex items-center gap-3">
-              <CheckCircle2 size={24} className="animate-bounce" />
-              <div>
-                <p className="font-extrabold text-sm">{successMsg}</p>
-                <p className="text-xs opacity-90 font-medium">As credenciais foram auditadas e persistidas em tempo real.</p>
-              </div>
+            {/* Background absolute subtle glow circles */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none" />
+
+            <div className="w-20 h-20 bg-white text-blue-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl">
+              <CheckCircle2 size={44} />
             </div>
-            <button 
-              onClick={() => setSuccessMsg('')} 
-              className="bg-white/14 px-3 py-1 rounded-lg text-xs font-black uppercase hover:bg-white/20 transition-all active:scale-95"
-            >
-              OK, fechar
-            </button>
+
+            <div className="space-y-3">
+              <h3 className="text-2xl md:text-3xl font-black tracking-tight uppercase">
+                Pesquisa Salva com Sucesso!
+              </h3>
+              <p className="text-blue-100 text-sm font-bold max-w-lg mx-auto leading-relaxed">
+                A resposta do formulário físico foi devidamente registrada e integrada aos relatórios estatísticos gerais em tempo real.
+              </p>
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={handleReset}
+                className="px-8 py-4 bg-white text-blue-600 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-slate-50 active:scale-95 transition-all shadow-md"
+              >
+                Lançar Outro Formulário
+              </button>
+              {onNavigateToHistory && (
+                <button
+                  onClick={onNavigateToHistory}
+                  className="px-8 py-4 bg-blue-700 text-white border border-blue-500 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-800 active:scale-95 transition-all"
+                >
+                  Ir para Histórico
+                </button>
+              )}
+            </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        ) : (
+          <form key="survey-form" onSubmit={handleSubmit} className="space-y-8">
+            
+            {/* NPS Scale Card */}
+            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200/80 shadow-sm space-y-6">
+              <div className="space-y-2">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest leading-none">
+                  Métrica Principal (NPS)
+                </p>
+                <h3 className="text-lg md:text-xl font-black text-slate-800 tracking-tight">
+                  O quanto você indicaria a Policlínica Bernardo Félix da Silva?
+                </h3>
+                <p className="text-xs font-bold text-slate-400 font-sans tracking-wide">
+                  Escala de recomendação variando entre 0 (provavelmente não) e 10 (com certeza sim).
+                </p>
+              </div>
 
-      <form onSubmit={handleCreateAndSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LEFT/MID MAIN CONTAINER (Form Fields) */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Section 1: Citizen Identification Selector */}
-          <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
-            <h3 className="text-lg font-black text-[#01402E] tracking-tight flex items-center gap-2 border-b border-gray-50 pb-4">
-              <UserCheck size={18} /> 1. Qualificação & Identificação do Cidadão
-            </h3>
+              {/* Slider scale Buttons in line */}
+              <div className="grid grid-cols-6 sm:grid-cols-11 gap-2 md:gap-2.5 max-w-4xl pt-2">
+                {Array.from({ length: 11 }).map((_, i) => {
+                  const isSelected = npsScore === i;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setNpsScore(i)}
+                      className={`h-12 sm:h-14 md:h-16 rounded-2xl text-base md:text-lg font-black transition-all ${
+                        isSelected
+                          ? 'bg-blue-600 scale-110 shadow-lg text-white ring-4 ring-blue-100'
+                          : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-100'
+                      }`}
+                    >
+                      {i}
+                    </button>
+                  );
+                })}
+              </div>
 
-            {/* Custom Interactive Switcher tabs */}
-            <div className="grid grid-cols-3 gap-2 bg-gray-50 p-1.5 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => handleSelectTab('existing')}
-                className={`py-3 rounded-xl font-bold text-xs uppercase transition-all tracking-wider ${
-                  activeTab === 'existing' 
-                    ? 'bg-white text-[#01402E] shadow-sm font-black' 
-                    : 'text-gray-400 hover:text-gray-900'
-                }`}
-              >
-                Cidadão Existente
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectTab('new-citizen')}
-                className={`py-3 rounded-xl font-bold text-xs uppercase transition-all tracking-wider ${
-                  activeTab === 'new-citizen' 
-                    ? 'bg-white text-[#01402E] shadow-sm font-black' 
-                    : 'text-gray-400 hover:text-gray-900'
-                }`}
-              >
-                Novo Cadastro
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectTab('anonymous')}
-                className={`py-3 rounded-xl font-bold text-xs uppercase transition-all tracking-wider ${
-                  activeTab === 'anonymous' 
-                    ? 'bg-white text-[#01402E] shadow-sm font-black' 
-                    : 'text-gray-400 hover:text-gray-900'
-                }`}
-              >
-                Anônimo / Geral
-              </button>
+              {/* Scale descriptions */}
+              <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-wider max-w-4xl ml-1">
+                <span className="text-red-500">0 - Improvável</span>
+                <span className="text-emerald-600">10 - Muito Provável</span>
+              </div>
             </div>
 
-            {/* Tab Render: Search Existing */}
-            {activeTab === 'existing' && (
-              <div className="relative space-y-4">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Buscar Cidadão no Banco de Dados</label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setShowPatientList(true);
-                      if (!e.target.value) setSelectedCitizen(null);
-                    }}
-                    onFocus={() => setShowPatientList(true)}
-                    className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#01402E] text-sm"
-                    placeholder="Digite nome completo, CPF ou Cartão SUS..."
-                  />
-                </div>
-
-                {/* Patient Suggestion dropdown */}
-                {showPatientList && filteredPatients.length > 0 && (
-                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden max-h-[250px] overflow-y-auto">
-                    {filteredPatients.map(p => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => selectExistingPatient(p)}
-                        className="w-full text-left px-5 py-4 hover:bg-emerald-50/50 border-b border-gray-50 last:border-none flex items-center justify-between group"
-                      >
-                        <div>
-                          <p className="font-extrabold text-[#01402E] text-sm">{p.name}</p>
-                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">#{p.medicalRecordNumber} • {p.city}</p>
-                        </div>
-                        <span className="text-[10px] bg-emerald-50 text-emerald-800 font-black uppercase px-2.5 py-1 rounded-md border border-emerald-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                          Selecionar
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {selectedCitizen ? (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-5 bg-emerald-50/30 rounded-2xl border border-emerald-100/50 grid grid-cols-2 gap-4"
-                  >
-                    <div>
-                      <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest">Cidadão Selecionado</p>
-                      <p className="text-sm font-extrabold text-emerald-950 mt-1">{selectedCitizen.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-emerald-800/40 uppercase tracking-widest">Município / CPF</p>
-                      <p className="text-xs font-bold text-gray-600 mt-1">{selectedCitizen.city} • {selectedCitizen.medicalRecordNumber}</p>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <div className="p-5 text-center text-gray-400 italic text-xs bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                    Nenhum cidadão selecionado. Por favor, faça uma busca pelo campo acima.
-                  </div>
-                )}
+            {/* ERROR BANNER IF ANY */}
+            {errorMsg && (
+              <div className="p-4 bg-red-50 text-red-900 rounded-2xl border border-red-100 flex items-center gap-3">
+                <AlertCircle className="text-red-650 shrink-0" size={18} />
+                <p className="text-xs font-bold font-sans">{errorMsg}</p>
               </div>
             )}
 
-            {/* Tab Render: New Citizen Form */}
-            {activeTab === 'new-citizen' && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="grid grid-cols-1 md:grid-cols-2 gap-6 p-1 bg-white"
-              >
-                <div className="space-y-2 md:col-span-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Nome Completo do Cidadão</label>
-                  <input
-                    type="text"
-                    required
-                    value={newCitizen.name}
-                    onChange={e => setNewCitizen({...newCitizen, name: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#01402E] text-sm"
-                    placeholder="Ex: Clara Ribeiro de Souza"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Identificação Principal (CPF/CNS)</label>
-                  <input
-                    type="text"
-                    required
-                    value={newCitizen.medicalRecordNumber}
-                    onChange={e => setNewCitizen({...newCitizen, medicalRecordNumber: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#01402E] text-sm"
-                    placeholder="Ex: 000.000.000-00"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Data de Nascimento</label>
-                  <input
-                    type="date"
-                    value={newCitizen.birthDate}
-                    onChange={e => setNewCitizen({...newCitizen, birthDate: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#01402E] text-sm"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Município de Origem</label>
-                  <select
-                    value={newCitizen.city}
-                    onChange={e => setNewCitizen({...newCitizen, city: e.target.value})}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#01402E] text-sm appearance-none"
-                  >
-                    {availableCities.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Gênero</label>
-                  <select
-                    value={newCitizen.gender}
-                    onChange={e => setNewCitizen({...newCitizen, gender: e.target.value as any})}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-[#01402E] text-sm appearance-none"
-                  >
-                    <option value="M">Masculino</option>
-                    <option value="F">Feminino</option>
-                    <option value="Outro">Outro</option>
-                  </select>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Tab Render: Anonymous */}
-            {activeTab === 'anonymous' && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="p-5 bg-amber-50/50 rounded-2xl border border-amber-100 text-amber-900 text-xs font-bold leading-relaxed flex gap-3"
-              >
-                <ShieldAlert size={18} className="shrink-0 text-amber-600 mt-0.5" />
-                <div>
-                  <p className="font-extrabold uppercase mb-1">Atenção ao Registro Anônimo / Coletivo</p>
-                  <p className="font-medium">O protocolo será associado a um manifestante genérico e anônimo. Utilize essa categoria para manifestações físicas registradas em urnas, correspondências coletivas, reclamações sigilosas encaminhadas ou canais semelhantes que necessitem de preservação de sigilo total.</p>
-                </div>
-              </motion.div>
-            )}
-          </div>
-
-          {/* Section 2: Manifestation Content and Relato */}
-          <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm space-y-6">
-            <h3 className="text-lg font-black text-[#01402E] tracking-tight flex items-center gap-2 border-b border-gray-50 pb-4">
-              <ClipboardList size={18} /> 2. Teor da Manifestação & Relato Ouvidor
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              <div className="space-y-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Tipo de Manifestação</label>
-                <select
-                  value={ticketData.type}
-                  onChange={e => setTicketData({...ticketData, type: e.target.value as ManifestationType})}
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-extrabold text-[#01402E] text-sm appearance-none"
-                >
-                  <option value="Reclamação">Reclamação</option>
-                  <option value="Denúncia">Denúncia</option>
-                  <option value="Sugestão">Sugestão</option>
-                  <option value="Elogio">Elogio</option>
-                  <option value="Solicitação">Solicitação</option>
-                  <option value="Absenteísmo">Absenteísmo</option>
-                  <option value="Atendimento">Atendimento / Ocorrência Geral</option>
-                </select>
+            {/* SECTORS EVALUATION TABLE CARD */}
+            <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-sm overflow-hidden">
+              <div className="p-6 md:p-8 border-b border-slate-100">
+                <h3 className="text-lg md:text-xl font-black text-slate-800 tracking-tight">
+                  Avaliação Detalhada por Setores
+                </h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  Atribua notas rápidas e observações aos canais selecionados
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Setor Destinatário / Demandado</label>
-                <select
-                  value={ticketData.responsibleProfessional}
-                  onChange={e => setTicketData({...ticketData, responsibleProfessional: e.target.value})}
-                  required
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-extrabold text-[#01402E] text-sm appearance-none"
-                >
-                  <option value="">Selecione o setor encarregado...</option>
-                  {availableSectors.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-100 font-sans text-xs font-black text-slate-400 tracking-wider">
+                      <th className="py-4 px-6 md:px-8 w-1/3">Setor</th>
+                      <th className="py-4 px-4 text-center md:text-left w-1/3">Classificação</th>
+                      <th className="py-4 px-6 md:px-8 w-1/3">Observação Específica</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {sectors.map((sector) => {
+                      const current = ratings[sector] || { rating: 'N', comment: '' };
+                      const hasSelectedRating = current.rating !== 'N';
 
-              <div className="space-y-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Data da Ocorrência/Fato</label>
-                <div className="relative">
-                  <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-[#01402E]" size={16} />
-                  <input
-                    type="date"
-                    required
-                    value={ticketData.date}
-                    onChange={e => setTicketData({...ticketData, date: e.target.value})}
-                    className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-extrabold text-[#01402E] text-sm"
-                  />
-                </div>
-              </div>
+                      return (
+                        <tr 
+                          key={sector}
+                          className={`transition-colors duration-150 ${
+                            hasSelectedRating ? 'bg-blue-50/40' : 'hover:bg-slate-50/30'
+                          }`}
+                        >
+                          {/* Sector Column */}
+                          <td className="py-5 px-6 md:px-8">
+                            <span className="font-bold text-slate-700 tracking-tight text-sm md:text-base">
+                              {sector}
+                            </span>
+                          </td>
 
-              <div className="space-y-2">
-                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Satisfação Prévia (se manifestado)</label>
-                <select
-                  value={ticketData.satisfaction}
-                  onChange={e => setTicketData({...ticketData, satisfaction: e.target.value as any})}
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-extrabold text-[#01402E] text-sm appearance-none"
-                >
-                  <option value="Satisfeito">Satisfeito</option>
-                  <option value="Muito Satisfeito">Muito Satisfeito</option>
-                  <option value="Regular">Regular</option>
-                  <option value="Insatisfeito">Insatisfeito</option>
-                </select>
-              </div>
+                          {/* Classification buttons column */}
+                          <td className="py-5 px-4">
+                            <div className="flex items-center justify-center md:justify-start gap-1.5 md:gap-2">
+                              {[
+                                { id: 'Otimo', label: 'Ó', desc: 'Ótimo', color: 'bg-emerald-600 text-white shadow-emerald-100 ring-emerald-200', defaultColor: 'text-emerald-700 bg-emerald-50 border-emerald-100 hover:bg-emerald-100/60' },
+                                { id: 'Bom', label: 'B', desc: 'Bom', color: 'bg-blue-600 text-white shadow-blue-100 ring-blue-200', defaultColor: 'text-blue-700 bg-blue-50 border-blue-100 hover:bg-blue-100/60' },
+                                { id: 'Regular', label: 'R', desc: 'Regular', color: 'bg-amber-500 text-white shadow-amber-100 ring-amber-150', defaultColor: 'text-amber-700 bg-amber-50 border-amber-100 hover:bg-amber-100/60' },
+                                { id: 'Ruim', label: 'R', desc: 'Ruim', color: 'bg-red-650 text-white shadow-red-100 ring-red-200', defaultColor: 'text-red-700 bg-red-50 border-red-100 hover:bg-red-100/60' },
+                                { id: 'N', label: 'N', desc: 'Não informou', color: 'bg-slate-400 text-white shadow-slate-100 ring-slate-150', defaultColor: 'text-slate-500 bg-slate-100 border-slate-150 hover:bg-slate-200/60' }
+                              ].map((option) => {
+                                const isOptionSelected = current.rating === option.id;
+                                return (
+                                  <button
+                                    key={option.id}
+                                    type="button"
+                                    onClick={() => handleRatingChange(sector, option.id as any)}
+                                    title={`${option.desc}`}
+                                    className={`w-9 h-9 sm:w-10 sm:h-10 text-xs sm:text-sm font-black rounded-xl transition-all duration-150 flex items-center justify-center border active:scale-90 ${
+                                      isOptionSelected
+                                        ? `${option.color} scale-105 shadow-md border-transparent ring-4`
+                                        : `${option.defaultColor}`
+                                    }`}
+                                  >
+                                    {option.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </td>
 
+                          {/* Specific Observation Column */}
+                          <td className="py-5 px-6 md:px-8">
+                            <div className="relative w-full">
+                              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                                <MessageSquare size={14} />
+                              </span>
+                              <input
+                                type="text"
+                                value={current.comment}
+                                onChange={(e) => handleCommentChange(sector, e.target.value)}
+                                placeholder="Comentário sobre o setor..."
+                                className="w-full bg-slate-50 border border-slate-100 hover:border-slate-200 focus:bg-white rounded-xl py-2 pl-9 pr-4 font-medium text-slate-700 text-xs md:text-sm focus:ring-4 focus:ring-blue-50/50 outline-none transition-all placeholder-slate-400"
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Relato Detalhado & Descrição das Ocorrências</label>
+            {/* General Feedback Comments Card */}
+            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200/80 shadow-sm space-y-4">
+              <div className="flex items-center gap-2.5">
+                <Smile size={20} className="text-blue-650" />
+                <h3 className="text-lg font-black text-slate-800 tracking-tight">
+                  Comentários ou Sugestões Gerais
+                </h3>
+              </div>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Utilize o campo de texto livre para registrar outras opiniões e relatos do paciente
+              </p>
               <textarea
-                value={ticketData.observations}
-                onChange={e => setTicketData({...ticketData, observations: e.target.value})}
-                required
-                className="w-full p-5 rounded-2xl border border-gray-100 bg-gray-50 focus:ring-4 focus:ring-emerald-500/10 focus:bg-white outline-none transition-all font-bold text-gray-700 text-sm min-h-[160px] leading-relaxed"
-                placeholder="Descreva detalhadamente o relato completo, trâmites adotados, testemunhas ou qualquer manifestação relatada fisicamente pelo cidadão..."
+                value={generalComment}
+                onChange={(e) => setGeneralComment(e.target.value)}
+                placeholder="Insira sugestões, condolências, relatos adicionais recolhidos na pesquisa física..."
+                className="w-full min-h-[120px] bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl p-4 font-medium text-slate-700 text-sm focus:ring-4 focus:ring-blue-100/50 outline-none transition-all leading-relaxed placeholder-slate-400"
               />
             </div>
 
-          </div>
-
-        </div>
-
-        {/* RIGHT BAR CONTAINER (Quick-select Subjects/Sectors and Submission Action) */}
-        <div className="space-y-6 lg:col-span-1">
-          
-          {/* Box 1: Core Theme & Subject Tag Selection */}
-          <div className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 border-b border-gray-50 pb-3">
-              <HelpCircle size={16} className="text-[#01402E]" /> Assuntos e Temas
-            </h4>
-            <p className="text-[10px] text-gray-400 font-bold leading-relaxed">Assinale os temas abordados nesta manifestação para indexação de relatórios estatísticos:</p>
-
-            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
-              {availableDiagnoses.map((diag) => {
-                const isSelected = ticketData.diagnoses.includes(diag);
-                return (
-                  <button
-                    key={diag}
-                    type="button"
-                    onClick={() => toggleDiagnosisSelection(diag)}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between group ${
-                      isSelected 
-                        ? 'bg-[#01402E]/5 border-[#01402E] text-[#01402E]'
-                        : 'bg-white border-gray-100 hover:bg-gray-50 text-gray-500'
-                    }`}
-                  >
-                    <span className="truncate max-w-[85%]">{diag}</span>
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                      isSelected ? 'bg-[#01402E]' : 'bg-transparent border border-gray-300'
-                    }`} />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Box 2: Involved Sectors (Co-responsibility) */}
-          <div className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 border-b border-gray-50 pb-3">
-              <Building2 size={16} className="text-[#01402E]" /> Setores Vinculados
-            </h4>
-            <p className="text-[10px] text-gray-400 font-bold leading-relaxed">Selecione outras áreas correlacionadas para co-responsabilização técnica:</p>
-
-            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin">
-              {availableSectors.map((sector) => {
-                const isSelected = ticketData.professionals.includes(sector);
-                return (
-                  <button
-                    key={sector}
-                    type="button"
-                    onClick={() => toggleSectorSelection(sector)}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between group ${
-                      isSelected
-                        ? 'bg-[#01402E]/5 border-[#01402E] text-[#01402E]'
-                        : 'bg-white border-gray-100 hover:bg-gray-50 text-gray-700'
-                    }`}
-                  >
-                    <span className="truncate max-w-[85%]">{sector}</span>
-                    <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                      isSelected ? 'bg-[#01402E]' : 'bg-transparent border border-gray-300'
-                    }`} />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Action Card: Save Trigger */}
-          <div className="bg-[#01402E] p-8 rounded-[2rem] text-white space-y-6 shadow-xl shadow-emerald-950/20">
-            <div>
-              <p className="text-[10px] font-black text-emerald-300/60 uppercase tracking-widest">Protocolar Registro</p>
-              <h4 className="text-xl font-black mt-1 leading-tight text-white">Pronto para envio?</h4>
-              <p className="text-xs text-emerald-100 mt-2 leading-relaxed">Este registro será instantaneamente auditado pela Coordenação e disponibilizado no Histórico Geral da Ouvidoria.</p>
+            {/* Final Action Submission Button Card */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-10 py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {submitting ? (
+                  <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Send size={15} />
+                    Salvar Formulário de Pesquisa
+                  </>
+                )}
+              </button>
             </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full py-4 bg-white text-[#01402E] rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-emerald-50 active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              {saving ? (
-                <div className="w-5 h-5 border-2 border-[#01402E]/20 border-t-[#01402E] rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <CheckCircle2 size={16} /> Enviar Protocolo
-                </>
-              )}
-            </button>
-          </div>
-
-        </div>
-
-      </form>
+          </form>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

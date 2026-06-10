@@ -7,11 +7,28 @@ import {
   onSnapshot,
   setDoc,
   orderBy,
-  writeBatch
+  writeBatch,
+  Timestamp,
+  limit
 } from 'firebase/firestore';
 import { signInAnonymously } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { EvaluationForm, SectorEvaluation } from '../types';
+
+// Safe date utility to handle both string and Firebase Timestamps seamlessly
+export const safeISOString = (val: any): string => {
+  if (!val) return new Date().toISOString();
+  if (typeof val.toDate === 'function') {
+    return val.toDate().toISOString();
+  }
+  if (typeof val === 'string') {
+    return val;
+  }
+  if (val.seconds !== undefined) {
+    return new Date(val.seconds * 1000).toISOString();
+  }
+  return new Date(val).toISOString();
+};
 
 export const SurveyService = {
   ensureAnonymousAuth: async (): Promise<void> => {
@@ -27,39 +44,90 @@ export const SurveyService = {
   submitSurvey: async (
     npsScore: number, 
     generalComment: string, 
-    sectorRatings: { sector: string; rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim'; comment?: string }[],
-    source: 'patient' | 'physical' = 'patient'
+    sectorRatings: { sector: string; rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'Ótimo' | 'Não informou'; comment?: string }[],
+    source: 'patient' | 'physical' = 'patient',
+    customDate?: string,
+    createdBy?: string,
+    createdByName?: string
   ): Promise<void> => {
     // Ensure we are authenticated (e.g., anonymously)
     await SurveyService.ensureAnonymousAuth();
 
     const formId = crypto.randomUUID();
-    const createdAt = new Date().toISOString();
+    const now = new Date();
+    
+    // Parse customDate or use now
+    let dateObj = now;
+    if (customDate) {
+      dateObj = new Date(customDate + 'T12:00:00.000Z');
+      if (isNaN(dateObj.getTime())) {
+        dateObj = now;
+      }
+    }
+
+    const dateTimestamp = Timestamp.fromDate(dateObj);
+    const createdAtTimestamp = Timestamp.fromDate(now);
 
     const batch = writeBatch(db);
 
+    const finalCreatedBy = createdBy || auth.currentUser?.uid || 'anonymous';
+    const finalCreatedByName = createdByName || (auth.currentUser?.isAnonymous ? 'Anônimo' : 'Colaborador');
+
     // 1. Prepare Form document
     const formRef = doc(db, 'forms', formId);
-    const form: EvaluationForm = {
+    const form = {
       id: formId,
+      
+      // New required structure
+      date: dateTimestamp,
+      createdAt: createdAtTimestamp,
+      createdByName: finalCreatedByName,
+      createdBy: finalCreatedBy,
+      observation: generalComment,
+      recommendationScore: npsScore,
+
+      // For backwards compatibility with older reports page queries
       npsScore,
       generalComment,
       source,
-      createdAt
     };
     batch.set(formRef, form);
+
+    // Helpers to normalize accented enum values
+    const mapRating = (r: string): 'Ótimo' | 'Bom' | 'Regular' | 'Ruim' | 'Não informou' => {
+      if (r === 'Otimo' || r === 'Ótimo') return 'Ótimo';
+      if (r === 'Bom') return 'Bom';
+      if (r === 'Regular') return 'Regular';
+      if (r === 'Ruim') return 'Ruim';
+      return 'Não informou';
+    };
+
+    const mapOldRating = (r: string): 'Otimo' | 'Bom' | 'Regular' | 'Ruim' => {
+      if (r === 'Ótimo' || r === 'Otimo') return 'Otimo';
+      if (r === 'Bom') return 'Bom';
+      if (r === 'Regular') return 'Regular';
+      return 'Ruim';
+    };
 
     // 2. Prepare each Sector Evaluation document
     for (const item of sectorRatings) {
       const evalId = crypto.randomUUID();
       const sectorEvalRef = doc(db, 'evaluations', evalId);
-      const sectorEval: SectorEvaluation = {
+      
+      const valRating = mapRating(item.rating);
+      const valOldRating = mapOldRating(item.rating);
+
+      const sectorEval = {
         id: evalId,
         formId,
         sector: item.sector,
-        rating: item.rating,
+        rating: valRating,               // Accent as requested
+        observation: item.comment || '', // New field name requested
+        createdAt: createdAtTimestamp,
+
+        // Fallbacks for older dashboard views
         comment: item.comment || '',
-        createdAt
+        rating_legacy: valOldRating
       };
       batch.set(sectorEvalRef, sectorEval);
     }
@@ -76,7 +144,17 @@ export const SurveyService = {
   subscribeToForms: (callback: (forms: EvaluationForm[]) => void) => {
     const q = query(collection(db, 'forms'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as EvaluationForm));
+      callback(snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: safeISOString(data.createdAt),
+          npsScore: data.recommendationScore !== undefined ? data.recommendationScore : (data.npsScore || 0),
+          generalComment: data.observation !== undefined ? data.observation : (data.generalComment || ''),
+          source: data.source || 'physical',
+        } as EvaluationForm;
+      }));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'forms');
     });
@@ -85,7 +163,20 @@ export const SurveyService = {
   subscribeToEvaluations: (callback: (evaluations: SectorEvaluation[]) => void) => {
     const q = query(collection(db, 'evaluations'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as SectorEvaluation));
+      callback(snapshot.docs.map(doc => {
+        const data = doc.data();
+        let mappedRating = data.rating;
+        if (mappedRating === 'Ótimo') {
+          mappedRating = 'Otimo';
+        }
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: safeISOString(data.createdAt),
+          rating: mappedRating as any,
+          comment: data.observation !== undefined ? data.observation : (data.comment || ''),
+        } as SectorEvaluation;
+      }));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'evaluations');
     });

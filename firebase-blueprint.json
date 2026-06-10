@@ -74,6 +74,18 @@
       },
       "required": ["id", "name", "area", "status"]
     },
+    "Sector": {
+      "title": "Sector",
+      "description": "Clinic sectors/departments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "active"]
+    },
     "Municipality": {
       "title": "Municipality",
       "description": "Registered municipalities",
@@ -142,6 +154,10 @@
     "/profissionais/{professionalId}": {
       "schema": "Professional",
       "description": "Collection of multidisciplinary professionals"
+    },
+    "/sectors/{sectorId}": {
+      "schema": "Sector",
+      "description": "Collection of clinics' sectors"
     },
     "/municipios/{municipalityId}": {
       "schema": "Municipality",

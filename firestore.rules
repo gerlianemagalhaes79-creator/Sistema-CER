@@ -31,6 +31,10 @@ service cloud.firestore {
       return isSignedIn() && hasUserDoc() && getUserData().accessType == 'Coordenação';
     }
 
+    function isReception() {
+      return isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção';
+    }
+
     // Usuarios collection
     match /usuarios/{userId} {
       allow read: if isSignedIn() && (isAdmin() || isCoordination() || request.auth.uid == userId);
@@ -63,32 +67,38 @@ service cloud.firestore {
 
     // Profissionais collection
     match /profissionais/{professionalId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || isCoordination();
+      allow read: if true;
+      allow write: if isAdmin() || isCoordination() || isReception();
+    }
+
+    // Sectors collection
+    match /sectors/{sectorId} {
+      allow read: if true;
+      allow write: if isAdmin() || isCoordination() || isReception();
     }
 
     // Municipios collection
     match /municipios/{municipalityId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isCoordination();
+      allow write: if isAdmin() || isCoordination() || isReception();
     }
 
     // Diagnosticos collection
     match /diagnosticos/{diagnosisId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isCoordination();
+      allow write: if isAdmin() || isCoordination() || isReception();
     }
 
     // Forms collection
     match /forms/{formId} {
-      allow create: if isSignedIn();
+      allow create: if true;
       allow read: if isSignedIn() && (isAdmin() || isCoordination() || (isSignedIn() && hasUserDoc() && (getUserData().accessType == 'Profissional' || getUserData().accessType == 'Recepção')));
       allow update, delete: if isAdmin() || isCoordination();
     }
 
     // Evaluations collection
     match /evaluations/{evaluationId} {
-      allow create: if isSignedIn();
+      allow create: if true;
       allow read: if isSignedIn() && (isAdmin() || isCoordination() || (isSignedIn() && hasUserDoc() && (getUserData().accessType == 'Profissional' || getUserData().accessType == 'Recepção')));
       allow update, delete: if isAdmin() || isCoordination();
     }

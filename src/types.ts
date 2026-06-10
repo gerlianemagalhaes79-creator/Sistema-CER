@@ -80,6 +80,13 @@ export interface Professional {
   createdAt: string;
 }
 
+export interface Sector {
+  id: string;
+  name: string;
+  active: boolean;
+  createdAt?: any;
+}
+
 export interface Municipality {
   id: string;
   name: string;
@@ -136,15 +143,21 @@ export interface EvaluationForm {
   npsScore: number;
   generalComment: string;
   source: 'patient' | 'physical';
-  createdAt: string;
+  createdAt: string | any;
+  date?: any; // data da visita
+  createdByName?: string; // nome do atendente
+  createdBy?: string; // UID
+  observation?: string; // observação geral
+  recommendationScore?: number; // nota NPS de recomendação
 }
 
 export interface SectorEvaluation {
   id: string;
   formId: string;
   sector: string;
-  rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim';
+  rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'Ótimo' | 'Não informou';
   comment: string;
-  createdAt: string;
+  observation?: string; // comentário específico do setor
+  createdAt: string | any;
 }
 

@@ -3,6 +3,7 @@ import {
   doc, 
   getDocs, 
   updateDoc, 
+  deleteDoc,
   query, 
   where,
   onSnapshot,
@@ -16,9 +17,12 @@ export const ProfessionalService = {
   getProfessionals: async (): Promise<Professional[]> => {
     const PATH = 'profissionais';
     try {
-      const q = query(collection(db, PATH), where('status', '==', 'Active'), orderBy('name', 'asc'));
+      const q = query(collection(db, PATH), orderBy('name', 'asc'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as Professional);
+      return snapshot.docs.map(doc => {
+        const data = doc.data() as Professional;
+        return { ...data, id: doc.id };
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
       return [];
@@ -27,9 +31,12 @@ export const ProfessionalService = {
 
   subscribeToProfessionals: (callback: (professionals: Professional[]) => void) => {
     const PATH = 'profissionais';
-    const q = query(collection(db, PATH), where('status', '==', 'Active'), orderBy('name', 'asc'));
+    const q = query(collection(db, PATH), orderBy('name', 'asc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as Professional));
+      callback(snapshot.docs.map(doc => {
+        const data = doc.data() as Professional;
+        return { ...data, id: doc.id };
+      }));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });
@@ -62,9 +69,9 @@ export const ProfessionalService = {
   deleteProfessional: async (id: string) => {
     const PATH = 'profissionais';
     try {
-      await updateDoc(doc(db, PATH, id), { status: 'Inactive' });
+      await deleteDoc(doc(db, PATH, id));
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, PATH);
+      handleFirestoreError(error, OperationType.DELETE, PATH);
     }
   }
 };

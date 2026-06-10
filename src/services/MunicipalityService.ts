@@ -18,7 +18,10 @@ export const MunicipalityService = {
     try {
       const q = query(collection(db, PATH), where('status', '==', 'Active'), orderBy('name', 'asc'));
       const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => doc.data() as Municipality);
+      return snapshot.docs.map(doc => {
+        const data = doc.data() as Municipality;
+        return { ...data, id: doc.id };
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, PATH);
       return [];
@@ -29,7 +32,10 @@ export const MunicipalityService = {
     const PATH = 'municipios';
     const q = query(collection(db, PATH), where('status', '==', 'Active'), orderBy('name', 'asc'));
     return onSnapshot(q, (snapshot) => {
-      callback(snapshot.docs.map(doc => doc.data() as Municipality));
+      callback(snapshot.docs.map(doc => {
+        const data = doc.data() as Municipality;
+        return { ...data, id: doc.id };
+      }));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, PATH);
     });
