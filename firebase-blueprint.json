@@ -136,9 +136,26 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "formId", "sector", "rating", "createdAt"]
+    },
+    "Profile": {
+      "title": "Profile",
+      "description": "User profiles database for Gestão de Usuários",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "enum": ["admin", "operator"] },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "email", "role", "active"]
     }
   },
   "firestore": {
+    "/profiles/{profileId}": {
+      "schema": "Profile",
+      "description": "Collection of team members' profiles"
+    },
     "/usuarios/{userId}": {
       "schema": "User",
       "description": "Collection of system users"

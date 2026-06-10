@@ -77,6 +77,12 @@ service cloud.firestore {
       allow write: if isAdmin() || isCoordination() || isReception();
     }
 
+    // Profiles collection for team management
+    match /profiles/{profileId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // Municipios collection
     match /municipios/{municipalityId} {
       allow read: if isSignedIn();
