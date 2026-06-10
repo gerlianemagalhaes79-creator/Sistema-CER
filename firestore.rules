@@ -37,8 +37,18 @@ service cloud.firestore {
 
     // Usuarios collection
     match /usuarios/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isCoordination());
-      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read: if isSignedIn() && (
+        request.auth.uid == userId || 
+        resource.data.email == request.auth.token.email || 
+        isAdmin() || 
+        isCoordination()
+      );
+      allow write: if isSignedIn() && (
+        request.auth.uid == userId || 
+        (resource != null && resource.data.email == request.auth.token.email) ||
+        (resource == null && request.resource.data.email == request.auth.token.email) ||
+        isAdmin()
+      );
     }
 
     // Pacientes collection
@@ -80,7 +90,10 @@ service cloud.firestore {
     // Profiles collection for team management
     match /profiles/{profileId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (isSignedIn() && (
+        (resource == null && request.resource.data.email == request.auth.token.email) ||
+        (resource != null && resource.data.email == request.auth.token.email)
+      ));
     }
 
     // Municipios collection

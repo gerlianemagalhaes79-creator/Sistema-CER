@@ -155,15 +155,54 @@ export const UserService = {
       if (userDoc.exists()) {
         userData = userDoc.data() as User;
       } else if (firebaseUser.email) {
+        const queryEmail = firebaseUser.email.toLowerCase().trim();
         const q = query(
           collection(db, PATH), 
-          where('email', '==', firebaseUser.email), 
+          where('email', '==', queryEmail), 
           where('status', '==', 'Active'), 
           limit(1)
         );
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
-          userData = querySnapshot.docs[0].data() as User;
+          const preCreatedDoc = querySnapshot.docs[0];
+          const oldData = preCreatedDoc.data() as User;
+          const oldId = preCreatedDoc.id;
+          
+          if (oldId !== firebaseUser.uid) {
+            console.log(`Migrating pre-created user [${oldId}] to Firebase UID [${firebaseUser.uid}]`);
+            
+            // 1. Create matching document in "usuarios" with genuine Firebase UID
+            userData = {
+              ...oldData,
+              id: firebaseUser.uid
+            };
+            await setDoc(doc(db, PATH, firebaseUser.uid), userData);
+            
+            // 2. Create matching document in "profiles" with genuine Firebase UID
+            const pDoc = await getDoc(doc(db, 'profiles', oldId));
+            if (pDoc.exists()) {
+              const pData = pDoc.data();
+              await setDoc(doc(db, 'profiles', firebaseUser.uid), {
+                ...pData,
+                id: firebaseUser.uid
+              });
+              // Delete old profile
+              await deleteDoc(doc(db, 'profiles', oldId));
+            } else {
+              await setDoc(doc(db, 'profiles', firebaseUser.uid), {
+                id: firebaseUser.uid,
+                name: oldData.name,
+                email: oldData.email,
+                role: oldData.role === 'Administrador Geral' ? 'admin' : 'operator',
+                active: oldData.status === 'Active'
+              });
+            }
+            
+            // 3. Delete old "usuarios" document
+            await deleteDoc(doc(db, PATH, oldId));
+          } else {
+            userData = oldData;
+          }
         }
       }
 
@@ -210,7 +249,67 @@ export const UserService = {
     if (!firebaseUser) return null;
     
     const userDoc = await getDoc(doc(db, 'usuarios', firebaseUser.uid));
-    return userDoc.exists() ? (userDoc.data() as User) : null;
+    if (userDoc.exists()) {
+      return userDoc.data() as User;
+    }
+
+    // Auto-migrate on reload if not yet bound to uid
+    if (firebaseUser.email) {
+      const PATH = 'usuarios';
+      const queryEmail = firebaseUser.email.toLowerCase().trim();
+      const q = query(
+        collection(db, PATH),
+        where('email', '==', queryEmail),
+        where('status', '==', 'Active'),
+        limit(1)
+      );
+      try {
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          const preCreatedDoc = querySnapshot.docs[0];
+          const oldData = preCreatedDoc.data() as User;
+          const oldId = preCreatedDoc.id;
+
+          if (oldId !== firebaseUser.uid) {
+            console.log(`Migrating on-reload user [${oldId}] to Firebase UID [${firebaseUser.uid}]`);
+            const userData: User = {
+              ...oldData,
+              id: firebaseUser.uid
+            };
+            
+            // 1. Write the new usuarios doc
+            await setDoc(doc(db, PATH, firebaseUser.uid), userData);
+            
+            // 2. Write the new profiles doc
+            const pDoc = await getDoc(doc(db, 'profiles', oldId));
+            if (pDoc.exists()) {
+              const pData = pDoc.data();
+              await setDoc(doc(db, 'profiles', firebaseUser.uid), {
+                ...pData,
+                id: firebaseUser.uid
+              });
+              await deleteDoc(doc(db, 'profiles', oldId));
+            } else {
+              await setDoc(doc(db, 'profiles', firebaseUser.uid), {
+                id: firebaseUser.uid,
+                name: oldData.name,
+                email: oldData.email,
+                role: oldData.role === 'Administrador Geral' ? 'admin' : 'operator',
+                active: oldData.status === 'Active'
+              });
+            }
+
+            // 3. Delete old usuarios doc
+            await deleteDoc(doc(db, PATH, oldId));
+            return userData;
+          }
+        }
+      } catch (err) {
+        console.error('Error auto-migrating user on session reload:', err);
+      }
+    }
+    
+    return null;
   },
 
   changePassword: async (current: string, newPass: string): Promise<boolean> => {
