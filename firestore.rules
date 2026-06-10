@@ -11,6 +11,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Checking if user has active account in 'usuarios'
     function hasUserDoc() {
       return isSignedIn() && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
     }
@@ -35,6 +36,15 @@ service cloud.firestore {
       return isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção';
     }
 
+    // Permissive team access to general workspace operations
+    function isApprovedUser() {
+      return isSignedIn() && (
+        isAdmin() || 
+        isCoordination() || 
+        hasUserDoc()
+      );
+    }
+
     // Usuarios collection
     match /usuarios/{userId} {
       allow read: if isSignedIn() && (
@@ -53,73 +63,63 @@ service cloud.firestore {
 
     // Pacientes collection
     match /pacientes/{patientId} {
-      allow read: if isSignedIn() && (
-        isAdmin() || isCoordination() || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional' && resource.data.professionals.hasAny([getUserData().name]))
-      );
-      allow write: if isAdmin() || isCoordination() || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional');
+      allow read: if isApprovedUser();
+      allow write: if isApprovedUser();
     }
 
     // Movimentacoes collection
     match /movimentacoes/{movementId} {
-      allow read: if isSignedIn() && (
-        isAdmin() || isCoordination() || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional' && resource.data.professionals.hasAny([getUserData().name]))
-      );
-      allow write: if isAdmin() || isCoordination() || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Recepção') || 
-        (isSignedIn() && hasUserDoc() && getUserData().accessType == 'Profissional');
+      allow read: if isApprovedUser();
+      allow write: if isApprovedUser();
     }
 
     // Profissionais collection
     match /profissionais/{professionalId} {
       allow read: if true;
-      allow write: if isAdmin() || isCoordination() || isReception();
+      allow write: if isApprovedUser();
     }
 
     // Sectors collection
     match /sectors/{sectorId} {
       allow read: if true;
-      allow write: if isAdmin() || isCoordination() || isReception();
+      allow write: if isApprovedUser();
     }
 
     // Profiles collection for team management
     match /profiles/{profileId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin() || (isSignedIn() && (
-        (resource == null && request.resource.data.email == request.auth.token.email) ||
-        (resource != null && resource.data.email == request.auth.token.email)
-      ));
+      allow read, write: if isSignedIn() && (
+        isAdmin() ||
+        (resource == null && request.resource.data.email.lower() == request.auth.token.email.lower()) ||
+        (resource != null && resource.data.email.lower() == request.auth.token.email.lower()) ||
+        (profileId == request.auth.uid) ||
+        isApprovedUser()
+      );
     }
 
     // Municipios collection
     match /municipios/{municipalityId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isCoordination() || isReception();
+      allow write: if isApprovedUser();
     }
 
     // Diagnosticos collection
     match /diagnosticos/{diagnosisId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin() || isCoordination() || isReception();
+      allow write: if isApprovedUser();
     }
 
     // Forms collection
     match /forms/{formId} {
       allow create: if true;
-      allow read: if isSignedIn() && (isAdmin() || isCoordination() || (isSignedIn() && hasUserDoc() && (getUserData().accessType == 'Profissional' || getUserData().accessType == 'Recepção')));
-      allow update, delete: if isAdmin() || isCoordination();
+      allow read: if isSignedIn() && isApprovedUser();
+      allow update, delete: if isApprovedUser();
     }
 
     // Evaluations collection
     match /evaluations/{evaluationId} {
       allow create: if true;
-      allow read: if isSignedIn() && (isAdmin() || isCoordination() || (isSignedIn() && hasUserDoc() && (getUserData().accessType == 'Profissional' || getUserData().accessType == 'Recepção')));
-      allow update, delete: if isAdmin() || isCoordination();
+      allow read: if isSignedIn() && isApprovedUser();
+      allow update, delete: if isApprovedUser();
     }
   }
 }
