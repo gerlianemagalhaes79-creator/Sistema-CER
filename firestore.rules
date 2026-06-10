@@ -21,9 +21,9 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        (hasUserDoc() && getUserData().accessType == 'Administrador') || 
         request.auth.token.email == 'gerlianemagalhaes79@gmail.com' ||
-        request.auth.token.email == 'cer2polisobral@gmail.com'
+        request.auth.token.email == 'cer2polisobral@gmail.com' ||
+        (hasUserDoc() && getUserData().accessType == 'Administrador')
       );
     }
 
@@ -37,8 +37,8 @@ service cloud.firestore {
 
     // Usuarios collection
     match /usuarios/{userId} {
-      allow read: if isSignedIn() && (isAdmin() || isCoordination() || request.auth.uid == userId);
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isCoordination());
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     // Pacientes collection

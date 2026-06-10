@@ -22,9 +22,11 @@ import {
   updateDoc, 
   doc, 
   setDoc,
-  deleteDoc
+  deleteDoc,
+  getDocs
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { AccessType } from '../types';
 
 // Local Interface to match Firestore "profiles" collection structure directly
 interface Profile {
@@ -74,6 +76,31 @@ export const UsersPage = () => {
     const PATH = 'profiles';
     const q = query(collection(db, PATH), orderBy('name', 'asc'));
     
+    // Backfill logic for profiles missing in "usuarios"
+    const backfillMissingUsers = async (pList: Profile[]) => {
+      try {
+        const usersSnap = await getDocs(collection(db, 'usuarios'));
+        const existingEmails = new Set(usersSnap.docs.map(doc => doc.data().email?.toLowerCase()));
+        
+        for (const p of pList) {
+          if (p.email && !existingEmails.has(p.email.toLowerCase())) {
+            console.log(`Backfilling user in 'usuarios' for email: ${p.email}`);
+            await setDoc(doc(db, 'usuarios', p.id), {
+              id: p.id,
+              name: p.name,
+              email: p.email.toLowerCase(),
+              role: p.role === 'admin' ? 'Administrador Geral' : 'Operador (Ouvidoria)',
+              accessType: p.role === 'admin' ? AccessType.Administrador : AccessType.Profissional,
+              status: p.active ? 'Active' : 'Inactive',
+              createdAt: new Date().toISOString()
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error in profiles backfill check:', err);
+      }
+    };
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedProfiles: Profile[] = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
@@ -87,6 +114,9 @@ export const UsersPage = () => {
       });
       setProfiles(fetchedProfiles);
       setLoading(false);
+
+      // Trigger user backfill check (non-blocking)
+      backfillMissingUsers(fetchedProfiles);
     }, (error) => {
       console.error('Error fetching profiles in real-time:', error);
       handleFirestoreError(error, OperationType.LIST, PATH);
@@ -143,7 +173,19 @@ export const UsersPage = () => {
         active: true
       };
 
+      // Write to 'profiles' so lists are populated
       await setDoc(doc(db, PATH, tempId), newProfile);
+
+      // Also write to 'usuarios' collection to allow login & permission access
+      await setDoc(doc(db, 'usuarios', tempId), {
+        id: tempId,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        role: roleValue === 'admin' ? 'Administrador Geral' : 'Operador (Ouvidoria)',
+        accessType: roleValue === 'admin' ? AccessType.Administrador : AccessType.Profissional,
+        status: 'Active',
+        createdAt: new Date().toISOString()
+      });
 
       // Clear form & close
       setName('');
@@ -164,9 +206,20 @@ export const UsersPage = () => {
   const handleToggleStatus = async (profile: Profile) => {
     const PATH = 'profiles';
     try {
+      // Toggle in profiles
       await updateDoc(doc(db, PATH, profile.id), {
         active: !profile.active
       });
+
+      // Synchronize to 'usuarios'
+      try {
+        await updateDoc(doc(db, 'usuarios', profile.id), {
+          status: !profile.active ? 'Active' : 'Inactive'
+        });
+      } catch (e) {
+        console.warn('Sync warning: corresponding usuario document update failed (may not exist yet):', e);
+      }
+
       triggerNotification(
         `Membro ${profile.name} foi ${!profile.active ? 'ativado' : 'desativado'} com sucesso!`, 
         'success'
@@ -184,9 +237,21 @@ export const UsersPage = () => {
     const roleText = nextRole === 'admin' ? 'Administrador' : 'Operador (Ouvidoria)';
     
     try {
+      // Update in profiles
       await updateDoc(doc(db, PATH, profile.id), {
         role: nextRole
       });
+
+      // Synchronize to 'usuarios'
+      try {
+        await updateDoc(doc(db, 'usuarios', profile.id), {
+          role: nextRole === 'admin' ? 'Administrador Geral' : 'Operador (Ouvidoria)',
+          accessType: nextRole === 'admin' ? AccessType.Administrador : AccessType.Profissional
+        });
+      } catch (e) {
+        console.warn('Sync warning: corresponding usuario document update failed (may not exist yet):', e);
+      }
+
       triggerNotification(
         `Cargo de ${profile.name} alterado para ${roleText} com sucesso!`,
         'success'
@@ -202,7 +267,16 @@ export const UsersPage = () => {
     const PATH = 'profiles';
     setDeletingInProgress(true);
     try {
+      // Delete from profiles
       await deleteDoc(doc(db, PATH, id));
+
+      // Synchronize deletion in 'usuarios'
+      try {
+        await deleteDoc(doc(db, 'usuarios', id));
+      } catch (e) {
+        console.warn('Sync warning: corresponding usuario document deletion failed:', e);
+      }
+
       triggerNotification('Perfil de usuário excluído permanentemente do banco de dados!', 'success');
       setDeletingUserId(null);
     } catch (error) {
