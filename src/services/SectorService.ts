@@ -88,9 +88,9 @@ export const SectorService = {
       "Realização de Exames", 
       "Laboratório", 
       "Entrega de Exames", 
-      "CER", 
-      "Ambiente", 
-      "Limpeza", 
+      "CER (Centro Especializado em Reabilitação)", 
+      "Ambiente (Conforto, Temperatura, Espaço)", 
+      "Limpeza (Conservação Geral)", 
       "Higiene e Organização dos Banheiros"
     ];
     try {

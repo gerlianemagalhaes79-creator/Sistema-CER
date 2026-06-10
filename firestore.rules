@@ -49,14 +49,14 @@ service cloud.firestore {
     match /usuarios/{userId} {
       allow read: if isSignedIn() && (
         request.auth.uid == userId || 
-        resource.data.email == request.auth.token.email || 
+        resource.data.email.lower() == request.auth.token.email.lower() || 
         isAdmin() || 
         isCoordination()
       );
       allow write: if isSignedIn() && (
         request.auth.uid == userId || 
-        (resource != null && resource.data.email == request.auth.token.email) ||
-        (resource == null && request.resource.data.email == request.auth.token.email) ||
+        (resource != null && resource.data.email.lower() == request.auth.token.email.lower()) ||
+        (resource == null && request.resource.data.email.lower() == request.auth.token.email.lower()) ||
         isAdmin()
       );
     }
@@ -87,12 +87,17 @@ service cloud.firestore {
 
     // Profiles collection for team management
     match /profiles/{profileId} {
-      allow read, write: if isSignedIn() && (
+      allow read: if isSignedIn() && (
         isAdmin() ||
-        (resource == null && request.resource.data.email.lower() == request.auth.token.email.lower()) ||
         (resource != null && resource.data.email.lower() == request.auth.token.email.lower()) ||
         (profileId == request.auth.uid) ||
         isApprovedUser()
+      );
+      allow write: if isSignedIn() && (
+        isAdmin() ||
+        (resource == null && request.resource.data.email.lower() == request.auth.token.email.lower()) ||
+        (resource != null && resource.data.email.lower() == request.auth.token.email.lower()) ||
+        (profileId == request.auth.uid)
       );
     }
 

@@ -159,7 +159,6 @@ export const UserService = {
         const q = query(
           collection(db, PATH), 
           where('email', '==', queryEmail), 
-          where('status', '==', 'Active'), 
           limit(1)
         );
         const querySnapshot = await getDocs(q);
@@ -203,6 +202,45 @@ export const UserService = {
           } else {
             userData = oldData;
           }
+        } else {
+          // Self-healing fallback: Check if email is in the 'profiles' collection
+          const qProfiles = query(
+            collection(db, 'profiles'),
+            where('email', '==', queryEmail),
+            limit(1)
+          );
+          const pSnapshot = await getDocs(qProfiles);
+          if (!pSnapshot.empty) {
+            console.log(`Self-healing user profile for email: ${queryEmail}`);
+            const pDoc = pSnapshot.docs[0];
+            const pData = pDoc.data();
+            
+            // Create in 'usuarios'
+            userData = {
+              id: firebaseUser.uid,
+              name: pData.name || 'Membro da Equipe',
+              email: queryEmail,
+              role: pData.role === 'admin' ? 'Administrador Geral' : 'Operador (Ouvidoria)',
+              accessType: pData.role === 'admin' ? AccessType.Administrador : AccessType.Profissional,
+              status: pData.active !== false ? 'Active' : 'Inactive',
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(doc(db, PATH, firebaseUser.uid), userData);
+            
+            // Re-create correct 'profiles' with correct Firebase UID
+            await setDoc(doc(db, 'profiles', firebaseUser.uid), {
+              id: firebaseUser.uid,
+              name: userData.name,
+              email: userData.email,
+              role: pData.role || 'operator',
+              active: pData.active !== false
+            });
+            
+            // Delete old profile if ID was different
+            if (pDoc.id !== firebaseUser.uid) {
+              await deleteDoc(doc(db, 'profiles', pDoc.id));
+            }
+          }
         }
       }
 
@@ -227,8 +265,9 @@ export const UserService = {
         await setDoc(doc(db, PATH, firebaseUser.uid), newAdmin);
         return newAdmin;
       } else {
+        const loginEmail = firebaseUser.email || 'sem e-mail';
         await signOut(auth);
-        throw new Error('Acesso negado. Seu e-mail não possui um perfil cadastrado no sistema CER. Entre em contato com a administração.');
+        throw new Error(`Acesso negado. O e-mail [${loginEmail}] ainda não possui um perfil cadastrado no sistema CER. Entre em contato com a administração para realizar o cadastro.`);
       }
     } catch (error: any) {
       console.error('Google Sign-In Error:', error);
@@ -260,7 +299,6 @@ export const UserService = {
       const q = query(
         collection(db, PATH),
         where('email', '==', queryEmail),
-        where('status', '==', 'Active'),
         limit(1)
       );
       try {
@@ -301,6 +339,40 @@ export const UserService = {
 
             // 3. Delete old usuarios doc
             await deleteDoc(doc(db, PATH, oldId));
+            return userData;
+          }
+        } else {
+          // Self-healing fallback: Check if email is in the 'profiles' collection
+          const qProfiles = query(
+            collection(db, 'profiles'),
+            where('email', '==', queryEmail),
+            limit(1)
+          );
+          const pSnapshot = await getDocs(qProfiles);
+          if (!pSnapshot.empty) {
+            console.log(`Self-healing user profile on reload for email: ${queryEmail}`);
+            const pDoc = pSnapshot.docs[0];
+            const pData = pDoc.data();
+            const userData: User = {
+              id: firebaseUser.uid,
+              name: pData.name || 'Membro da Equipe',
+              email: queryEmail,
+              role: pData.role === 'admin' ? 'Administrador Geral' : 'Operador (Ouvidoria)',
+              accessType: pData.role === 'admin' ? AccessType.Administrador : AccessType.Profissional,
+              status: pData.active !== false ? 'Active' : 'Inactive',
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(doc(db, PATH, firebaseUser.uid), userData);
+            await setDoc(doc(db, 'profiles', firebaseUser.uid), {
+              id: firebaseUser.uid,
+              name: userData.name,
+              email: userData.email,
+              role: pData.role || 'operator',
+              active: pData.active !== false
+            });
+            if (pDoc.id !== firebaseUser.uid) {
+              await deleteDoc(doc(db, 'profiles', pDoc.id));
+            }
             return userData;
           }
         }

@@ -80,8 +80,21 @@ export const ReportsPage = ({
     }
   ]);
 
-  // Sectors checklist to use as standard: Portaria, Recepção, Triagem, Consultas, Laboratório, Higiene
-  const defaultSectors = ['Portaria', 'Recepção', 'Triagem', 'Consultas', 'Laboratório', 'Higiene'];
+  // Sectors checklist to use as standard: exact 12 items
+  const defaultSectors = [
+    "Portaria/Segurança", 
+    "Recepção Geral", 
+    "Triagem", 
+    "Consultas Médicas", 
+    "Consultas Multiprofissionais", 
+    "Realização de Exames", 
+    "Laboratório", 
+    "Entrega de Exames", 
+    "CER (Centro Especializado em Reabilitação)", 
+    "Ambiente (Conforto, Temperatura, Espaço)", 
+    "Limpeza (Conservação Geral)", 
+    "Higiene e Organização dos Banheiros"
+  ];
   const activeSectors = useMemo(() => {
     const list = [...defaultSectors];
     availableSectors.forEach(s => {

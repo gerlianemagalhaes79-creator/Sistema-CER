@@ -28,12 +28,18 @@ export const NewFormPage = ({
   currentUser
 }: NewFormPageProps) => {
   const defaultSectors = [
-    'Portaria / Recepção', 
-    'Acolhimento / Triagem', 
-    'Consultas Médicas', 
-    'Serviço Social / Ouvidoria', 
-    'Procedimentos / Laboratório', 
-    'Higienização / Copa'
+    "Portaria/Segurança", 
+    "Recepção Geral", 
+    "Triagem", 
+    "Consultas Médicas", 
+    "Consultas Multiprofissionais", 
+    "Realização de Exames", 
+    "Laboratório", 
+    "Entrega de Exames", 
+    "CER (Centro Especializado em Reabilitação)", 
+    "Ambiente (Conforto, Temperatura, Espaço)", 
+    "Limpeza (Conservação Geral)", 
+    "Higiene e Organização dos Banheiros"
   ];
   
   const sectors = availableSectors.length > 0 ? availableSectors : defaultSectors;
