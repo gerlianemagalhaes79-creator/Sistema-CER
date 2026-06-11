@@ -60,6 +60,7 @@ import { NewFormPage } from './components/NewFormPage';
 import { ShareSurveyModal } from './components/ShareSurveyModal';
 import { PatientSurveyPage } from './components/PatientSurveyPage';
 import { EvaluationList } from './components/EvaluationList';
+import { Dashboard } from './components/Dashboard';
 import { 
   BarChart, 
   Bar, 
@@ -2355,14 +2356,7 @@ export default function App() {
           <AnimatePresence mode="wait">
             
             {currentPage === 'dashboard' && (
-              <DashboardPage 
-                key="dashboard" 
-                patients={patients} 
-                movements={movements} 
-                availableCities={municipalities.filter(m => m.status === 'Active').map(m => m.name)}
-                availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
-                availableDiagnoses={diagnoses.filter(d => d.status === 'Active').map(d => d.name)}
-              />
+              <Dashboard key="dashboard" />
             )}
             {currentView === 'form' && (
               <motion.div
@@ -2480,14 +2474,14 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-emerald-900/5 w-full max-w-md border border-emerald-50"
+        className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-blue-900/5 w-full max-w-md border border-blue-50"
       >
         <div className="flex flex-col items-center mb-10 text-center">
-          <div className="w-20 h-20 bg-[#064e3b] rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-emerald-900/40 transform -rotate-3 hover:rotate-0 transition-transform">
+          <div className="w-20 h-20 bg-[#1e40af] rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-blue-900/30 transform -rotate-3 hover:rotate-0 transition-transform">
             <UserSquare2 className="text-white" size={40} />
           </div>
-          <h2 className="text-3xl font-black text-[#064e3b] tracking-tight">CER Policlínica</h2>
-          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">Acesso Restrito</p>
+          <h2 className="text-3xl font-black text-[#1e40af] tracking-tight">OuvePoli</h2>
+          <p className="text-blue-500 font-bold uppercase text-[10px] tracking-[0.2em] mt-2">Acesso Restrito</p>
         </div>
         
         <div className="flex flex-col items-center gap-6">
@@ -2510,7 +2504,7 @@ const LoginPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full bg-[#064e3b] text-white py-5 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-[#053d2e] shadow-xl shadow-emerald-900/20 transition-all active:scale-95 flex items-center justify-center gap-4 disabled:opacity-50"
+            className="w-full bg-[#1e40af] text-white py-5 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-[#1d4ed8] shadow-xl shadow-blue-900/20 transition-all active:scale-95 flex items-center justify-center gap-4 disabled:opacity-50"
           >
             {loading ? (
               <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>

@@ -8,7 +8,8 @@ import {
   ArrowRight, 
   ArrowLeft, 
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
@@ -41,9 +42,10 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
   const sectors = defaultSectors;
 
   // Sector evaluations state
-  // Key: sector name, value: { rating: 'Otimo'|'Bom'|'Regular'|'Ruim', comment: string }
-  const [sectorRatings, setSectorRatings] = useState<Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim'; comment: string }>>({});
+  // Key: sector name, value: { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'NaoPassei'; comment: string }
+  const [sectorRatings, setSectorRatings] = useState<Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'NaoPassei'; comment: string }>>({});
   const [generalComment, setGeneralComment] = useState('');
+  const [patientName, setPatientName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Auto sign-in anonymously in background when survey loads
@@ -51,13 +53,23 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
     SurveyService.ensureAnonymousAuth();
   }, []);
 
-  // Timer for automatic restart on Success page (5 seconds)
+  // Timer for automatic restart on Success page (15 seconds with visual countdown)
+  const [countdown, setCountdown] = useState(15);
+
   useEffect(() => {
     if (step === 4) {
-      const timer = setTimeout(() => {
-        handleResetSurvey();
-      }, 5000);
-      return () => clearTimeout(timer);
+      setCountdown(15);
+      const interval = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            handleResetSurvey();
+            return 15;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
     }
   }, [step]);
 
@@ -65,10 +77,11 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
     setNpsScore(null);
     setSectorRatings({});
     setGeneralComment('');
+    setPatientName('');
     setStep(1);
   };
 
-  const handleSetSectorRating = (sector: string, rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim') => {
+  const handleSetSectorRating = (sector: string, rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'NaoPassei') => {
     setSectorRatings(prev => ({
       ...prev,
       [sector]: {
@@ -82,7 +95,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
     setSectorRatings(prev => ({
       ...prev,
       [sector]: {
-        rating: prev[sector]?.rating,
+        rating: prev[sector]?.rating || 'NaoPassei',
         comment
       }
     }));
@@ -96,19 +109,27 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
       const finalRatings = Object.entries(sectorRatings)
         .filter(([_, data]) => {
           const item = data as any;
-          return item && item.rating;
+          return item && item.rating && item.rating !== 'NaoPassei';
         }) // Only send answered sectors
         .map(([sector, data]) => {
-          const item = data as { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim'; comment: string };
+          const item = data as { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'NaoPassei'; comment: string };
           return {
             sector,
-            rating: item.rating,
+            rating: item.rating as 'Otimo' | 'Bom' | 'Regular' | 'Ruim',
             comment: item.comment
           };
         });
 
-      // Submit direct to database anonymously
-      await SurveyService.submitSurvey(npsScore, generalComment, finalRatings, 'patient');
+      // Submit direct to database anonymously, passing optional patient name as seventh argument
+      await SurveyService.submitSurvey(
+        npsScore, 
+        generalComment, 
+        finalRatings, 
+        'patient', 
+        undefined, 
+        undefined, 
+        patientName.trim() || 'Anônimo (Paciente)'
+      );
       setStep(4);
     } catch (err) {
       console.error(err);
@@ -133,9 +154,6 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
       <header className="bg-white border-b border-emerald-100 py-6 px-4 md:px-8 shadow-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-[#01402E] rounded-2xl flex items-center justify-center text-white text-xl font-black">
-              SUS
-            </div>
             <div>
               <h1 className="text-lg md:text-xl font-black text-[#01402E] tracking-tight uppercase">POLICLÍNICA BERNARDO FÉLIX</h1>
               <p className="text-[10px] md:text-xs text-emerald-800 font-extrabold tracking-widest uppercase">Pesquisa de Satisfação de Pacientes</p>
@@ -171,7 +189,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
             >
               <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-emerald-50 text-center space-y-2 shadow-md">
                 <h2 className="text-xl md:text-2xl font-black text-[#01402E] uppercase">Como você avalia os setores onde passou hoje?</h2>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Sua opinião é secreta e ajuda a melhorar nossos serviços públicos do SUS.</p>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sua opinião é segura e fundamental! Avalie apenas onde você passou hoje (se não passou, marque "Não passei").</p>
               </div>
 
               {/* Vertically scrolls sectors for visual comfort */}
@@ -189,12 +207,13 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                         <span className="text-base sm:text-lg md:text-xl font-black text-[#01402E] uppercase tracking-tight">{sector}</span>
                         
                         {/* Smiley scale selectors (Grid scale: large, robust and fully responsive) */}
-                        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 w-full md:w-auto md:min-w-[340px]">
+                        <div className="grid grid-cols-5 gap-1 sm:gap-2 w-full md:w-auto md:min-w-[420px]">
                           {[
-                            { id: 'Otimo', label: 'Ótimo', emoji: '😁', color: 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100', activeBg: 'bg-emerald-600 text-white ring-4 ring-emerald-200 font-extrabold' },
-                            { id: 'Bom', label: 'Bom', emoji: '🙂', color: 'text-sky-700 bg-sky-50 border-sky-200 hover:bg-sky-100', activeBg: 'bg-sky-600 text-white ring-4 ring-sky-200 font-extrabold' },
-                            { id: 'Regular', label: 'Regular', emoji: '😐', color: 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100', activeBg: 'bg-amber-500 text-white ring-4 ring-amber-200 font-extrabold' },
-                            { id: 'Ruim', label: 'Ruim', emoji: '🙁', color: 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100', activeBg: 'bg-red-600 text-white ring-4 ring-red-200 font-extrabold' }
+                            { id: 'Otimo', label: 'Ótimo', emoji: '😁', color: 'text-emerald-700 bg-emerald-50 border-emerald-100 hover:bg-emerald-100', activeBg: 'bg-emerald-600 text-white ring-4 ring-emerald-200 font-extrabold' },
+                            { id: 'Bom', label: 'Bom', emoji: '🙂', color: 'text-sky-700 bg-sky-50 border-sky-100 hover:bg-sky-100', activeBg: 'bg-sky-600 text-white ring-4 ring-sky-200 font-extrabold' },
+                            { id: 'Regular', label: 'Regular', emoji: '😐', color: 'text-amber-700 bg-amber-50 border-amber-100 hover:bg-amber-100', activeBg: 'bg-amber-500 text-white ring-4 ring-amber-200 font-extrabold' },
+                            { id: 'Ruim', label: 'Ruim', emoji: '🙁', color: 'text-red-700 bg-red-50 border-red-100 hover:bg-red-100', activeBg: 'bg-red-600 text-white ring-4 ring-red-200 font-extrabold' },
+                            { id: 'NaoPassei', label: 'Não passei', emoji: '🚫', color: 'text-slate-500 bg-slate-50 border-slate-150 hover:bg-slate-100', activeBg: 'bg-slate-500 text-white ring-4 ring-slate-200 font-extrabold' }
                           ].map((option) => {
                             const isSelected = currentSelection === option.id;
                             return (
@@ -202,12 +221,12 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                                 key={option.id}
                                 type="button"
                                 onClick={() => handleSetSectorRating(sector, option.id as any)}
-                                className={`flex flex-col items-center justify-center p-2.5 sm:p-3.5 rounded-2xl border transition-all active:scale-95 text-center ${
+                                className={`flex flex-col items-center justify-center p-2 sm:p-3 rounded-2xl border transition-all active:scale-95 text-center ${
                                   isSelected ? option.activeBg + ' scale-105 shadow-md border-transparent' : option.color
                                 }`}
                               >
-                                <span className="text-2xl sm:text-3xl select-none leading-none mb-1">{option.emoji}</span>
-                                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider mt-1">{option.label}</span>
+                                <span className="text-xl sm:text-2xl select-none leading-none mb-1">{option.emoji}</span>
+                                <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider mt-1">{option.label}</span>
                               </button>
                             );
                           })}
@@ -215,7 +234,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                       </div>
 
                       {/* Optional segment commentary for sector level if answered - 16px font-size to prevent zoom */}
-                      {currentSelection && (
+                      {currentSelection && currentSelection !== 'NaoPassei' && (
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
@@ -332,21 +351,42 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                 <div className="w-16 h-16 bg-emerald-50 text-[#01402E] rounded-2xl flex items-center justify-center mx-auto">
                   <Smile size={32} />
                 </div>
-                <h2 className="text-2xl md:text-3xl font-black text-[#01402E] uppercase">Deseja registrar comentários gerais ou sugestões?</h2>
+                <h2 className="text-2xl md:text-3xl font-black text-[#01402E] uppercase">IDENTIFICAÇÃO E COMENTÁRIOS ADICIONAIS</h2>
                 <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-wider max-w-md mx-auto leading-relaxed">
-                  Utilize o campo abaixo para elogiar profissionais, sugerir mudanças ou fazer qualquer reclamação adicional.
+                  Insira suas informações opcionais abaixo. Se não desejar se identificar, basta deixar o nome em branco.
                 </p>
               </div>
 
-              {/* Large TEXTAREA for comfortable writing */}
-              <div className="max-w-2xl mx-auto">
-                <textarea
-                  rows={5}
-                  value={generalComment}
-                  onChange={(e) => setGeneralComment(e.target.value)}
-                  placeholder="DIGITE AQUI SEU COMENTÁRIO..."
-                  className="w-full p-5 rounded-[2rem] border border-gray-200 bg-gray-50 text-base font-bold text-gray-600 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:bg-white resize-none"
-                />
+              {/* Identification and general commentaries - iOS safari font-size 16px to prevent automatic zooming */}
+              <div className="max-w-2xl mx-auto space-y-6 text-left">
+                <div className="bg-emerald-50/35 p-5 rounded-3xl border border-emerald-100/60 space-y-3">
+                  <label className="flex items-center gap-2 text-xs font-black text-[#01402E] uppercase tracking-widest leading-none">
+                    <User size={16} /> Seu Nome (Opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="DIGITE SEU NOME COMPLETO DE FORMA OPCIONAL..."
+                    className="w-full px-5 py-4 rounded-2xl border border-gray-200 bg-white text-base font-bold text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/15"
+                  />
+                  <p className="text-[10px] text-emerald-800/65 font-black uppercase tracking-wider ml-1 leading-relaxed">
+                    Sua pesquisa continua anônima se você decidir não preencher este campo.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-xs font-black text-[#01402E] uppercase tracking-widest leading-none ml-1">
+                    Comentário Geral ou Sugestão (Opcional)
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={generalComment}
+                    onChange={(e) => setGeneralComment(e.target.value)}
+                    placeholder="DIGITE SEU COMENTÁRIO, ELOGIO OU RECLAMAÇÃO AQUI..."
+                    className="w-full p-5 rounded-[2rem] border border-gray-200 bg-gray-50 text-base font-bold text-gray-650 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:bg-white resize-none"
+                  />
+                </div>
               </div>
 
               {/* Navigation and final submit controls */}
@@ -395,22 +435,30 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                   MUITO OBRIGADO POR SUA COLABORAÇÃO!
                 </h2>
                 <p className="text-emerald-100 font-bold max-w-md mx-auto text-sm leading-relaxed uppercase">
-                  Sua opinião ajuda a aprimorar de forma democrática e transparente a qualidade do SUS na Policlínica Bernardo Félix da Silva.
+                  Sua opinião ajuda a aprimorar de forma transparente e acolhedora o atendimento e as equipes na Policlínica Bernardo Félix da Silva.
                 </p>
               </div>
 
-              {/* Auto reset status line */}
-              <div className="pt-6 font-semibold text-[10px] uppercase text-emerald-200/50 tracking-[0.2em]">
-                Preparando painel para o próximo paciente...
+              {/* Dynamic countdown visual feedback */}
+              <div className="space-y-3 pt-6">
+                <div className="w-full bg-emerald-950/55 h-2 rounded-full overflow-hidden max-w-xs mx-auto border border-emerald-800">
+                  <div 
+                    className="bg-emerald-400 h-full transition-all duration-1000 ease-linear" 
+                    style={{ width: `${(countdown / 15) * 100}%` }}
+                  />
+                </div>
+                <div className="text-[11px] font-bold uppercase text-emerald-200/70 tracking-[0.14em]">
+                  Esta tela será reiniciada automaticamente em <span className="text-emerald-300 font-black text-xs px-1.5 py-0.5 bg-emerald-950/40 rounded-md">{countdown} s</span>...
+                </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-4">
                 <button
                   type="button"
                   onClick={handleResetSurvey}
-                  className="px-6 py-4 bg-white/15 hover:bg-white/20 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all"
+                  className="px-8 py-4.5 bg-white text-emerald-900 hover:bg-emerald-50 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-md active:scale-95"
                 >
-                  AVALIAR NOVAMENTE AGORA
+                  CONCLUIR AGORA (VOLTAR AO INÍCIO)
                 </button>
               </div>
             </motion.div>

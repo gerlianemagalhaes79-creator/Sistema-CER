@@ -19,7 +19,9 @@ import {
   FileEdit,
   ClipboardList,
   RefreshCw,
-  MessageSquare
+  MessageSquare,
+  Search,
+  Quote
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -63,6 +65,8 @@ export const ReportsPage = ({
   const [chatMessage, setChatMessage] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [feedbackSearch, setFeedbackSearch] = useState('');
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'promoters' | 'neutrals' | 'detractors'>('all');
 
   // Dynamic state for the current active AI report
   const [aiReport, setAiReport] = useState<{
@@ -251,6 +255,70 @@ export const ReportsPage = ({
       }
     });
     return list;
+  }, [filteredForms, filteredEvaluations]);
+
+  // List structured comments with relevant details for beautiful presentation & filtering
+  const detailedPatientFeedbacks = useMemo(() => {
+    const list: Array<{
+      id: string;
+      type: 'nps' | 'sector';
+      title: string;
+      scoreOrRating: string | number;
+      comment: string;
+      sentiment: 'promoter' | 'neutral' | 'detractor' | 'otimo' | 'bom' | 'regular' | 'ruim';
+      category: 'promoter' | 'neutral' | 'detractor';
+      source: string;
+      date: string;
+    }> = [];
+
+    filteredForms.forEach(f => {
+      if (f.generalComment && f.generalComment.trim().length > 3) {
+        let category: 'promoter' | 'neutral' | 'detractor' = 'neutral';
+        if (f.npsScore >= 9) category = 'promoter';
+        else if (f.npsScore <= 6) category = 'detractor';
+
+        list.push({
+          id: `f-${f.id || Math.random()}`,
+          type: 'nps',
+          title: `NPS Nota ${f.npsScore}`,
+          scoreOrRating: f.npsScore,
+          comment: f.generalComment,
+          sentiment: category,
+          category,
+          source: f.source === 'physical' ? 'Fisíco (Papel)' : 'Totem Digital',
+          date: new Date(f.createdAt).toLocaleDateString('pt-BR')
+        });
+      }
+    });
+
+    filteredEvaluations.forEach(e => {
+      if (e.comment && e.comment.trim().length > 3) {
+        let category: 'promoter' | 'neutral' | 'detractor' = 'neutral';
+        if (e.rating === 'Otimo' || e.rating === 'Bom') category = 'promoter';
+        else if (e.rating === 'Ruim') category = 'detractor';
+
+        const ratingLabels: Record<string, string> = {
+          Otimo: 'Ótimo',
+          Bom: 'Bom',
+          Regular: 'Regular',
+          Ruim: 'Ruim'
+        };
+
+        list.push({
+          id: `e-${e.id || Math.random()}`,
+          type: 'sector',
+          title: `Setor ${e.sector}`,
+          scoreOrRating: ratingLabels[e.rating] || e.rating,
+          comment: e.comment,
+          sentiment: e.rating.toLowerCase() as any,
+          category,
+          source: 'Avaliação de Canis/Setor',
+          date: new Date(e.createdAt).toLocaleDateString('pt-BR')
+        });
+      }
+    });
+
+    return list.sort((a, b) => b.id.localeCompare(a.id));
   }, [filteredForms, filteredEvaluations]);
 
   // Detect sectors that violate the >15% dissatisfaction rule!
@@ -883,144 +951,516 @@ export const ReportsPage = ({
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="space-y-8">
           
-          {/* Main Column - KPIs & Charts */}
-          <div className="lg:col-span-2 space-y-8">
-            
-            {/* Removed legacy duplicate kpi cards row */}
+          {/* Section 1: Gemini AI Report (Widescreen, Rectangular layout) */}
+          <div className="space-y-6">
+            {!aiReport ? (
+              <div className="bg-gradient-to-br from-[#2D1B4E] via-[#1F1235] to-[#120B24] border border-indigo-700/25 p-6 rounded-[2.5rem] shadow-xl relative overflow-hidden text-white">
+                {/* Elegant background glows */}
+                <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-            {/* Dissatisfaction alert if critical > 15% */}
-            {criticalSectorsAlerts.length > 0 && (
-              <div className="bg-red-50/75 border border-red-100 rounded-3xl p-6 flex gap-4 animate-pulse">
-                <div className="w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
-                  <AlertCircle size={22} />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-red-950">Alerta Técnico de Desvio do Setor</h4>
-                  <p className="text-xs text-red-700/80 mt-1 leading-relaxed">
-                    Os seguintes setores ativos apresentaram índice de desaprovação superior a 15% de acordo com as regras de auditoria operacional do SUS:
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {criticalSectorsAlerts.map(s => (
-                      <span key={s.sector} className="px-3 py-1 bg-white border border-red-200 text-red-700 text-xs font-black rounded-xl">
-                        {s.sector}: {s.negativePercent}% Rejeição ({s.total} avaliações)
-                      </span>
-                    ))}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                  <div className="space-y-3 flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-white/10 backdrop-blur-md text-white rounded-xl flex items-center justify-center shadow-inner border border-white/10">
+                        <Sparkles size={20} className="text-purple-300 animate-pulse" />
+                      </div>
+                      <div>
+                        <span className="text-[9px] font-black tracking-widest text-indigo-300 uppercase bg-indigo-500/20 px-2.5 py-1 rounded-full border border-indigo-400/20">
+                          Ouvidoria Inteligente
+                        </span>
+                        <h3 className="text-base font-black tracking-tight mt-0.5 text-white">Estudo Analítico de IA</h3>
+                      </div>
+                    </div>
+                    <p className="text-xs text-indigo-100/70 font-medium leading-relaxed max-w-2xl">
+                      Estude as métricas consolidadas de NPS, comentários reais de pacientes e insatisfações setoriais do SUS em segundos através da inteligência artificial do Gemini.
+                    </p>
+                  </div>
+
+                  <div className="flex-1 space-y-2 max-w-md w-full">
+                    <span className="block text-[9px] font-black text-indigo-300 uppercase tracking-widest pl-0.5">Parâmetro de Foco Especial (Opcional)</span>
+                    <div className="flex gap-2">
+                      <textarea
+                        value={extraPrompt}
+                        onChange={(e) => setExtraPrompt(e.target.value)}
+                        placeholder="Instrua a IA a enfatizar portaria acolhedora, tom das avaliações médicas..."
+                        rows={2}
+                        className="flex-1 px-4 py-2.5 rounded-xl border border-indigo-500/20 bg-indigo-950/45 text-xs font-semibold text-indigo-100 placeholder-indigo-400/30 focus:outline-[#1C0D32] focus:ring-2 focus:ring-indigo-400 focus:bg-[#1C0D32] resize-none border-dashed transition-all"
+                      />
+                      <button
+                        type="button"
+                        disabled={reportLoading}
+                        onClick={handleGenerateAIReport}
+                        className="px-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-200 shadow-lg hover:shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 group cursor-pointer whitespace-nowrap"
+                      >
+                        {reportLoading ? (
+                          <Loader2 size={10} className="animate-spin text-white" />
+                        ) : (
+                          <>
+                            <Sparkles size={14} className="group-hover:scale-110 transition-transform text-white/90" /> Gerar Análise
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
+                
+                {/* AI report metadata header with Toggle editing */}
+                <div className="p-6 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                      <Sparkles size={16} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black tracking-wider text-indigo-605 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full uppercase">
+                        Garantia de Qualidade
+                      </span>
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide mt-0.5 font-sans">Laudo de Análise Especializada com IA</h4>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5 self-end sm:self-auto">
+                    <button
+                      onClick={() => setIsEditingReport(!isEditingReport)}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 border cursor-pointer ${
+                        isEditingReport 
+                          ? 'bg-[#01402E] border-[#01402E] text-white hover:bg-emerald-950 shadow-sm' 
+                          : 'bg-white border-gray-200 text-gray-650 hover:text-[#01402E] hover:border-emerald-100'
+                      }`}
+                    >
+                      {isEditingReport ? (
+                        <>
+                          <CheckCircle2 size={11} /> Concluir Edição
+                        </>
+                      ) : (
+                        <>
+                          <FileEdit size={11} /> Editar Relatório
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAiReport(null);
+                        setChatHistory([{ role: 'assistant', content: 'Olá! Desenvolvi o estudo analítico inicial para este mês. Se houver necessidade de ajustes ou refinamentos específicos, digite abaixo ou utilize as recomendações rápidas de estilo.' }]);
+                      }}
+                      className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase text-gray-400 hover:text-red-500 hover:border-red-150 transition-colors cursor-pointer"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3-column Grid for wide monitor (Layout retangular de alta performance) */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 divide-y xl:divide-y-0 xl:divide-x divide-slate-105 bg-white">
+                  
+                  {/* Left part (xl:col-span-8) containing the four core boxes */}
+                  <div className="xl:col-span-8 p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      
+                      {/* Card 1: Resumo Institucional */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded-lg border border-indigo-100">
+                              <FileText size={10} /> Resumo Institucional
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <textarea
+                              value={aiReport.conclusionText}
+                              onChange={(e) => setAiReport({ ...aiReport, conclusionText: e.target.value })}
+                              rows={4}
+                              className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                              placeholder="Escreva a consolidação do parecer técnico..."
+                            />
+                          ) : (
+                            <div className="text-xs font-semibold text-gray-650 leading-relaxed">
+                              {aiReport.conclusionText || 'Nenhum parecer técnico gerado.'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card 2: Pontos Positivos */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-emerald-50 text-emerald-805 px-2.5 py-1 rounded-lg border border-emerald-100">
+                              <ThumbsUp size={10} /> Pontos Positivos
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <div>
+                              <textarea
+                                value={aiReport.praisePoints.join('\n')}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split('\n');
+                                  setAiReport({ ...aiReport, praisePoints: lines });
+                                }}
+                                rows={4}
+                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                                placeholder="Ponto positivo..."
+                              />
+                            </div>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {aiReport.praisePoints.map((p, idx) => p.trim() && (
+                                <li key={idx} className="text-xs font-semibold text-gray-650 leading-relaxed flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                                  <span>{p}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card 3: Alertas Críticos */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-red-50 text-red-800 px-2.5 py-1 rounded-lg border border-red-100">
+                              <AlertTriangle size={10} /> Alertas Críticos
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <div>
+                              <textarea
+                                value={aiReport.criticalAlerts.join('\n')}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split('\n');
+                                  setAiReport({ ...aiReport, criticalAlerts: lines });
+                                }}
+                                rows={4}
+                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                                placeholder="Alerta crítico..."
+                              />
+                            </div>
+                          ) : (
+                            aiReport.criticalAlerts.length === 0 ? (
+                              <p className="text-[11px] font-bold text-gray-400">Sem desvios agravantes no período.</p>
+                            ) : (
+                              <ul className="space-y-1.5">
+                                {aiReport.criticalAlerts.map((a, idx) => a.trim() && (
+                                  <li key={idx} className="text-xs font-semibold text-gray-655 leading-relaxed flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                                    <span>{a}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card 4: Ações Recomendadas */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-amber-50 text-amber-805 px-2.5 py-1 rounded-lg border border-amber-100">
+                              <Lightbulb size={10} /> Ações Recomendadas
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <div>
+                              <textarea
+                                value={aiReport.strategicActions.join('\n')}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split('\n');
+                                  setAiReport({ ...aiReport, strategicActions: lines });
+                                }}
+                                rows={4}
+                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                                placeholder="Ação recomendada..."
+                              />
+                            </div>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {aiReport.strategicActions.map((s, idx) => s.trim() && (
+                                <li key={idx} className="text-xs font-semibold text-gray-655 leading-relaxed flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                                  <span>{s}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Right part (xl:col-span-4) with interactive messaging and compilation download */}
+                  <div className="xl:col-span-4 p-6 flex flex-col justify-between space-y-6 bg-slate-50/30">
+                    
+                    <div className="space-y-3.5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-gray-405 uppercase tracking-wider">
+                        <MessageSquare size={12} className="text-indigo-600 animate-pulse" />
+                        <span>Chat de Refinamento</span>
+                      </div>
+
+                      {/* Chat text panel heights are responsive & tightly optimized */}
+                      <div className="max-h-[160px] overflow-y-auto space-y-3 pr-1 text-xs">
+                        {chatHistory.map((msg, idx) => (
+                          <div 
+                            key={idx} 
+                            className={`flex flex-col max-w-[85%] ${
+                              msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'
+                            }`}
+                          >
+                            <div 
+                              className={`p-2.5 rounded-2xl leading-relaxed text-xs font-semibold ${
+                                msg.role === 'user' 
+                                  ? 'bg-indigo-600 text-white rounded-br-none' 
+                                  : 'bg-white border border-slate-100 text-gray-700 shadow-3xs rounded-bl-none'
+                              }`}
+                            >
+                              {msg.content}
+                            </div>
+                            <span className="text-[7px] font-black text-slate-400 mt-0.5 uppercase">
+                              {msg.role === 'user' ? 'Você' : 'Suporte IA'}
+                            </span>
+                          </div>
+                        ))}
+                        {chatLoading && (
+                          <div className="flex items-center gap-2 text-[10px] text-gray-450 font-bold ml-1 animate-pulse">
+                            <Loader2 size={10} className="animate-spin" />
+                            <span>Ajustando parecer...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Predefined prompts */}
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          disabled={chatLoading}
+                          onClick={() => handleSendMessageToAI("Por favor, reescreva todo o relatório e parecer técnico em um tom altamente formal e acadêmico do SUS.")}
+                          className="p-1 px-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg text-[8px] font-extrabold text-[#01402E] transition active:scale-95 cursor-pointer disabled:opacity-50"
+                        >
+                          👔 Tom SUS
+                        </button>
+                        <button
+                          type="button"
+                          disabled={chatLoading}
+                          onClick={() => handleSendMessageToAI("Deixe o relatório mais curto, bem direto e focado no essencial das estatísticas.")}
+                          className="p-1 px-2.5 bg-white hover:bg-slate-50 border border-gray-200 rounded-lg text-[8px] font-extrabold text-slate-655 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                        >
+                          ⚡ Direto
+                        </button>
+                      </div>
+
+                      <form 
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSendMessageToAI();
+                        }} 
+                        className="flex gap-1.5"
+                      >
+                        <input
+                          type="text"
+                          required
+                          value={chatMessage}
+                          disabled={chatLoading}
+                          onChange={(e) => setChatMessage(e.target.value)}
+                          placeholder="Rerequisitar ajuste..."
+                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 placeholder-gray-405 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                        />
+                        <button
+                          type="submit"
+                          disabled={chatLoading || !chatMessage.trim()}
+                          className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-md shrink-0 flex items-center justify-center disabled:opacity-50 cursor-pointer"
+                        >
+                          <Send size={12} />
+                        </button>
+                      </form>
+                    </div>
+
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="w-full py-3 bg-[#01402E] hover:bg-emerald-950 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Download size={12} /> Exportar Laudo (PDF)
+                    </button>
+
+                  </div>
+
+                </div>
+
               </div>
             )}
+          </div>
 
-            {/* 1. Painel de Análise Profunda do NPS */}
-            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-gray-50 pb-4">
-                <div>
-                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Painel de Análise Profunda do NPS</h3>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Visão segmentada e evolução temporal de promotores e detratores/passivos</p>
-                </div>
-                <Activity size={18} className="text-[#01402E]" />
+          {/* Section 2: Technical sector dissatisfaction alerts */}
+          {criticalSectorsAlerts.length > 0 && (
+            <div className="bg-red-50/75 border border-red-100 rounded-3xl p-6 flex gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
+                <AlertCircle size={22} />
               </div>
+              <div>
+                <h4 className="text-sm font-black text-red-950">Alerta Técnico de Desvio do Setor</h4>
+                <p className="text-xs text-red-700/80 mt-1 leading-relaxed">
+                  Os seguintes setores ativos apresentaram índice de desaprovação superior a 15% de acordo com as regras de auditoria operacional do SUS:
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {criticalSectorsAlerts.map(s => (
+                    <span key={s.sector} className="px-3 py-1 bg-white border border-red-200 text-red-700 text-xs font-black rounded-xl">
+                      {s.sector}: {s.negativePercent}% Rejeição ({s.total} avaliações)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                {/* Column Left: Category Progress Bars */}
-                <div className="space-y-5">
-                  <h4 className="text-xs font-black text-[#01402E] uppercase tracking-widest">Distribuição de Respondentes</h4>
-                  
-                  {/* Promoters (9-10) */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-extrabold text-[#01402E] flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span>
-                        Promotores (Nota 9-10)
-                      </span>
-                      <span className="font-black text-emerald-600">{metrics.promotersPercent}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-[#10b981] h-full rounded-full transition-all duration-500" 
-                        style={{ width: `${metrics.promotersPercent}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-[9px] text-gray-400 font-semibold uppercase">Altamente satisfeitos, com alta probabilidade de indicação ativa.</p>
+          {/* Section 3: Professional Analytics Grid (NPS Deep Scan + Ratings breakdown with comments) */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-stretch">
+            
+            {/* Column 1: NPS Deep Analysis */}
+            <div className="xl:col-span-6 flex">
+              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6 flex flex-col justify-between w-full">
+                <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+                  <div>
+                    <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Painel de Análise Profunda do NPS</h3>
+                    <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Visão segmentada e evolução temporal de promotores e detratores/passivos</p>
                   </div>
-
-                  {/* Neutrals (7-8) */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-extrabold text-amber-700 flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]"></span>
-                        Passivos (Nota 7-8)
-                      </span>
-                      <span className="font-black text-amber-600">{metrics.neutralsPercent}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-[#f59e0b] h-full rounded-full transition-all duration-500" 
-                        style={{ width: `${metrics.neutralsPercent}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-[9px] text-gray-400 font-semibold uppercase">Satisfeitos, porém indiferentes. Vulneráveis à concorrência operacional.</p>
-                  </div>
-
-                  {/* Detractors (0-6) */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-extrabold text-red-700 flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
-                        Detratores (Nota 0-6)
-                      </span>
-                      <span className="font-black text-red-600">{metrics.detractorsPercent}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-[#ef4444] h-full rounded-full transition-all duration-500" 
-                        style={{ width: `${metrics.detractorsPercent}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-[9px] text-gray-400 font-semibold uppercase">Insatisfeitos. Potenciais detratores da reputação técnica do serviço.</p>
-                  </div>
+                  <Activity size={18} className="text-[#01402E]" />
                 </div>
 
-                {/* Column Right: Elegant Bar Chart (Last 6 Months NPS) */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-black text-[#01402E] uppercase tracking-widest text-center md:text-left">Evolução do NPS Mensal (Últimos 6 Meses)</h4>
-                  <div className="h-48 font-sans">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={last6MonthsNpsData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold' }} />
-                        <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold' }} domain={[-100, 100]} />
-                        <Tooltip 
-                          contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px' }} 
-                          formatter={(value: any) => [`${value}%`, 'Índice NPS']}
-                        />
-                        <Bar dataKey="NPS" radius={[4, 4, 0, 0]}>
-                          {last6MonthsNpsData.map((entry, index) => {
-                            const isPositive = entry.NPS >= 50;
-                            const isCritical = entry.NPS < 0;
-                            let fill = '#3b82f6'; 
-                            if (isPositive) fill = '#10b981'; 
-                            else if (isCritical) fill = '#ef4444'; 
-                            else if (entry.NPS >= 0 && entry.NPS < 50) fill = '#f59e0b'; 
-                            return <Cell key={`cell-${index}`} fill={fill} />;
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center py-4 flex-1">
+                  {/* Column Left: Category Progress Bars */}
+                  <div className="space-y-5">
+                    <h4 className="text-xs font-black text-[#01402E] uppercase tracking-widest">Distribuição de Respondentes</h4>
+                    
+                    {/* Promoters (9-10) */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-extrabold text-[#01402E] flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span>
+                          Promotores (Nota 9-10)
+                        </span>
+                        <span className="font-black text-emerald-600">{metrics.promotersPercent}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-[#10b981] h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${metrics.promotersPercent}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">Altamente satisfeitos, com alta probabilidade de indicação ativa.</p>
+                    </div>
+
+                    {/* Neutrals (7-8) */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-extrabold text-amber-700 flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]"></span>
+                          Passivos (Nota 7-8)
+                        </span>
+                        <span className="font-black text-amber-600">{metrics.neutralsPercent}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-[#f59e0b] h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${metrics.neutralsPercent}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">Satisfeitos, porém indiferentes. Vulneráveis à concorrência operacional.</p>
+                    </div>
+
+                    {/* Detractors (0-6) */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="font-extrabold text-red-700 flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
+                          Detratores (Nota 0-6)
+                        </span>
+                        <span className="font-black text-red-650">{metrics.detractorsPercent}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-[#ef4444] h-full rounded-full transition-all duration-500" 
+                          style={{ width: `${metrics.detractorsPercent}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-[9px] text-gray-400 font-semibold uppercase">Insatisfeitos. Potenciais detratores da reputação técnica do serviço.</p>
+                    </div>
                   </div>
-                  <p className="text-[9px] text-gray-400 font-bold uppercase text-center md:text-left">
-                    Meta de Qualidade SUS: Manter índice acima de 50% (Zona de Especialização/Excelência).
-                  </p>
+
+                  {/* Column Right: Elegant Bar Chart (Last 6 Months NPS) */}
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-black text-[#01402E] uppercase tracking-widest text-center md:text-left">Evolução do NPS Mensal (Últimos 6 Meses)</h4>
+                    <div className="h-48 font-sans">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={last6MonthsNpsData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold' }} />
+                          <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b', fontWeight: 'bold' }} domain={[-100, 100]} />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px' }} 
+                            formatter={(value: any) => [`${value}%`, 'Índice NPS']}
+                          />
+                          <Bar dataKey="NPS" radius={[4, 4, 0, 0]}>
+                            {last6MonthsNpsData.map((entry, index) => {
+                              const isPositive = entry.NPS >= 50;
+                              const isCritical = entry.NPS < 0;
+                              let fill = '#3b82f6'; 
+                              if (isPositive) fill = '#10b981'; 
+                              else if (isCritical) fill = '#ef4444'; 
+                              else if (entry.NPS >= 0 && entry.NPS < 50) fill = '#f59e0b'; 
+                              return <Cell key={`cell-${index}`} fill={fill} />;
+                            })}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <p className="text-[9px] text-gray-400 font-bold uppercase text-center md:text-left">
+                      Meta de Qualidade SUS: Manter índice acima de 50%.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* 2. Composição da Média Mensal */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Pie/Donut Chart for Ratings Composition */}
-              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+            {/* Column 2: Donut Composition */}
+            <div className="xl:col-span-6 flex">
+              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6 flex flex-col justify-between w-full">
                 <div>
                   <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Composição de Notas (Percentual)</h3>
                   <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Proporção absoluta das notas individuais atribuídas</p>
@@ -1053,490 +1493,325 @@ export const ReportsPage = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-extrabold text-gray-500">
+                    <div className="grid grid-cols-2 gap-2.5 text-center text-[10px] font-extrabold text-gray-500">
                       {compositionPieData.map((item, idx) => (
-                        <div key={idx} className="p-2 rounded-xl border border-gray-50/50 bg-gray-50/20 flex flex-col justify-center items-center">
+                        <div key={idx} className="p-2.5 rounded-xl border border-gray-50/50 bg-gray-50/20 flex flex-col justify-center items-center">
                           <span className="block text-xs font-black" style={{ color: item.color }}>
                             {item.percentage}%
                           </span>
-                          <span className="text-gray-400 uppercase tracking-wider text-[8px] mt-0.5">{item.name} ({item.value})</span>
+                          <span className="text-gray-430 uppercase tracking-wider text-[8px] mt-0.5">{item.name} ({item.value})</span>
                         </div>
                       ))}
                     </div>
                   </>
                 )}
               </div>
-
-              {/* Feedbacks em tempo real */}
-              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
-                <div>
-                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Feedbacks Recentes</h3>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Últimas avaliações e comentários dos pacientes</p>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-3 max-h-[220px] pr-1 mt-6">
-                  {patientComments.length === 0 ? (
-                    <div className="text-center text-xs text-gray-400 py-12">Nenhum comentário textual neste mês.</div>
-                  ) : (
-                    patientComments.slice(0, 5).map((comment, i) => (
-                      <div key={i} className="p-3 bg-gray-50/70 rounded-xl border border-gray-100 text-xs font-semibold text-gray-600 line-clamp-3 leading-relaxed">
-                        {comment}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-            </div>
-
-            {/* 3. Performance por Setor */}
-            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-gray-50 pb-4">
-                <div>
-                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Desempenho Detalhado por Setor</h3>
-                  <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Índice real de aprovação regulatória e selo técnico de classificação</p>
-                </div>
-                <ClipboardList size={18} className="text-[#01402E]" />
-              </div>
-
-              <div className="divide-y divide-gray-100">
-                {activeSectors.map((sector) => {
-                  const data = metrics.sectorsPerformance[sector] || {
-                    ratings: { Otimo: 0, Bom: 0, Regular: 0, Ruim: 0 },
-                    positivePercent: 0,
-                    negativePercent: 0,
-                    total: 0
-                  };
-
-                  const status = getSectorStatus(data);
-                  const StatusIcon = status.icon;
-
-                  return (
-                    <div key={sector} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-150 hover:bg-gray-50/50 px-3 rounded-2xl">
-                      {/* Left information */}
-                      <div className="space-y-1 min-w-[180px]">
-                        <h4 className="text-sm font-extrabold text-[#01402E]">{sector}</h4>
-                        <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold">
-                          <Users size={11} />
-                          <span>{data.total} {data.total === 1 ? 'avaliação' : 'avaliações'}</span>
-                        </div>
-                      </div>
-
-                      {/* Stacked visualization track */}
-                      <div className="flex-1 max-w-md w-full space-y-1.5">
-                        <div className="flex justify-between text-xs font-bold text-gray-500">
-                          <span>Aprovação Ótimo/Bom</span>
-                          <span className="text-[#01402E]">{data.positivePercent}%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
-                          <div 
-                            className="bg-emerald-500 h-full transition-all duration-500" 
-                            style={{ width: `${data.positivePercent}%` }}
-                          ></div>
-                          <div 
-                            className="bg-red-400 h-full transition-all duration-500" 
-                            style={{ width: `${data.total > 0 ? ((data.ratings.Ruim) / data.total) * 100 : 0}%` }}
-                          ></div>
-                        </div>
-                        <div className="flex justify-between text-[8px] uppercase tracking-wider font-extrabold text-gray-400">
-                          <span>Aprovados ({data.ratings.Otimo + data.ratings.Bom})</span>
-                          <span>Incompatível ({data.ratings.Ruim})</span>
-                        </div>
-                      </div>
-
-                      {/* Status seal */}
-                      <div className="shrink-0 flex items-center">
-                        <span className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-2xs ${status.color}`}>
-                          <StatusIcon size={12} className={status.textColor} />
-                          <span>{status.label}</span>
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
 
           </div>
 
-          {/* Right Column - Gemini AI Report Co-Author & Adjusting */}
-          <div className="lg:col-span-1 space-y-8">
-            
-            {!aiReport ? (
-              <div className="bg-gradient-to-br from-[#2D1B4E] via-[#1F1235] to-[#120B24] border border-indigo-700/25 p-8 rounded-[2.5rem] shadow-xl space-y-6 relative overflow-hidden text-white">
-                {/* Elegant background glows */}
-                <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/10 backdrop-blur-md text-white rounded-2xl flex items-center justify-center shadow-inner border border-white/10">
-                    <Sparkles size={24} className="text-purple-300 animate-pulse" />
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black tracking-widest text-indigo-300 uppercase bg-indigo-500/20 px-2.5 py-1 rounded-full border border-indigo-400/20">
-                      Ouvidoria Inteligente
-                    </span>
-                    <h3 className="text-base font-black tracking-tight mt-1 text-white">Estudo Analítico de IA</h3>
-                  </div>
+          {/* Section 3.5: Central de Opinião e Feedbacks Interativa (Widescreen, spacious) */}
+          <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-50 pb-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#01402E] animate-pulse" />
+                  <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Mural de Feedbacks Recentes</h3>
                 </div>
-
-                <p className="text-xs text-indigo-100/70 font-medium leading-relaxed">
-                  Estude as métricas consolidadas de NPS, comentários reais de pacientes e insatisfações setoriais do SUS em segundos através da inteligência artificial do Gemini.
+                <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">
+                  Visão transparente de comentários, elogios e reclamações registradas no período
                 </p>
+              </div>
 
-                {/* Focus prompt field */}
-                <div className="space-y-2">
-                  <span className="block text-[10px] font-black text-indigo-300 uppercase tracking-widest pl-0.5">Parâmetro de Foco Especial (Opcional)</span>
-                  <textarea
-                    value={extraPrompt}
-                    onChange={(e) => setExtraPrompt(e.target.value)}
-                    placeholder="Instrua a IA a enfatizar portaria acolhedora, tom das avaliações médicas, redução de gargalos na triagem..."
-                    rows={3}
-                    className="w-full px-4 py-3 rounded-2xl border border-indigo-500/20 bg-indigo-950/45 text-xs font-semibold text-indigo-100 placeholder-indigo-400/30 focus:outline-[#1C0D32] focus:ring-2 focus:ring-indigo-400 focus:bg-[#1C0D32] resize-none border-dashed transition-all"
+              {/* Search Box */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    value={feedbackSearch}
+                    onChange={(e) => setFeedbackSearch(e.target.value)}
+                    placeholder="Buscar nos depoimentos..."
+                    className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-150 rounded-2xl text-xs font-semibold text-gray-700 placeholder-text-gray-405 focus:outline-none focus:ring-2 focus:ring-[#01402E] focus:bg-white w-full sm:w-56"
                   />
                 </div>
-
-                <button
-                  type="button"
-                  disabled={reportLoading}
-                  onClick={handleGenerateAIReport}
-                  className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all duration-200 shadow-lg hover:shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 group cursor-pointer"
-                >
-                  {reportLoading ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin text-white" /> Analisando Registros...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={14} className="group-hover:scale-110 transition-transform text-white/90" /> Gerar Análise Inteligente
-                    </>
-                  )}
-                </button>
               </div>
-            ) : (
-              <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden flex flex-col h-[820px]">
-                
-                {/* AI report metadata header with Toggle editing */}
-                <div className="p-6 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={16} className="text-emerald-700 animate-pulse" />
-                    <span className="text-xs font-black text-gray-800 uppercase tracking-widest">Painel Assistente de IA</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsEditingReport(!isEditingReport)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 border cursor-pointer ${
-                        isEditingReport 
-                          ? 'bg-[#01402E] border-[#01402E] text-white hover:bg-emerald-900 shadow-sm' 
-                          : 'bg-white border-gray-200 text-gray-600 hover:text-[#01402E] hover:border-emerald-100'
-                      }`}
-                    >
-                      {isEditingReport ? (
-                        <>
-                          <CheckCircle2 size={11} /> Concluir Edição
-                        </>
-                      ) : (
-                        <>
-                          <FileEdit size={11} /> Editar Manuscrito
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setAiReport(null);
-                        setChatHistory([{ role: 'assistant', content: 'Olá! Desenvolvi o estudo analítico inicial para este mês. Se houver necessidade de ajustes ou refinamentos específicos, digite abaixo ou utilize as recomendações rápidas de estilo.' }]);
-                      }}
-                      className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase text-gray-400 hover:text-red-500 hover:border-red-105 transition-colors cursor-pointer"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-                </div>
+            </div>
 
-                {/* Content body with the requested four text boxes */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  
-                  {/* Card 1: Resumo Institucional */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-indigo-50 text-indigo-805 px-2.5 py-1 rounded-lg border border-indigo-100">
-                        <FileText size={10} /> Resumo Institucional
-                      </span>
-                      {!isEditingReport && (
-                        <button
-                          onClick={() => setIsEditingReport(true)}
-                          className="text-[10px] font-bold text-gray-400 hover:text-[#01402E] flex items-center gap-1 cursor-pointer"
-                        >
-                          <FileEdit size={10} /> Editar
-                        </button>
-                      )}
-                    </div>
-                    {isEditingReport ? (
-                      <textarea
-                        value={aiReport.conclusionText}
-                        onChange={(e) => setAiReport({ ...aiReport, conclusionText: e.target.value })}
-                        rows={4}
-                        className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-600 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                        placeholder="Escreva a consolidação do parecer técnico..."
-                      />
-                    ) : (
-                      <div className="p-4 bg-white border border-gray-100 rounded-2xl text-xs font-semibold text-gray-600 leading-relaxed shadow-3xs">
-                        {aiReport.conclusionText || 'Nenhum parecer técnico gerado.'}
-                      </div>
-                    )}
+            {/* Filter pills segment */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setFeedbackFilter('all')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all duration-155 cursor-pointer ${
+                  feedbackFilter === 'all'
+                    ? 'bg-[#01402E] text-white shadow-xs'
+                    : 'bg-slate-50 text-slate-550 border border-slate-100 hover:bg-slate-100'
+                }`}
+              >
+                Todos ({detailedPatientFeedbacks.length})
+              </button>
+              <button
+                onClick={() => setFeedbackFilter('promoters')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all duration-155 cursor-pointer flex items-center gap-1.5 ${
+                  feedbackFilter === 'promoters'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-emerald-50/50 text-emerald-800 border border-emerald-100/50 hover:bg-emerald-50'
+                }`}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Promotores / Elogios ({detailedPatientFeedbacks.filter(f => f.category === 'promoter').length})
+              </button>
+              <button
+                onClick={() => setFeedbackFilter('neutrals')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all duration-155 cursor-pointer flex items-center gap-1.5 ${
+                  feedbackFilter === 'neutrals'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-amber-50/50 text-amber-800 border border-amber-100/50 hover:bg-amber-50'
+                }`}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                Neutros ({detailedPatientFeedbacks.filter(f => f.category === 'neutral').length})
+              </button>
+              <button
+                onClick={() => setFeedbackFilter('detractors')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all duration-155 cursor-pointer flex items-center gap-1.5 ${
+                  feedbackFilter === 'detractors'
+                    ? 'bg-red-650 text-white shadow-xs'
+                    : 'bg-red-50 text-red-800 border border-red-100 hover:bg-red-50/50'
+                }`}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                Detratores / Críticas ({detailedPatientFeedbacks.filter(f => f.category === 'detractor').length})
+              </button>
+            </div>
+
+            {/* List feedbacks as cards in grid */}
+            {(() => {
+              const filteredList = detailedPatientFeedbacks.filter(item => {
+                const matchesSearch = item.comment.toLowerCase().includes(feedbackSearch.toLowerCase()) || 
+                                     item.title.toLowerCase().includes(feedbackSearch.toLowerCase());
+                if (feedbackFilter === 'all') return matchesSearch;
+                return matchesSearch && item.category === feedbackFilter;
+              });
+
+              if (filteredList.length === 0) {
+                return (
+                  <div className="text-center py-16 border border-dashed border-slate-100 rounded-3xl bg-slate-50/20">
+                    <MessageSquare size={32} className="mx-auto text-slate-350" />
+                    <p className="text-xs text-gray-400 font-black mt-3 uppercase tracking-wider">
+                      Nenhum depoimento encontrado para os critérios selecionados.
+                    </p>
                   </div>
+                );
+              }
 
-                  {/* Card 2: Pontos Positivos */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg border border-emerald-100">
-                        <ThumbsUp size={10} /> Pontos Positivos
-                      </span>
-                      {!isEditingReport && (
-                        <button
-                          onClick={() => setIsEditingReport(true)}
-                          className="text-[10px] font-bold text-gray-400 hover:text-[#01402E] flex items-center gap-1 cursor-pointer"
-                        >
-                          <FileEdit size={10} /> Editar
-                        </button>
-                      )}
-                    </div>
-                    {isEditingReport ? (
-                      <div>
-                        <textarea
-                          value={aiReport.praisePoints.join('\n')}
-                          onChange={(e) => {
-                            const lines = e.target.value.split('\n');
-                            setAiReport({ ...aiReport, praisePoints: lines });
-                          }}
-                          rows={4}
-                          className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-600 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                          placeholder="Escreva cada ponto positivo em uma nova linha..."
-                        />
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest pl-1 mt-1 block">
-                          * Insira cada ponto em uma nova linha
-                        </span>
-                      </div>
-                    ) : (
-                      <ul className="space-y-2">
-                        {aiReport.praisePoints.map((p, idx) => p.trim() && (
-                          <li key={idx} className="p-3 bg-white border border-gray-100 rounded-2xl text-xs font-semibold text-gray-650 leading-relaxed shadow-3xs flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                            <span>{p}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-h-[360px] overflow-y-auto pr-1">
+                  {filteredList.map((item) => {
+                    let cardBorder = 'border-slate-100 hover:border-slate-200 hover:shadow-xs';
+                    let badgeBg = 'bg-slate-50 text-slate-600 border-slate-100';
 
-                  {/* Card 3: Alertas Críticos */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-red-50 text-red-800 px-2.5 py-1 rounded-lg border border-red-100">
-                        <AlertTriangle size={10} /> Alertas Críticos
-                      </span>
-                      {!isEditingReport && (
-                        <button
-                          onClick={() => setIsEditingReport(true)}
-                          className="text-[10px] font-bold text-gray-400 hover:text-[#01402E] flex items-center gap-1 cursor-pointer"
-                        >
-                          <FileEdit size={10} /> Editar
-                        </button>
-                      )}
-                    </div>
-                    {isEditingReport ? (
-                      <div>
-                        <textarea
-                          value={aiReport.criticalAlerts.join('\n')}
-                          onChange={(e) => {
-                            const lines = e.target.value.split('\n');
-                            setAiReport({ ...aiReport, criticalAlerts: lines });
-                          }}
-                          rows={4}
-                          className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-600 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                          placeholder="Escreva cada alerta crítico em uma nova linha..."
-                        />
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest pl-1 mt-1 block">
-                          * Insira cada alerta em uma nova linha
-                        </span>
-                      </div>
-                    ) : (
-                      aiReport.criticalAlerts.length === 0 ? (
-                        <p className="text-xs font-bold text-gray-400 p-3 bg-gray-50 rounded-xl border border-dashed border-gray-200">Sem desvios agravantes.</p>
-                      ) : (
-                        <ul className="space-y-2">
-                          {aiReport.criticalAlerts.map((a, idx) => a.trim() && (
-                            <li key={idx} className="p-3 bg-white border border-red-50 rounded-2xl text-xs font-semibold text-gray-650 leading-relaxed shadow-3xs flex items-start gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
-                              <span>{a}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )
-                    )}
-                  </div>
+                    if (item.category === 'promoter') {
+                      cardBorder = 'border-emerald-50 hover:border-emerald-250/80 bg-emerald-50/5 hover:bg-emerald-50/10 hover:shadow-xs';
+                      badgeBg = 'bg-emerald-50 text-emerald-800 border-emerald-100/30';
+                    } else if (item.category === 'detractor') {
+                      cardBorder = 'border-red-50 hover:border-red-250/80 bg-red-50/5 hover:bg-red-50/10 hover:shadow-xs';
+                      badgeBg = 'bg-red-50 text-red-800 border-red-100/30';
+                    } else if (item.category === 'neutral') {
+                      cardBorder = 'border-amber-50 hover:border-amber-250/80 bg-amber-50/5 hover:bg-amber-50/10 hover:shadow-xs';
+                      badgeBg = 'bg-amber-100/30 text-amber-800 border-amber-200/20';
+                    }
 
-                  {/* Card 4: Ações Recomendadas */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-amber-50 text-amber-805 px-2.5 py-1 rounded-lg border border-amber-100">
-                        <Lightbulb size={10} /> Ações Recomendadas
-                      </span>
-                      {!isEditingReport && (
-                        <button
-                          onClick={() => setIsEditingReport(true)}
-                          className="text-[10px] font-bold text-gray-400 hover:text-[#01402E] flex items-center gap-1 cursor-pointer"
-                        >
-                          <FileEdit size={10} /> Editar
-                        </button>
-                      )}
-                    </div>
-                    {isEditingReport ? (
-                      <div>
-                        <textarea
-                          value={aiReport.strategicActions.join('\n')}
-                          onChange={(e) => {
-                            const lines = e.target.value.split('\n');
-                            setAiReport({ ...aiReport, strategicActions: lines });
-                          }}
-                          rows={4}
-                          className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-600 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                          placeholder="Escreva cada recomendação estrutural em uma nova linha..."
-                        />
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest pl-1 mt-1 block">
-                          * Insira cada recomendação em uma nova linha
-                        </span>
-                      </div>
-                    ) : (
-                      <ul className="space-y-2">
-                        {aiReport.strategicActions.map((s, idx) => s.trim() && (
-                          <li key={idx} className="p-3 bg-amber-50/10 border border-amber-100 rounded-2xl text-xs font-semibold text-gray-600 leading-relaxed flex items-start gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-                            <span>{s}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                    // Simple initials for profile initials icon
+                    const titleWords = item.title.replace('Setor ', '').split(' ');
+                    const initials = titleWords.map(w => w[0]).join('').substring(0, 2).toUpperCase();
 
-                </div>
-
-                {/* Simulated Collaboration Chat Timeline with shortcuts */}
-                <div className="p-5 border-t border-gray-100 bg-gray-50/60 space-y-4 flex-shrink-0">
-                  <div className="flex items-center gap-1.5 text-[10px] font-black text-gray-400 uppercase tracking-wider">
-                    <MessageSquare size={12} className="text-indigo-600 animate-pulse" />
-                    <span>Chat de Refinamento (Colaboração)</span>
-                  </div>
-
-                  {/* Message displays wrapper */}
-                  <div className="max-h-[140px] overflow-y-auto space-y-3.5 pr-1 text-xs">
-                    {chatHistory.map((msg, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`flex flex-col max-w-[85%] ${
-                          msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'
-                        }`}
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-5 rounded-2xl border transition-all duration-155 flex flex-col justify-between space-y-4 ${cardBorder}`}
                       >
-                        <div 
-                          className={`p-3 rounded-2xl leading-relaxed text-xs font-semibold ${
-                            msg.role === 'user' 
-                              ? 'bg-indigo-600 text-white rounded-br-none' 
-                              : 'bg-white border border-gray-100 text-gray-750 shadow-3xs rounded-bl-none'
-                          }`}
-                        >
-                          {msg.content}
+                        <div className="space-y-3">
+                          {/* Top row */}
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                                item.category === 'promoter' ? 'bg-emerald-100 text-emerald-700' :
+                                item.category === 'detractor' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {initials || 'P'}
+                              </div>
+                              <div className="text-[10px] font-extrabold text-slate-700 leading-tight">
+                                <span className="block truncate max-w-[120px] font-black">{item.title}</span>
+                                <span className="text-[8px] text-gray-400 block font-bold">{item.source}</span>
+                              </div>
+                            </div>
+
+                            {/* Badge */}
+                            <span className={`px-2.5 py-0.5 rounded-lg border text-[8px] font-black uppercase tracking-wider shrink-0 ${badgeBg}`}>
+                              {item.type === 'nps' ? `NPS ${item.scoreOrRating}` : item.scoreOrRating}
+                            </span>
+                          </div>
+
+                          {/* Comment block quotes */}
+                          <div className="relative">
+                            <Quote size={20} className="text-gray-100 absolute -top-1 -left-1 opacity-50" />
+                            <p className="text-xs font-semibold text-slate-655 leading-relaxed italic bg-slate-50/30 p-3 pl-6 text-justify rounded-xl border border-slate-50/50">
+                              {item.comment}
+                            </p>
+                          </div>
                         </div>
-                        <span className="text-[8px] font-black text-gray-400 mt-1 uppercase pl-1 pr-1">
-                          {msg.role === 'user' ? 'Você' : 'Assistente'}
+
+                        {/* Footer stamp */}
+                        <div className="pt-2 border-t border-slate-100/30 flex items-center justify-between text-[8px] font-extrabold text-gray-400 uppercase tracking-widest">
+                          <span>Amostra Ouvidoria</span>
+                          <span>{item.date}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Section 4: Performance por Setor (Espaço horizontal total para máxima claridade!) */}
+          <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-gray-50 pb-4">
+              <div>
+                <h3 className="text-sm font-black text-[#01402E] uppercase tracking-wider">Desempenho Detalhado por Setor</h3>
+                <p className="text-[10px] uppercase font-bold text-gray-400 mt-1">Índice real de aprovação regulatória e selo técnico de classificação</p>
+              </div>
+              <ClipboardList size={18} className="text-[#01402E]" />
+            </div>
+
+            <div className="divide-y divide-gray-100 animate-fade-in">
+              {activeSectors.map((sector) => {
+                const data = metrics.sectorsPerformance[sector] || {
+                  ratings: { Otimo: 0, Bom: 0, Regular: 0, Ruim: 0 },
+                  positivePercent: 0,
+                  negativePercent: 0,
+                  total: 0
+                };
+
+                const status = getSectorStatus(data);
+                const StatusIcon = status.icon;
+
+                const otimoCount = data.ratings.Otimo || 0;
+                const bomCount = data.ratings.Bom || 0;
+                const regularCount = data.ratings.Regular || 0;
+                const ruimCount = data.ratings.Ruim || 0;
+                const total = data.total || 0;
+
+                const otimoPercent = total > 0 ? Math.round((otimoCount / total) * 100) : 0;
+                const bomPercent = total > 0 ? Math.round((bomCount / total) * 100) : 0;
+                const regularPercent = total > 0 ? Math.round((regularCount / total) * 100) : 0;
+                const ruimPercent = total > 0 ? Math.round((ruimCount / total) * 100) : 0;
+
+                return (
+                  <div key={sector} className="py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all duration-150 hover:bg-slate-50/50 px-4 rounded-3xl border border-transparent hover:border-slate-100">
+                    {/* Left Block: Title and metadata */}
+                    <div className="space-y-1.5 min-w-[200px] max-w-xs">
+                      <h4 className="text-sm font-black text-slate-800 tracking-tight leading-tight uppercase">{sector}</h4>
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 border border-slate-150 text-slate-500 rounded-lg text-[9px] font-black uppercase">
+                          <Users size={10} className="text-slate-400" />
+                          {total} {total === 1 ? 'Avaliação' : 'Avaliações'}
                         </span>
                       </div>
-                    ))}
-                    {chatLoading && (
-                      <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold ml-1 animate-pulse">
-                        <Loader2 size={10} className="animate-spin" />
-                        <span>Ajustando parecer...</span>
-                      </div>
-                    )}
-                  </div>
+                    </div>
 
-                  {/* Predefined instruction pills/shortcuts */}
-                  <div className="space-y-1.5">
-                    <span className="block text-[8px] font-black text-gray-400 uppercase tracking-wider pl-0.5">Ações de Refinamento Rápido</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        disabled={chatLoading}
-                        onClick={() => handleSendMessageToAI("Por favor, reescreva todo o relatório e parecer técnico em um tom altamente formal e acadêmico do SUS.")}
-                        className="p-1 px-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg text-[9px] font-extrabold text-[#01402E] transition active:scale-95 cursor-pointer disabled:opacity-50 inline-block shrink-0"
-                      >
-                        👔 Tom Técnico Formal
-                      </button>
-                      <button
-                        type="button"
-                        disabled={chatLoading}
-                        onClick={() => handleSendMessageToAI("Deixe o relatório mais curto, bem direto e focado no essencial das estatísticas.")}
-                        className="p-1 px-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg text-[9px] font-extrabold text-[#01402E] transition active:scale-95 cursor-pointer disabled:opacity-50 inline-block shrink-0"
-                      >
-                        ⚡ Mais Sucinto
-                      </button>
-                      <button
-                        type="button"
-                        disabled={chatLoading}
-                        onClick={() => handleSendMessageToAI("Escreva sugestões focando no fortalecimento do acolhimento com classificação de risco.")}
-                        className="p-1 px-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg text-[9px] font-extrabold text-[#01402E] transition active:scale-95 cursor-pointer disabled:opacity-50 inline-block shrink-0"
-                      >
-                        🎯 Foco no Acolhimento
-                      </button>
-                      <button
-                        type="button"
-                        disabled={chatLoading}
-                        onClick={() => handleSendMessageToAI("Aprofunde todos os alertas de insatisfação, indicando as consequências imediatas no acolhimento do paciente.")}
-                        className="p-1 px-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg text-[9px] font-extrabold text-[#01402E] transition active:scale-95 cursor-pointer disabled:opacity-50 inline-block shrink-0"
-                      >
-                        ⚠️ Detalhar Alertas
-                      </button>
+                    {/* Center Block */}
+                    <div className="flex-1 max-w-xl w-full space-y-3">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Aprovação Geral: {data.positivePercent}%
+                        </span>
+                        <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                          Distribuição das Notas
+                        </span>
+                      </div>
+
+                      {/* 4-color multi-segmented bar */}
+                      <div className="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden flex shadow-inner">
+                        {total > 0 ? (
+                          <>
+                            {otimoPercent > 0 && (
+                              <div 
+                                className="bg-emerald-500 h-full transition-all duration-500" 
+                                style={{ width: `${otimoPercent}%` }}
+                                title={`Ótimo: ${otimoPercent}% (${otimoCount} votos)`}
+                              />
+                            )}
+                            {bomPercent > 0 && (
+                              <div 
+                                className="bg-blue-500 h-full transition-all duration-500" 
+                                style={{ width: `${bomPercent}%` }}
+                                title={`Bom: ${bomPercent}% (${bomCount} votos)`}
+                              />
+                            )}
+                            {regularPercent > 0 && (
+                              <div 
+                                className="bg-amber-500 h-full transition-all duration-500" 
+                                style={{ width: `${regularPercent}%` }}
+                                title={`Regular: ${regularPercent}% (${regularCount} votos)`}
+                              />
+                            )}
+                            {ruimPercent > 0 && (
+                              <div 
+                                className="bg-red-500 h-full transition-all duration-500" 
+                                style={{ width: `${ruimPercent}%` }}
+                                title={`Ruim: ${ruimPercent}% (${ruimCount} votos)`}
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <div className="w-full bg-slate-100/80 h-full text-center flex items-center justify-center">
+                            <span className="text-[8px] font-black text-slate-350 uppercase tracking-widest">Aguardando Coleta de Amostras</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Inline explanatory grid list cards */}
+                      <div className="grid grid-cols-4 gap-1.5 pt-0.5 text-center">
+                        <div className={`rounded-xl p-1.5 border transition-colors ${otimoCount > 0 ? 'bg-emerald-50/30 border-emerald-100/50 text-emerald-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                          <span className="block text-[8px] font-black uppercase tracking-wider text-emerald-500/85">Ótimo</span>
+                          <span className="text-[10px] font-black">{otimoPercent}%</span>
+                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({otimoCount}v)</span>
+                        </div>
+                        
+                        <div className={`rounded-xl p-1.5 border transition-colors ${bomCount > 0 ? 'bg-blue-50/30 border-blue-105/50 text-blue-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                          <span className="block text-[8px] font-black uppercase tracking-wider text-blue-500/85">Bom</span>
+                          <span className="text-[10px] font-black">{bomPercent}%</span>
+                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({bomCount}v)</span>
+                        </div>
+
+                        <div className={`rounded-xl p-1.5 border transition-colors ${regularCount > 0 ? 'bg-amber-50/30 border-amber-100/50 text-amber-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                          <span className="block text-[8px] font-black uppercase tracking-wider text-amber-500/85">Regular</span>
+                          <span className="text-[10px] font-black">{regularPercent}%</span>
+                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({regularCount}v)</span>
+                        </div>
+
+                        <div className={`rounded-xl p-1.5 border transition-colors ${ruimCount > 15 / 100 * total ? 'bg-red-50/60 border-red-200/50 text-red-900 animate-pulse' : ruimCount > 0 ? 'bg-red-50/30 border-red-100/50 text-red-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                          <span className="block text-[8px] font-black uppercase tracking-wider text-red-500/85">Ruim</span>
+                          <span className="text-[10px] font-black">{ruimPercent}%</span>
+                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({ruimCount}v)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Block: Official Status Seal with descriptive legend */}
+                    <div className="shrink-0 flex items-center lg:justify-end xl:min-w-[170px]">
+                      <span className={`px-3 py-2 rounded-2xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-2xs ${status.color}`}>
+                        <StatusIcon size={12} className={status.textColor} />
+                        <span>{status.label}</span>
+                      </span>
                     </div>
                   </div>
-
-                  {/* Message Input Box Form */}
-                  <form 
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleSendMessageToAI();
-                    }} 
-                    className="flex gap-2"
-                  >
-                    <input
-                      type="text"
-                      required
-                      value={chatMessage}
-                      disabled={chatLoading}
-                      onChange={(e) => setChatMessage(e.target.value)}
-                      placeholder="Peça ajustes no tom, estrutura ou foco do parecer..."
-                      className="flex-1 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
-                    />
-                    <button
-                      type="submit"
-                      disabled={chatLoading || !chatMessage.trim()}
-                      className="p-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all shadow-md shrink-0 flex items-center justify-center disabled:opacity-50 active:scale-95 cursor-pointer"
-                    >
-                      <Send size={13} />
-                    </button>
-                  </form>
-                </div>
-
-                {/* PDF compilation download button */}
-                <div className="p-4 bg-white border-t border-gray-100 flex-shrink-0">
-                  <button
-                    onClick={handleDownloadPDF}
-                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Download size={14} /> Exportar Parecer Técnico (PDF)
-                  </button>
-                </div>
-
-              </div>
-            )}
-
+                );
+              })}
+            </div>
           </div>
 
         </div>
