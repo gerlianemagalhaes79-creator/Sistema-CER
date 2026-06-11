@@ -464,28 +464,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* Automatic Critical Alerts */}
-      {criticalSectors.length > 0 && (
-        <div className="bg-rose-50 border border-rose-200 rounded-[2rem] p-6 flex gap-4 shadow-xs" id="id_critical_alert_sectors">
-          <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <AlertCircle size={22} className="text-white" />
-          </div>
-          <div className="space-y-1 flex-1">
-            <h4 className="text-sm font-black text-rose-950 uppercase tracking-tight">Atenção Necessária (Setores Críticos)</h4>
-            <p className="text-xs text-rose-700 uppercase font-bold tracking-wide">
-              Os seguintes setores ultrapassaram o limite aceitável de 15% de avaliações com nota "Ruim" no período selecionado:
-            </p>
-            <div className="flex flex-wrap gap-2.5 mt-3">
-              {criticalSectors.map(s => (
-                <span key={s.name} className="px-3.5 py-1.5 bg-white border border-rose-200 text-rose-700 text-[10px] font-black rounded-xl shadow-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 bg-rose-600 rounded-full animate-ping"></span>
-                  {s.name}: {s.ruinPercent}% RUIM ({s.ruins} de {s.total} avaliações)
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Grid of Metric Cards (Grade com 4 colunas no computador e 1 no mobile) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">

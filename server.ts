@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -21,10 +21,47 @@ const ai = new GoogleGenAI({
   }
 });
 
+// Helper function to robustly clean JSON strings
+function cleanJSONString(str: string): string {
+  let cleaned = str.trim();
+  // Remove markdown code block backticks if present
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "");
+  }
+  return cleaned.trim();
+}
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
+
+// Schema layout description for reports
+const reportSchema = {
+  type: Type.OBJECT,
+  properties: {
+    praisePoints: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Lista de pontos de aclamação baseados nos dados de satisfação."
+    },
+    criticalAlerts: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Lista de alertas ou reclamações de setores com dados."
+    },
+    strategicActions: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Lista de ações corretivas no SUS."
+    },
+    conclusionText: {
+      type: Type.STRING,
+      description: "Texto longo de conclusão e parecer técnico oficial."
+    }
+  },
+  required: ["praisePoints", "criticalAlerts", "strategicActions", "conclusionText"]
+};
 
 // Gemini API Report Generation
 app.post("/api/gemini/report", async (req: any, res: any) => {
@@ -41,41 +78,37 @@ app.post("/api/gemini/report", async (req: any, res: any) => {
 Estude os dados reais compilados de satisfação do mês abaixo e gere um relatório técnico, formal, acolhedor e estratégico.
 
 Métricas de Satisfação Coletadas:
-- Total de Avaliações Recebidas: ${metrics.totalEvaluations || 0}
-- Índice de Aprovação Técnica (Ótimo + Bom): ${metrics.technicalQualityIndex || 0}%
-- NPS Global (Net Promoter Score): ${metrics.npsGlobal || 0}% (Classificação: ${metrics.npsClassification || 'Não classificado'})
-- Porcentagem de Promotores (notas 9-10): ${metrics.promotersPercent || 0}%
-- Porcentagem de Neutros (notas 7-8): ${metrics.neutralsPercent || 0}%
-- Porcentagem de Detratores (notas 0-6): ${metrics.detractorsPercent || 0}%
+- Total de Avaliações Recebidas: ${metrics?.totalEvaluations || 0}
+- Índice de Aprovação Técnica (Ótimo + Bom): ${metrics?.technicalQualityIndex || 0}%
+- NPS Global (Net Promoter Score): ${metrics?.npsGlobal || 0}% (Classificação: ${metrics?.npsClassification || 'Não classificado'})
+- Porcentagem de Promotores (notas 9-10): ${metrics?.promotersPercent || 0}%
+- Porcentagem de Neutros (notas 7-8): ${metrics?.neutralsPercent || 0}%
+- Porcentagem de Detratores (notas 0-6): ${metrics?.detractorsPercent || 0}%
 
 Desempenho por Setor (Qualidade Ótimo/Bom):
-${Object.entries(metrics.sectorsPerformance || {}).map(([sec, perf]: any) => `  * ${sec}: ${perf.positivePercent}% positivo, ${perf.negativePercent}% insatisfeito (Total amostras: ${perf.total})`).join('\n')}
+${Object.entries(metrics?.sectorsPerformance || {}).map(([sec, perf]: any) => `  * ${sec}: ${perf.positivePercent}% positivo, ${perf.negativePercent}% insatisfeito (Total amostras: ${perf.total})`).join('\n')}
 
 Comentários/Feedbacks de Pacientes Recebidos:
 ${(comments || []).slice(0, 45).map((c: string) => `- "${c}"`).join('\n')}
 
 ${extraPrompt ? `Instrução Adicional Adicionada pelo Ouvidor:\n-> ${extraPrompt}\n` : ''}
 
-Você deve gerar um JSON válido contendo exatamente as seguintes propriedades estruturadas para preencher o formulário final (sua resposta deve ser em formato JSON de acordo com o esquema solicitado):
-
-{
-  "praisePoints": ["Lista de até 4 pontos de maior aclamação com justificativa curta baseada nos dados reais"],
-  "criticalAlerts": ["Lista de alertas de setores críticos ou questões recorrentes com base em insatisfações reais superiores a 15%"],
-  "strategicActions": ["Lista de 3 a 5 ações imediatas, técnicas e viáveis no âmbito do SUS para corrigir os desvios"],
-  "conclusionText": "Um texto longo de encerramento do relatório em formato de parecer oficial de ouvidoria, assinado tecnicamente, comentando a evolução da unidade e o compromisso do SUS na Policlínica Bernardo Félix da Silva."
-}
-
-Retorne exclusivamente o JSON, sem decorações markdown de bloco adicional, de modo que possa ser analisado no JSON.parse diretamente no servidor.`;
+Você deve gerar um JSON válido contendo exatamente as seguintes propriedades estruturadas para preencher o formulário final:
+- praisePoints: Lista de até 4 pontos de maior aclamação com justificativa curta baseada nos dados reais
+- criticalAlerts: Lista de alertas de setores críticos ou questões recorrentes com base em insatisfações reais superiores a 15%
+- strategicActions: Lista de 3 a 5 ações imediatas, técnicas e viáveis no âmbito do SUS para corrigir os desvios
+- conclusionText: Um texto longo de encerramento do relatório em formato de parecer oficial de ouvidoria, assinado tecnicamente, comentando a evolução da unidade e o compromisso do SUS na Policlínica Bernardo Félix da Silva.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
+        responseSchema: reportSchema
       }
     });
 
-    const textResponse = response.text || "{}";
+    const textResponse = cleanJSONString(response.text || "{}");
     try {
       const parsedData = JSON.parse(textResponse);
       res.json(parsedData);
@@ -128,10 +161,11 @@ Retorne unicamente o JSON sem qualquer blá blá blá de introdução.`;
       contents: prompt,
       config: {
         responseMimeType: "application/json",
+        responseSchema: reportSchema
       }
     });
 
-    const textResponse = response.text || "{}";
+    const textResponse = cleanJSONString(response.text || "{}");
     try {
       const parsedData = JSON.parse(textResponse);
       res.json(parsedData);

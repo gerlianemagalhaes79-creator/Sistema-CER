@@ -89,9 +89,7 @@ const SidebarItem = ({
   label, 
   active, 
   onClick, 
-  collapsed,
-  isNewForm,
-  isHistory
+  collapsed
 }: { 
   key?: any,
   icon: any, 
@@ -106,25 +104,17 @@ const SidebarItem = ({
     onClick={onClick}
     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-xs font-bold leading-tight ${
       active 
-        ? isNewForm 
-          ? 'bg-blue-50 text-blue-700 shadow-sm font-black' 
-          : isHistory
-            ? 'text-[#4169e1] shadow-sm font-black' 
-            : 'bg-[#064e3b] text-white shadow-sm' 
+        ? 'bg-blue-50 text-blue-700 shadow-sm font-black' 
         : 'text-slate-600 hover:bg-slate-50'
     }`}
-    style={active && isHistory ? { backgroundColor: 'rgba(112, 128, 144, 0.5)' } : undefined}
     title={collapsed ? label : ''}
   >
     <div className="flex items-center gap-2.5">
-      <Icon size={16} className={`shrink-0 ${active && isHistory ? 'text-[#4169e1]' : ''}`} />
+      <Icon size={16} className={`shrink-0 ${active ? 'text-blue-700' : 'text-slate-500'}`} />
       {!collapsed && <span className="whitespace-nowrap font-sans">{label}</span>}
     </div>
-    {active && isNewForm && !collapsed && (
+    {active && !collapsed && (
       <ChevronRight size={14} className="text-blue-500 shrink-0 ml-1 font-black" />
-    )}
-    {active && isHistory && !collapsed && (
-      <ChevronRight size={14} className="text-[#4169e1] shrink-0 ml-1 font-black animate-pulse" />
     )}
   </button>
 );

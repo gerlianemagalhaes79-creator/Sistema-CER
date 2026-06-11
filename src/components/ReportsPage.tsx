@@ -385,7 +385,7 @@ export const ReportsPage = ({
     setChatLoading(true);
 
     try {
-      const response = await fetch('/api/api/gemini/chat', { 
+      const response = await fetch('/api/gemini/chat', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -394,24 +394,12 @@ export const ReportsPage = ({
         })
       });
 
-      let resData = null;
       if (!response.ok) {
-        const fall = await fetch('/api/gemini/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            currentReport: aiReport,
-            message: userMsg
-          })
-        });
-        if (!fall.ok) {
-          const rawErr = await fall.json();
-          throw new Error(rawErr.error || 'Erro ao ajustar o relatório.');
-        }
-        resData = await fall.json();
-      } else {
-        resData = await response.json();
+        const rawErr = await response.json();
+        throw new Error(rawErr.error || 'Erro ao ajustar o relatório.');
       }
+
+      const resData = await response.json();
 
       if (resData) {
         setAiReport(resData);
