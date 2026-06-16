@@ -48,7 +48,8 @@ export const SurveyService = {
     source: 'patient' | 'physical' = 'patient',
     customDate?: string,
     createdBy?: string,
-    createdByName?: string
+    createdByName?: string,
+    patientName?: string
   ): Promise<void> => {
     // Ensure we are authenticated (e.g., anonymously)
     await SurveyService.ensureAnonymousAuth();
@@ -85,6 +86,7 @@ export const SurveyService = {
       createdBy: finalCreatedBy,
       observation: generalComment,
       recommendationScore: npsScore,
+      patientName: patientName || '',
 
       // For backwards compatibility with older reports page queries
       npsScore,

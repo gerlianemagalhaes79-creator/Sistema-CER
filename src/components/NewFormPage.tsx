@@ -7,7 +7,8 @@ import {
   AlertCircle, 
   Send, 
   Smile,
-  X
+  X,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
@@ -46,6 +47,7 @@ export const NewFormPage = ({
 
   // Form State
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [patientName, setPatientName] = useState('');
   const [npsScore, setNpsScore] = useState<number | null>(null);
   const [ratings, setRatings] = useState<Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }>>(() => {
     const initial: Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }> = {};
@@ -87,6 +89,7 @@ export const NewFormPage = ({
   const handleReset = () => {
     setNpsScore(null);
     setDate(new Date().toISOString().split('T')[0]);
+    setPatientName('');
     setGeneralComment('');
     const resetRatings: Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }> = {};
     sectors.forEach(s => {
@@ -124,7 +127,8 @@ export const NewFormPage = ({
         'physical',
         date,
         currentUser?.id,
-        currentUser?.name
+        currentUser?.name,
+        patientName.trim()
       );
 
       setSuccess(true);
@@ -218,6 +222,36 @@ export const NewFormPage = ({
         ) : (
           <form key="survey-form" onSubmit={handleSubmit} className="space-y-8">
             
+            {/* Patient Identification Card */}
+            <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200/80 shadow-sm space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                  <User size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-800 tracking-tight">
+                    Identificação do Paciente (Opcional)
+                  </h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Permite vincular o nome ao formulário para elogios/críticas nominais
+                  </p>
+                </div>
+              </div>
+              
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <User size={18} />
+                </span>
+                <input
+                  type="text"
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  placeholder="Nome completo do paciente (ou deixe vazio para manter Anônimo)..."
+                  className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
+                />
+              </div>
+            </div>
+
             {/* NPS Scale Card */}
             <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200/80 shadow-sm space-y-6">
               <div className="space-y-2">

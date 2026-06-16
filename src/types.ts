@@ -149,6 +149,7 @@ export interface EvaluationForm {
   createdBy?: string; // UID
   observation?: string; // observação geral
   recommendationScore?: number; // nota NPS de recomendação
+  patientName?: string; // nome do paciente se identificado
 }
 
 export interface SectorEvaluation {

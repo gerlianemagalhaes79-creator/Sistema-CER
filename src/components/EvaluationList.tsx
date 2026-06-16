@@ -523,6 +523,13 @@ export const EvaluationList = () => {
                           </span>
                         )}
                       </div>
+
+                      {form.patientName && (
+                        <div className="flex items-center gap-1.5 text-xs text-blue-650 font-black uppercase tracking-wider mt-1.5 bg-blue-50/50 px-2.5 py-1 rounded-xl w-fit border border-blue-100/40">
+                          <UserIcon size={11} className="text-blue-550 shrink-0" />
+                          <span>Paciente: {form.patientName}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
