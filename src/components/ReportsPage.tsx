@@ -1697,9 +1697,9 @@ export const ReportsPage = ({
                 const ruimPercent = total > 0 ? Math.round((ruimCount / total) * 100) : 0;
 
                 return (
-                  <div key={sector} className="py-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 transition-all duration-150 hover:bg-slate-50/50 px-4 rounded-3xl border border-transparent hover:border-slate-100">
+                  <div key={sector} className="py-6 grid grid-cols-1 lg:grid-cols-12 lg:items-center gap-6 transition-all duration-150 hover:bg-slate-50/50 px-4 rounded-3xl border border-transparent hover:border-slate-100">
                     {/* Left Block: Title and metadata */}
-                    <div className="space-y-1.5 min-w-[200px] max-w-xs">
+                    <div className="space-y-1.5 lg:col-span-3">
                       <h4 className="text-sm font-black text-slate-800 tracking-tight leading-tight uppercase">{sector}</h4>
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 border border-slate-150 text-slate-500 rounded-lg text-[9px] font-black uppercase">
@@ -1710,7 +1710,7 @@ export const ReportsPage = ({
                     </div>
 
                     {/* Center Block */}
-                    <div className="flex-1 max-w-xl w-full space-y-3">
+                    <div className="lg:col-span-6 w-full space-y-3">
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -1790,7 +1790,7 @@ export const ReportsPage = ({
                     </div>
 
                     {/* Right Block: Official Status Seal with descriptive legend */}
-                    <div className="shrink-0 flex items-center lg:justify-end xl:min-w-[170px]">
+                    <div className="lg:col-span-3 flex items-center lg:justify-end w-full">
                       <span className={`px-3 py-2 rounded-2xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 shadow-2xs ${status.color}`}>
                         <StatusIcon size={12} className={status.textColor} />
                         <span>{status.label}</span>
