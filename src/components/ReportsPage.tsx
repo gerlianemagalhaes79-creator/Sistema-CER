@@ -77,6 +77,8 @@ export const ReportsPage = ({
   } | null>(null);
 
   const [isEditingReport, setIsEditingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [chatHistory, setChatHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([
     { 
       role: 'assistant', 
@@ -339,6 +341,7 @@ export const ReportsPage = ({
   // 3. CALL SECURE SERVER-SIDE GEMINI FOR REPORT GENERATION
   const handleGenerateAIReport = async () => {
     setReportLoading(true);
+    setReportError(null);
     try {
       const response = await fetch('/api/gemini/report', {
         method: 'POST',
@@ -357,8 +360,10 @@ export const ReportsPage = ({
 
       const reportData = await response.json();
       setAiReport(reportData);
+      setReportError(null);
     } catch (err: any) {
-      alert(`Erro: ${err.message}`);
+      console.error("Erro na ouvidoria inteligente (geração):", err);
+      setReportError(err.message || 'Erro desconhecido');
     } finally {
       setReportLoading(false);
     }
@@ -383,6 +388,7 @@ export const ReportsPage = ({
     setChatHistory(prev => [...prev, { role: 'user', content: userMsg }]);
     setChatMessage('');
     setChatLoading(true);
+    setChatError(null);
 
     try {
       const response = await fetch('/api/gemini/chat', { 
@@ -403,6 +409,7 @@ export const ReportsPage = ({
 
       if (resData) {
         setAiReport(resData);
+        setChatError(null);
         setChatHistory(prev => [
           ...prev, 
           { 
@@ -412,6 +419,8 @@ export const ReportsPage = ({
         ]);
       }
     } catch (error: any) {
+      console.error("Erro no chat de ouvidoria inteligente:", error);
+      setChatError(error.message);
       setChatHistory(prev => [
         ...prev, 
         { 
@@ -940,382 +949,6 @@ export const ReportsPage = ({
         </div>
       ) : (
         <div className="space-y-8">
-          
-          {/* Section 1: Gemini AI Report (Widescreen, Rectangular layout) */}
-          <div className="space-y-6">
-            {!aiReport ? (
-              <div className="bg-gradient-to-br from-[#2D1B4E] via-[#1F1235] to-[#120B24] border border-indigo-700/25 p-6 rounded-[2.5rem] shadow-xl relative overflow-hidden text-white">
-                {/* Elegant background glows */}
-                <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
-                <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-                  <div className="space-y-3 flex-1">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white/10 backdrop-blur-md text-white rounded-xl flex items-center justify-center shadow-inner border border-white/10">
-                        <Sparkles size={20} className="text-purple-300 animate-pulse" />
-                      </div>
-                      <div>
-                        <span className="text-[9px] font-black tracking-widest text-indigo-300 uppercase bg-indigo-500/20 px-2.5 py-1 rounded-full border border-indigo-400/20">
-                          Ouvidoria Inteligente
-                        </span>
-                        <h3 className="text-base font-black tracking-tight mt-0.5 text-white">Estudo Analítico de IA</h3>
-                      </div>
-                    </div>
-                    <p className="text-xs text-indigo-100/70 font-medium leading-relaxed max-w-2xl">
-                      Estude as métricas consolidadas de NPS, comentários reais de pacientes e insatisfações setoriais do SUS em segundos através da inteligência artificial do Gemini.
-                    </p>
-                  </div>
-
-                  <div className="flex-1 space-y-2 max-w-md w-full">
-                    <span className="block text-[9px] font-black text-indigo-300 uppercase tracking-widest pl-0.5">Parâmetro de Foco Especial (Opcional)</span>
-                    <div className="flex gap-2">
-                      <textarea
-                        value={extraPrompt}
-                        onChange={(e) => setExtraPrompt(e.target.value)}
-                        placeholder="Instrua a IA a enfatizar portaria acolhedora, tom das avaliações médicas..."
-                        rows={2}
-                        className="flex-1 px-4 py-2.5 rounded-xl border border-indigo-500/20 bg-indigo-950/45 text-xs font-semibold text-indigo-100 placeholder-indigo-400/30 focus:outline-[#1C0D32] focus:ring-2 focus:ring-indigo-400 focus:bg-[#1C0D32] resize-none border-dashed transition-all"
-                      />
-                      <button
-                        type="button"
-                        disabled={reportLoading}
-                        onClick={handleGenerateAIReport}
-                        className="px-6 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-200 shadow-lg hover:shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 group cursor-pointer whitespace-nowrap"
-                      >
-                        {reportLoading ? (
-                          <Loader2 size={10} className="animate-spin text-white" />
-                        ) : (
-                          <>
-                            <Sparkles size={14} className="group-hover:scale-110 transition-transform text-white/90" /> Gerar Análise
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden">
-                
-                {/* AI report metadata header with Toggle editing */}
-                <div className="p-6 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
-                      <Sparkles size={16} className="animate-pulse" />
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-black tracking-wider text-indigo-605 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full uppercase">
-                        Garantia de Qualidade
-                      </span>
-                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide mt-0.5 font-sans">Laudo de Análise Especializada com IA</h4>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2.5 self-end sm:self-auto">
-                    <button
-                      onClick={() => setIsEditingReport(!isEditingReport)}
-                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 border cursor-pointer ${
-                        isEditingReport 
-                          ? 'bg-[#01402E] border-[#01402E] text-white hover:bg-emerald-950 shadow-sm' 
-                          : 'bg-white border-gray-200 text-gray-650 hover:text-[#01402E] hover:border-emerald-100'
-                      }`}
-                    >
-                      {isEditingReport ? (
-                        <>
-                          <CheckCircle2 size={11} /> Concluir Edição
-                        </>
-                      ) : (
-                        <>
-                          <FileEdit size={11} /> Editar Relatório
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setAiReport(null);
-                        setChatHistory([{ role: 'assistant', content: 'Olá! Desenvolvi o estudo analítico inicial para este mês. Se houver necessidade de ajustes ou refinamentos específicos, digite abaixo ou utilize as recomendações rápidas de estilo.' }]);
-                      }}
-                      className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase text-gray-400 hover:text-red-500 hover:border-red-150 transition-colors cursor-pointer"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-                </div>
-
-                {/* 3-column Grid for wide monitor (Layout retangular de alta performance) */}
-                <div className="grid grid-cols-1 xl:grid-cols-12 divide-y xl:divide-y-0 xl:divide-x divide-slate-105 bg-white">
-                  
-                  {/* Left part (xl:col-span-8) containing the four core boxes */}
-                  <div className="xl:col-span-8 p-6 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      
-                      {/* Card 1: Resumo Institucional */}
-                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-indigo-50 text-indigo-800 px-2.5 py-1 rounded-lg border border-indigo-100">
-                              <FileText size={10} /> Resumo Institucional
-                            </span>
-                            {!isEditingReport && (
-                              <button
-                                onClick={() => setIsEditingReport(true)}
-                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
-                              >
-                                <FileEdit size={10} />
-                              </button>
-                            )}
-                          </div>
-                          {isEditingReport ? (
-                            <textarea
-                              value={aiReport.conclusionText}
-                              onChange={(e) => setAiReport({ ...aiReport, conclusionText: e.target.value })}
-                              rows={4}
-                              className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                              placeholder="Escreva a consolidação do parecer técnico..."
-                            />
-                          ) : (
-                            <div className="text-xs font-semibold text-gray-650 leading-relaxed">
-                              {aiReport.conclusionText || 'Nenhum parecer técnico gerado.'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Card 2: Pontos Positivos */}
-                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-emerald-50 text-emerald-805 px-2.5 py-1 rounded-lg border border-emerald-100">
-                              <ThumbsUp size={10} /> Pontos Positivos
-                            </span>
-                            {!isEditingReport && (
-                              <button
-                                onClick={() => setIsEditingReport(true)}
-                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
-                              >
-                                <FileEdit size={10} />
-                              </button>
-                            )}
-                          </div>
-                          {isEditingReport ? (
-                            <div>
-                              <textarea
-                                value={aiReport.praisePoints.join('\n')}
-                                onChange={(e) => {
-                                  const lines = e.target.value.split('\n');
-                                  setAiReport({ ...aiReport, praisePoints: lines });
-                                }}
-                                rows={4}
-                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                                placeholder="Ponto positivo..."
-                              />
-                            </div>
-                          ) : (
-                            <ul className="space-y-1.5">
-                              {aiReport.praisePoints.map((p, idx) => p.trim() && (
-                                <li key={idx} className="text-xs font-semibold text-gray-650 leading-relaxed flex items-start gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                                  <span>{p}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Card 3: Alertas Críticos */}
-                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-red-50 text-red-800 px-2.5 py-1 rounded-lg border border-red-100">
-                              <AlertTriangle size={10} /> Alertas Críticos
-                            </span>
-                            {!isEditingReport && (
-                              <button
-                                onClick={() => setIsEditingReport(true)}
-                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
-                              >
-                                <FileEdit size={10} />
-                              </button>
-                            )}
-                          </div>
-                          {isEditingReport ? (
-                            <div>
-                              <textarea
-                                value={aiReport.criticalAlerts.join('\n')}
-                                onChange={(e) => {
-                                  const lines = e.target.value.split('\n');
-                                  setAiReport({ ...aiReport, criticalAlerts: lines });
-                                }}
-                                rows={4}
-                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                                placeholder="Alerta crítico..."
-                              />
-                            </div>
-                          ) : (
-                            aiReport.criticalAlerts.length === 0 ? (
-                              <p className="text-[11px] font-bold text-gray-400">Sem desvios agravantes no período.</p>
-                            ) : (
-                              <ul className="space-y-1.5">
-                                {aiReport.criticalAlerts.map((a, idx) => a.trim() && (
-                                  <li key={idx} className="text-xs font-semibold text-gray-655 leading-relaxed flex items-start gap-2">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
-                                    <span>{a}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Card 4: Ações Recomendadas */}
-                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-100 shadow-3xs flex flex-col justify-between">
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-amber-50 text-amber-805 px-2.5 py-1 rounded-lg border border-amber-100">
-                              <Lightbulb size={10} /> Ações Recomendadas
-                            </span>
-                            {!isEditingReport && (
-                              <button
-                                onClick={() => setIsEditingReport(true)}
-                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
-                              >
-                                <FileEdit size={10} />
-                              </button>
-                            )}
-                          </div>
-                          {isEditingReport ? (
-                            <div>
-                              <textarea
-                                value={aiReport.strategicActions.join('\n')}
-                                onChange={(e) => {
-                                  const lines = e.target.value.split('\n');
-                                  setAiReport({ ...aiReport, strategicActions: lines });
-                                }}
-                                rows={4}
-                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-650 leading-relaxed focus:ring-2 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
-                                placeholder="Ação recomendada..."
-                              />
-                            </div>
-                          ) : (
-                            <ul className="space-y-1.5">
-                              {aiReport.strategicActions.map((s, idx) => s.trim() && (
-                                <li key={idx} className="text-xs font-semibold text-gray-655 leading-relaxed flex items-start gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-                                  <span>{s}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
-                  {/* Right part (xl:col-span-4) with interactive messaging and compilation download */}
-                  <div className="xl:col-span-4 p-6 flex flex-col justify-between space-y-6 bg-slate-50/30">
-                    
-                    <div className="space-y-3.5">
-                      <div className="flex items-center gap-1.5 text-[10px] font-black text-gray-405 uppercase tracking-wider">
-                        <MessageSquare size={12} className="text-indigo-600 animate-pulse" />
-                        <span>Chat de Refinamento</span>
-                      </div>
-
-                      {/* Chat text panel heights are responsive & tightly optimized */}
-                      <div className="max-h-[160px] overflow-y-auto space-y-3 pr-1 text-xs">
-                        {chatHistory.map((msg, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`flex flex-col max-w-[85%] ${
-                              msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'
-                            }`}
-                          >
-                            <div 
-                              className={`p-2.5 rounded-2xl leading-relaxed text-xs font-semibold ${
-                                msg.role === 'user' 
-                                  ? 'bg-indigo-600 text-white rounded-br-none' 
-                                  : 'bg-white border border-slate-100 text-gray-700 shadow-3xs rounded-bl-none'
-                              }`}
-                            >
-                              {msg.content}
-                            </div>
-                            <span className="text-[7px] font-black text-slate-400 mt-0.5 uppercase">
-                              {msg.role === 'user' ? 'Você' : 'Suporte IA'}
-                            </span>
-                          </div>
-                        ))}
-                        {chatLoading && (
-                          <div className="flex items-center gap-2 text-[10px] text-gray-450 font-bold ml-1 animate-pulse">
-                            <Loader2 size={10} className="animate-spin" />
-                            <span>Ajustando parecer...</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Predefined prompts */}
-                      <div className="flex flex-wrap gap-1">
-                        <button
-                          type="button"
-                          disabled={chatLoading}
-                          onClick={() => handleSendMessageToAI("Por favor, reescreva todo o relatório e parecer técnico em um tom altamente formal e acadêmico do SUS.")}
-                          className="p-1 px-2.5 bg-white hover:bg-indigo-50 border border-gray-200 rounded-lg text-[8px] font-extrabold text-[#01402E] transition active:scale-95 cursor-pointer disabled:opacity-50"
-                        >
-                          👔 Tom SUS
-                        </button>
-                        <button
-                          type="button"
-                          disabled={chatLoading}
-                          onClick={() => handleSendMessageToAI("Deixe o relatório mais curto, bem direto e focado no essencial das estatísticas.")}
-                          className="p-1 px-2.5 bg-white hover:bg-slate-50 border border-gray-200 rounded-lg text-[8px] font-extrabold text-slate-655 transition active:scale-95 cursor-pointer disabled:opacity-50"
-                        >
-                          ⚡ Direto
-                        </button>
-                      </div>
-
-                      <form 
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleSendMessageToAI();
-                        }} 
-                        className="flex gap-1.5"
-                      >
-                        <input
-                          type="text"
-                          required
-                          value={chatMessage}
-                          disabled={chatLoading}
-                          onChange={(e) => setChatMessage(e.target.value)}
-                          placeholder="Rerequisitar ajuste..."
-                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 placeholder-gray-405 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-                        />
-                        <button
-                          type="submit"
-                          disabled={chatLoading || !chatMessage.trim()}
-                          className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all shadow-md shrink-0 flex items-center justify-center disabled:opacity-50 cursor-pointer"
-                        >
-                          <Send size={12} />
-                        </button>
-                      </form>
-                    </div>
-
-                    <button
-                      onClick={handleDownloadPDF}
-                      className="w-full py-3 bg-[#01402E] hover:bg-emerald-950 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-                    >
-                      <Download size={12} /> Exportar Laudo (PDF)
-                    </button>
-
-                  </div>
-
-                </div>
-
-              </div>
-            )}
-          </div>
-
-          {/* Section 2: Technical sector dissatisfaction alerts */}
           {criticalSectorsAlerts.length > 0 && (
             <div className="bg-red-50/75 border border-red-100 rounded-3xl p-6 flex gap-4">
               <div className="w-12 h-12 rounded-2xl bg-red-600 text-white flex items-center justify-center shrink-0">
@@ -1800,6 +1433,406 @@ export const ReportsPage = ({
                 );
               })}
             </div>
+          </div>
+
+          {/* Section 5: Ouvidoria Inteligente com IA (Elegante e integrado, posicionado ao final dos relatórios) */}
+          <div className="space-y-6 pt-6 border-t border-gray-100">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-black tracking-widest text-[#01402E] uppercase bg-emerald-50/70 px-3 py-1 rounded-full w-fit">
+                Inteligência Artificial Co-Autora
+              </span>
+              <h3 className="text-lg font-black text-[#01402E] tracking-tight">Parecer Assistido de IA</h3>
+              <p className="text-xs text-gray-400 font-medium">Análise contextual das opiniões qualitativas e métricas quantitativas do SUS</p>
+            </div>
+
+            {!aiReport ? (
+              <div className="bg-emerald-50/30 border border-emerald-100/70 p-6 rounded-[2rem] relative overflow-hidden text-slate-800">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10 w-full">
+                  <div className="space-y-2 flex-1 w-full">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#01402E]/10 text-[#01402E] rounded-xl flex items-center justify-center shadow-inner">
+                        <Sparkles size={20} className="text-[#01402E] animate-pulse" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight text-[#01402E]">Laudo Técnico Instantâneo</h3>
+                        <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Apoio de Decisão do Ouvidor</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-550 font-medium leading-relaxed max-w-2xl">
+                      Estude as métricas consolidadas de NPS, comentários reais de pacientes e insatisfações setoriais em segundos através do modelo de inteligência artificial do Gemini para pautar planos estratégicos.
+                    </p>
+                  </div>
+
+                  <div className="flex-1 space-y-2 max-w-md w-full">
+                    <span className="block text-[9px] font-black text-emerald-850 uppercase tracking-widest pl-0.5">Parâmetro de Foco Especial (Opcional)</span>
+                    <div className="flex gap-2">
+                      <textarea
+                        value={extraPrompt}
+                        onChange={(e) => setExtraPrompt(e.target.value)}
+                        placeholder="Ex: Enfatizar acolhimento humanizado, tempos de espera em Pronto Atendimento..."
+                        rows={2}
+                        className="flex-1 px-4 py-2 bg-white rounded-xl border border-emerald-200 bg-white text-xs font-semibold text-gray-700 placeholder-emerald-800/30 focus:outline-[#01402E] focus:ring-1 focus:ring-[#01402E] resize-none transition-all"
+                      />
+                      <button
+                        type="button"
+                        disabled={reportLoading}
+                        onClick={handleGenerateAIReport}
+                        className="px-6 bg-[#01402E] hover:bg-emerald-900 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-250 shadow-sm active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 group cursor-pointer whitespace-nowrap"
+                      >
+                        {reportLoading ? (
+                          <Loader2 size={12} className="animate-spin text-white" />
+                        ) : (
+                          <>
+                            <Sparkles size={14} className="group-hover:scale-110 transition-transform text-white/90" /> Gerar Parecer
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {reportError && (
+                      <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl flex items-start gap-2 text-red-700 mt-2 select-text text-left">
+                        <AlertTriangle className="text-red-600 mt-0.5 shrink-0" size={14} />
+                        <div className="space-y-0.5">
+                          <span className="block font-black text-[10px] uppercase tracking-wide text-red-800">Falha na Inteligência Artificial</span>
+                          <p className="text-[11px] leading-tight font-medium opacity-90">{reportError}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-[2rem] border border-gray-150 shadow-sm overflow-hidden">
+                
+                {/* AI report metadata header with Toggle editing */}
+                <div className="p-5 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#01402E] flex items-center justify-center">
+                      <Sparkles size={16} className="text-[#01402E] animate-pulse" />
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-black tracking-wider text-[#01402E] bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded-full uppercase">
+                        Auditoria de Qualidade
+                      </span>
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide mt-1.5 font-sans">Laudo de Análise Automatizada com IA</h4>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2.5 self-end sm:self-auto">
+                    <button
+                      onClick={() => setIsEditingReport(!isEditingReport)}
+                      className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-150 flex items-center gap-1.5 border cursor-pointer ${
+                        isEditingReport 
+                          ? 'bg-[#01402E] border-[#01402E] text-white hover:bg-emerald-900 shadow-sm' 
+                          : 'bg-white border-gray-200 text-gray-650 hover:text-[#01402E] hover:border-emerald-100'
+                      }`}
+                    >
+                      {isEditingReport ? (
+                        <>
+                          <CheckCircle2 size={11} /> Concluir Edição
+                        </>
+                      ) : (
+                        <>
+                          <FileEdit size={11} /> Editar Relatório
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setAiReport(null);
+                        setChatHistory([{ role: 'assistant', content: 'Olá! Desenvolvi o estudo analítico inicial para este mês. Se houver necessidade de ajustes ou refinamentos específicos, digite abaixo ou utilize as recomendações rápidas de estilo.' }]);
+                      }}
+                      className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-[10px] font-black uppercase text-gray-400 hover:text-red-500 hover:border-red-150 transition-colors cursor-pointer"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Simulated Warning Banner */}
+                {aiReport && (aiReport as any).isSimulated && (
+                  <div className="bg-emerald-50/70 border-b border-emerald-100 p-4 px-6 flex items-start gap-3 text-emerald-950">
+                    <Sparkles className="text-[#01402E] mt-0.5 shrink-0" size={16} />
+                    <div className="space-y-0.5">
+                      <span className="block font-black text-xs uppercase tracking-wide text-[#01402E]">Modo de Apresentação (Ouvidoria Simulada Ativa)</span>
+                      <p className="text-[11px] leading-relaxed font-bold opacity-80">
+                        Os dados e diretrizes estratégicas acima foram consolidados utilizando heurísticas locais de conformidade com o SUS. 
+                        Para ativar a <strong>Inteligência Artificial real do Gemini</strong>, adicione sua chave API em <span className="underline decoration-emerald-300">Settings &gt; Secrets</span> com o nome da variável <code className="bg-emerald-100 px-1 py-0.5 rounded text-[#01402E] font-mono">GEMINI_API_KEY</code>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3-column Grid for wide monitor (Layout retangular de alta performance) */}
+                <div className="grid grid-cols-1 xl:grid-cols-12 divide-y xl:divide-y-0 xl:divide-x divide-slate-105 bg-white">
+                  
+                  {/* Left part (xl:col-span-8) containing the four core boxes */}
+                  <div className="xl:col-span-8 p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      
+                      {/* Card 1: Resumo Institucional */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-105 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-emerald-50/70 text-[#01402E] px-2.5 py-1 rounded-lg border border-emerald-105">
+                              <FileText size={10} /> Resumo Institucional
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#014532] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <textarea
+                              value={aiReport.conclusionText || ''}
+                              onChange={(e) => setAiReport({ ...aiReport, conclusionText: e.target.value })}
+                              rows={4}
+                              className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-655 leading-relaxed focus:ring-1 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                              placeholder="Escreva a consolidação do parecer técnico..."
+                            />
+                          ) : (
+                            <div className="text-xs font-semibold text-gray-655 leading-relaxed">
+                              {aiReport.conclusionText || 'Nenhum parecer técnico gerado.'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card 2: Pontos Positivos */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-105 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-emerald-50 text-emerald-805 px-2.5 py-1 rounded-lg border border-emerald-100">
+                              <ThumbsUp size={10} /> Pontos Positivos
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <div>
+                              <textarea
+                                value={aiReport.praisePoints ? aiReport.praisePoints.join('\n') : ''}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split('\n');
+                                  setAiReport({ ...aiReport, praisePoints: lines });
+                                }}
+                                rows={4}
+                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-655 leading-relaxed focus:ring-1 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                                placeholder="Ponto positivo..."
+                              />
+                            </div>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {aiReport.praisePoints && aiReport.praisePoints.map((p, idx) => p && p.trim() && (
+                                <li key={idx} className="text-xs font-semibold text-gray-655 leading-relaxed flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                                  <span>{p}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card 3: Alertas Críticos */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-105 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-red-50 text-red-805 px-2.5 py-1 rounded-lg border border-red-100">
+                              <AlertTriangle size={10} /> Alertas Críticos
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <div>
+                              <textarea
+                                value={aiReport.criticalAlerts ? aiReport.criticalAlerts.join('\n') : ''}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split('\n');
+                                  setAiReport({ ...aiReport, criticalAlerts: lines });
+                                }}
+                                rows={4}
+                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-655 leading-relaxed focus:ring-1 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                                placeholder="Alerta crítico..."
+                              />
+                            </div>
+                          ) : (
+                            !aiReport.criticalAlerts || aiReport.criticalAlerts.length === 0 ? (
+                              <p className="text-[11px] font-bold text-gray-400">Sem desvios agravantes no período.</p>
+                            ) : (
+                              <ul className="space-y-1.5">
+                                {aiReport.criticalAlerts.map((a, idx) => a && a.trim() && (
+                                  <li key={idx} className="text-xs font-semibold text-gray-655 leading-relaxed flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 shrink-0" />
+                                    <span>{a}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Card 4: Ações Recomendadas */}
+                      <div className="space-y-2 bg-slate-50/20 p-4 rounded-3xl border border-slate-105 shadow-3xs flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase bg-amber-50 text-amber-850 px-2.5 py-1 rounded-lg border border-amber-100">
+                              <Lightbulb size={10} /> Ações Recomendadas
+                            </span>
+                            {!isEditingReport && (
+                              <button
+                                onClick={() => setIsEditingReport(true)}
+                                className="text-[10px] font-bold text-gray-405 hover:text-[#01402E] flex items-center gap-0.5 cursor-pointer"
+                              >
+                                <FileEdit size={10} />
+                              </button>
+                            )}
+                          </div>
+                          {isEditingReport ? (
+                            <div>
+                              <textarea
+                                value={aiReport.strategicActions ? aiReport.strategicActions.join('\n') : ''}
+                                onChange={(e) => {
+                                  const lines = e.target.value.split('\n');
+                                  setAiReport({ ...aiReport, strategicActions: lines });
+                                }}
+                                rows={4}
+                                className="w-full p-4 rounded-2xl border border-gray-200 text-xs font-semibold text-gray-655 leading-relaxed focus:ring-1 focus:ring-[#01402E] focus:outline-none focus:bg-white bg-slate-50/20"
+                                placeholder="Ação recomendada..."
+                              />
+                            </div>
+                          ) : (
+                            <ul className="space-y-1.5">
+                              {aiReport.strategicActions && aiReport.strategicActions.map((s, idx) => s && s.trim() && (
+                                <li key={idx} className="text-xs font-semibold text-gray-655 leading-relaxed flex items-start gap-2">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                                  <span>{s}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Right part (xl:col-span-4) with interactive messaging and compilation download */}
+                  <div className="xl:col-span-4 p-6 flex flex-col justify-between space-y-6 bg-slate-50/40">
+                    
+                    <div className="space-y-3.5">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-gray-450 uppercase tracking-wider">
+                        <MessageSquare size={12} className="text-[#01402E]" />
+                        <span>Ajustar Laudo de IA</span>
+                      </div>
+
+                      {/* Chat text panel heights are responsive & tightly optimized */}
+                      <div className="max-h-[160px] overflow-y-auto space-y-3 pr-1 text-xs">
+                        {chatHistory.map((msg, idx) => (
+                          <div 
+                            key={idx} 
+                            className={`flex flex-col max-w-[85%] ${
+                              msg.role === 'user' ? 'ml-auto items-end' : 'mr-auto items-start'
+                            }`}
+                          >
+                            <div 
+                              className={`p-2.5 rounded-2xl leading-relaxed text-xs font-semibold ${
+                                msg.role === 'user' 
+                                  ? 'bg-[#01402E] text-white rounded-br-none' 
+                                  : 'bg-white border border-slate-105 text-gray-700 shadow-3xs rounded-bl-none'
+                              }`}
+                            >
+                              {msg.content}
+                            </div>
+                            <span className="text-[7px] font-black text-slate-400 mt-0.5 uppercase">
+                              {msg.role === 'user' ? 'Você' : 'Suporte IA'}
+                            </span>
+                          </div>
+                        ))}
+                        {chatLoading && (
+                          <div className="flex items-center gap-2 text-[10px] text-gray-450 font-bold ml-1 animate-pulse">
+                            <Loader2 size={10} className="animate-spin text-[#01402E]" />
+                            <span>Remodelando laudo técnico...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Predefined prompts */}
+                      <div className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          disabled={chatLoading}
+                          onClick={() => handleSendMessageToAI("Por favor, reescreva todo o relatório e parecer técnico em um tom altamente formal e acadêmico do SUS.")}
+                          className="p-1 px-2.5 bg-white hover:bg-emerald-50/50 border border-gray-200 rounded-lg text-[8px] font-extrabold text-[#01402E] transition active:scale-95 cursor-pointer disabled:opacity-50"
+                        >
+                          👔 Tom SUS
+                        </button>
+                        <button
+                          type="button"
+                          disabled={chatLoading}
+                          onClick={() => handleSendMessageToAI("Deixe o relatório mais curto, bem direto e focado no essencial das estatísticas.")}
+                          className="p-1 px-2.5 bg-white hover:bg-slate-105 border border-gray-200 rounded-lg text-[8px] font-extrabold text-slate-655 transition active:scale-95 cursor-pointer disabled:opacity-50"
+                        >
+                          ⚡ Direto
+                        </button>
+                      </div>
+
+                      <form 
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleSendMessageToAI();
+                        }} 
+                        className="flex gap-1.5"
+                      >
+                        <input
+                          type="text"
+                          required
+                          value={chatMessage}
+                          disabled={chatLoading}
+                          onChange={(e) => setChatMessage(e.target.value)}
+                          placeholder="Solicitar ajuste..."
+                          className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-755 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#01402E]"
+                        />
+                        <button
+                          type="submit"
+                          disabled={chatLoading || !chatMessage.trim()}
+                          className="p-2 bg-[#01402E] hover:bg-emerald-990 text-white rounded-lg transition-all shadow-md shrink-0 flex items-center justify-center disabled:opacity-50 cursor-pointer"
+                        >
+                          <Send size={12} />
+                        </button>
+                      </form>
+                    </div>
+
+                    <button
+                      onClick={handleDownloadPDF}
+                      className="w-full py-3 bg-emerald-950 hover:bg-[#01402E] text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Download size={12} /> Exportar Laudo (PDF)
+                    </button>
+
+                  </div>
+
+                </div>
+
+              </div>
+            )}
           </div>
 
         </div>

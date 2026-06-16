@@ -63,14 +63,81 @@ const reportSchema = {
   required: ["praisePoints", "criticalAlerts", "strategicActions", "conclusionText"]
 };
 
+// Helper function for simulated report generation when GEMINI_API_KEY is missing
+function generateSimulatedReport(metrics: any, comments: string[], extraPrompt?: string) {
+  const total = metrics?.totalEvaluations || 0;
+  const aprIndex = metrics?.technicalQualityIndex || 0;
+  const nps = metrics?.npsGlobal || 0;
+  const classification = metrics?.npsClassification || 'Não classificado';
+
+  const sectorsPerformance = metrics?.sectorsPerformance || {};
+  const criticalSectors = Object.entries(sectorsPerformance)
+    .filter(([_, perf]: any) => perf.negativePercent > 15)
+    .map(([sec]) => sec);
+
+  // Default praise points based on actual positive indices
+  const praisePoints = [
+    `Excelente índice de aprovação global de ${aprIndex}%, refletindo o alinhamento operacional exemplar e o cumprimento consistente dos protocolos de qualidade assistencial da unidade.`,
+    `Taxa sólida de promotores fixada em ${metrics?.promotersPercent || 0}%, indicando confiança e reconhecimento recorrentes da comunidade sobre o atendimento prestado.`,
+    `Acolhimento humanizado amplamente elogiado nos feedbacks diretos, corroborando as diretrizes norteadoras da Política Nacional de Humanização (PNH) do SUS.`
+  ];
+
+  // Default critical alerts based on real failures
+  const criticalAlerts: string[] = [];
+  if (criticalSectors.length > 0) {
+    criticalSectors.forEach(sec => {
+      criticalAlerts.push(`Necessidade crítica de readequação no setor "${sec}", que registrou insatisfação de ${sectorsPerformance[sec]?.negativePercent || 0}% (superior ao limite de tolerância estabelecido).`);
+    });
+  } else {
+    criticalAlerts.push("Nenhuma inconformidade sistêmica prioritária ou setor com insatisfação superior a 15% foi computado no período analítico corrente.");
+  }
+  
+  if (comments && comments.length > 0) {
+    const CleanComments = comments.filter(c => c && c.trim().length > 3).slice(0, 2);
+    CleanComments.forEach((c) => {
+      criticalAlerts.push(`Ação estratégica apontada por feedback direto do paciente: "${c}"`);
+    });
+  }
+
+  // Default strategic actions using SUS healthcare framework terminology
+  const strategicActions = [
+    "Instituição imediata de Treinamento em Acolhimento e Humanização com foco nas equipes de pronto-atendimento e triagem.",
+    "Revisão dos fluxos de triagem e mapeamento de gargalos de fila operacional para reduzir o tempo de espera referenciado nos relatos.",
+    "Implementação de rondas preventivas diárias pelo coordenador do setor crítico para validação de insumos e condutas de guichê."
+  ];
+
+  if (extraPrompt) {
+    strategicActions.push(`Reforço técnico imediato baseado no foco do Ouvidor: "${extraPrompt}"`);
+  }
+
+  const conclusionText = `PARECER TÉCNICO OFICIAL DE OUVIDORIA STRATÉGICA
+
+Fica homologado que a Policlínica Bernardo Félix da Silva, à luz dos relatórios quantitativos e qualitativos processados, opera com forte aderência aos preceitos da integralidade da atenção especializada. O indicador técnico de aprovação fixado em ${aprIndex}% consolida os esforços administrativos de humanização e acolhimento contínuo.
+
+Os desvios setoriais individuais que ultrapassaram a barreira recomendada de 15% de insatisfação passam a ser objeto de plano de ação imediata pela gerência de operações, com fixação de metas de ajuste de processos de triagem e tempos de atendimento correspondentes para os próximos 15 dias.
+
+Este relatório reflete o compromisso com o controle de qualidade do SUS, visando sempre a excelência e universalidade resolutiva.
+
+[Atenciosamente, Ouvidoria Geral da Policlínica Bernardo Félix da Silva]
+*(Relatório de demonstração gerado localmente pelo simulador de IA. Ative sua GEMINI_API_KEY no menu Secrets do AI Studio para obter análises reais direto das redes neurais do Gemini)*`;
+
+  return {
+    praisePoints,
+    criticalAlerts,
+    strategicActions,
+    conclusionText,
+    isSimulated: true
+  };
+}
+
 // Gemini API Report Generation
 app.post("/api/gemini/report", async (req: any, res: any) => {
   const { metrics, comments, extraPrompt } = req.body;
 
   if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ 
-      error: "API Key do Gemini não configurada no servidor. Por favor, adicione em Settings > Secrets." 
-    });
+    console.log("GEMINI_API_KEY ausente. Ativando simulador de inteligência artificial de ouvidoria de forma transparente.");
+    const simulated = generateSimulatedReport(metrics, comments, extraPrompt);
+    return res.json(simulated);
   }
 
   try {
@@ -111,7 +178,10 @@ Você deve gerar um JSON válido contendo exatamente as seguintes propriedades e
     const textResponse = cleanJSONString(response.text || "{}");
     try {
       const parsedData = JSON.parse(textResponse);
-      res.json(parsedData);
+      res.json({
+        ...parsedData,
+        isSimulated: false
+      });
     } catch (parseErr) {
       console.error("Erro ao analisar resposta JSON do Gemini:", textResponse);
       res.status(502).json({ error: "O modelo Inteligente gerou um formato de relatório corrompido. Tente novamente.", raw: textResponse });
@@ -128,8 +198,31 @@ app.post("/api/gemini/chat", async (req: any, res: any) => {
   const { currentReport, message } = req.body;
 
   if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ 
-      error: "API Key do Gemini não configurada no servidor. Por favor, adicione em Settings > Secrets." 
+    console.log("GEMINI_API_KEY ausente na rota de chat. Fornecendo sintonia simulada.");
+    const textMsg = (message || "").toLowerCase();
+    
+    // Simulate co-authoring adjustment
+    let praise = [...(currentReport.praisePoints || [])];
+    let critical = [...(currentReport.criticalAlerts || [])];
+    let actions = [...(currentReport.strategicActions || [])];
+    let conclusion = currentReport.conclusionText || "";
+
+    if (textMsg.includes("executivo") || textMsg.includes("curt") || textMsg.includes("resum")) {
+      praise = praise.map(p => p.split(".")[0] + ".");
+      critical = critical.map(c => c.split(".")[0] + ".");
+      actions = actions.slice(0, 2);
+      conclusion = "PARECER TÉCNICO OFICIAL CORPORATIVO\n\nTodos os índices operacionais foram consolidados e aprovados. Ações administrativas de correção e humanização de guichês seguem vigentes em cronograma simplificado.\n\n[Laudo Executivo Compactado]";
+    } else {
+      actions.push(`Diretriz customizada sob demanda: "Reforçar controles imediatos de atendimento na unidade de saúde."`);
+      conclusion = `${conclusion}\n\n* Parecer Técnico atualizado com base nos ajustes solicitados pelo Ouvidor: "${message}".`;
+    }
+
+    return res.json({
+      praisePoints: praise,
+      criticalAlerts: critical,
+      strategicActions: actions,
+      conclusionText: conclusion,
+      isSimulated: true
     });
   }
 
@@ -168,7 +261,10 @@ Retorne unicamente o JSON sem qualquer blá blá blá de introdução.`;
     const textResponse = cleanJSONString(response.text || "{}");
     try {
       const parsedData = JSON.parse(textResponse);
-      res.json(parsedData);
+      res.json({
+        ...parsedData,
+        isSimulated: false
+      });
     } catch (parseErr) {
       console.error("Erro no chat de relatório:", textResponse);
       res.status(502).json({ error: "A IA errou na formatação dos ajustes do relatório. Tente reenviar suas instruções.", raw: textResponse });
