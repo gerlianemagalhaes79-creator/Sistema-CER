@@ -41,6 +41,8 @@ interface FirebaseForm {
   createdBy?: string;
   createdByName?: string;
   source?: 'patient' | 'physical';
+  patientName?: string;
+  patientPhone?: string;
 }
 
 interface FirebaseEvaluation {
@@ -524,10 +526,20 @@ export const EvaluationList = () => {
                         )}
                       </div>
 
-                      {form.patientName && (
-                        <div className="flex items-center gap-1.5 text-xs text-blue-650 font-black uppercase tracking-wider mt-1.5 bg-blue-50/50 px-2.5 py-1 rounded-xl w-fit border border-blue-100/40">
-                          <UserIcon size={11} className="text-blue-550 shrink-0" />
-                          <span>Paciente: {form.patientName}</span>
+                      {(form.patientName || form.patientPhone) && (
+                        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                          {form.patientName && (
+                            <div className="flex items-center gap-1.5 text-xs text-blue-650 font-black uppercase tracking-wider bg-blue-50/50 px-2.5 py-1 rounded-xl border border-blue-100/40">
+                              <UserIcon size={11} className="text-blue-550 shrink-0" />
+                              <span>Paciente: {form.patientName}</span>
+                            </div>
+                          )}
+                          {form.patientPhone && (
+                            <div className="flex items-center gap-1.5 text-xs text-slate-650 font-black uppercase tracking-wider bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
+                              <Smartphone size={11} className="text-slate-500 shrink-0" />
+                              <span>Tel: {form.patientPhone}</span>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

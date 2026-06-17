@@ -9,7 +9,8 @@ import {
   ArrowLeft, 
   CheckCircle,
   HelpCircle,
-  User
+  User,
+  Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
@@ -46,6 +47,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
   const [sectorRatings, setSectorRatings] = useState<Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'NaoPassei'; comment: string }>>({});
   const [generalComment, setGeneralComment] = useState('');
   const [patientName, setPatientName] = useState('');
+  const [patientPhone, setPatientPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Auto sign-in anonymously in background when survey loads
@@ -78,6 +80,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
     setSectorRatings({});
     setGeneralComment('');
     setPatientName('');
+    setPatientPhone('');
     setStep(1);
   };
 
@@ -120,7 +123,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
           };
         });
 
-      // Submit direct to database anonymously, passing optional patient name as seventh argument
+      // Submit direct to database anonymously, passing optional patient name and phone
       await SurveyService.submitSurvey(
         npsScore, 
         generalComment, 
@@ -128,7 +131,9 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
         'patient', 
         undefined, 
         undefined, 
-        patientName.trim() || 'Anônimo (Paciente)'
+        undefined,
+        patientName.trim() || 'Anônimo (Paciente)',
+        patientPhone.trim()
       );
       setStep(4);
     } catch (err) {
@@ -359,19 +364,36 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
 
               {/* Identification and general commentaries - iOS safari font-size 16px to prevent automatic zooming */}
               <div className="max-w-2xl mx-auto space-y-6 text-left">
-                <div className="bg-emerald-50/35 p-5 rounded-3xl border border-emerald-100/60 space-y-3">
-                  <label className="flex items-center gap-2 text-xs font-black text-[#01402E] uppercase tracking-widest leading-none">
-                    <User size={16} /> Seu Nome (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="DIGITE SEU NOME COMPLETO DE FORMA OPCIONAL..."
-                    className="w-full px-5 py-4 rounded-2xl border border-gray-200 bg-white text-base font-bold text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/15"
-                  />
+                <div className="bg-emerald-50/35 p-5 rounded-3xl border border-emerald-100/60 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-xs font-black text-[#01402E] uppercase tracking-widest leading-none">
+                        <User size={16} /> Seu Nome (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        value={patientName}
+                        onChange={(e) => setPatientName(e.target.value)}
+                        placeholder="NOME COMPLETO DE FORMA OPCIONAL..."
+                        className="w-full px-5 py-4 rounded-2xl border border-gray-200 bg-white text-base font-bold text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/15"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-xs font-black text-[#01402E] uppercase tracking-widest leading-none">
+                        <Phone size={16} /> Seu Telefone (Opcional)
+                      </label>
+                      <input
+                        type="tel"
+                        value={patientPhone}
+                        onChange={(e) => setPatientPhone(e.target.value)}
+                        placeholder="TELEFONE DE FORMA OPCIONAL..."
+                        className="w-full px-5 py-4 rounded-2xl border border-gray-200 bg-white text-base font-bold text-gray-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/15"
+                      />
+                    </div>
+                  </div>
                   <p className="text-[10px] text-emerald-800/65 font-black uppercase tracking-wider ml-1 leading-relaxed">
-                    Sua pesquisa continua anônima se você decidir não preencher este campo.
+                    Sua pesquisa continua anônima se você decidir não preencher estes campos.
                   </p>
                 </div>
 

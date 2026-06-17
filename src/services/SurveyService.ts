@@ -49,7 +49,8 @@ export const SurveyService = {
     customDate?: string,
     createdBy?: string,
     createdByName?: string,
-    patientName?: string
+    patientName?: string,
+    patientPhone?: string
   ): Promise<void> => {
     // Ensure we are authenticated (e.g., anonymously)
     await SurveyService.ensureAnonymousAuth();
@@ -87,6 +88,7 @@ export const SurveyService = {
       observation: generalComment,
       recommendationScore: npsScore,
       patientName: patientName || '',
+      patientPhone: patientPhone || '',
 
       // For backwards compatibility with older reports page queries
       npsScore,

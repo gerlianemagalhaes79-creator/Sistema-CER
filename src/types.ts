@@ -150,6 +150,7 @@ export interface EvaluationForm {
   observation?: string; // observação geral
   recommendationScore?: number; // nota NPS de recomendação
   patientName?: string; // nome do paciente se identificado
+  patientPhone?: string; // telefone do paciente se informado
 }
 
 export interface SectorEvaluation {

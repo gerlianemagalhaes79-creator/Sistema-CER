@@ -8,7 +8,8 @@ import {
   Send, 
   Smile,
   X,
-  User
+  User,
+  Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
@@ -100,6 +101,7 @@ export const NewFormPage = ({
   // Form State
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [patientName, setPatientName] = useState('');
+  const [patientPhone, setPatientPhone] = useState('');
   const [npsScore, setNpsScore] = useState<number | null>(null);
   const [ratings, setRatings] = useState<Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }>>(() => {
     const initial: Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }> = {};
@@ -142,6 +144,7 @@ export const NewFormPage = ({
     setNpsScore(null);
     setDate(new Date().toISOString().split('T')[0]);
     setPatientName('');
+    setPatientPhone('');
     setGeneralComment('');
     const resetRatings: Record<string, { rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'N'; comment: string }> = {};
     sectors.forEach(s => {
@@ -180,7 +183,8 @@ export const NewFormPage = ({
         date,
         currentUser?.id,
         currentUser?.name,
-        patientName.trim()
+        patientName.trim(),
+        patientPhone.trim()
       );
 
       setSuccess(true);
@@ -290,17 +294,32 @@ export const NewFormPage = ({
                 </div>
               </div>
               
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                  <User size={18} />
-                </span>
-                <input
-                  type="text"
-                  value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
-                  placeholder="Nome completo do paciente (ou deixe vazio para manter Anônimo)..."
-                  className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <User size={18} />
+                  </span>
+                  <input
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="Nome completo do paciente (Opcional)..."
+                    className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
+                  />
+                </div>
+
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <Phone size={18} />
+                  </span>
+                  <input
+                    type="tel"
+                    value={patientPhone}
+                    onChange={(e) => setPatientPhone(e.target.value)}
+                    placeholder="Telefone de contato (Opcional)..."
+                    className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
+                  />
+                </div>
               </div>
             </div>
 
