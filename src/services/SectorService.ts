@@ -80,18 +80,18 @@ export const SectorService = {
   populateDefaultSectors: async (): Promise<void> => {
     const PATH = 'sectors';
     const defaults = [
-      "Portaria/Segurança", 
+      "Portaria/ Segurança", 
       "Recepção Geral", 
-      "Triagem", 
-      "Consultas Médicas", 
-      "Consultas Multiprofissionais", 
-      "Realização de Exames", 
-      "Laboratório", 
+      "Sinais Vitais - Triagem", 
+      "Consulta Médica", 
+      "Consulta Multiprofissional (Psicólogo(a), Fisioterapeuta, Fonoaudiólogo(a), Nutricionista, T.O, outros)", 
+      "Realização de Exames (Raio x, mamografia, ultrassom, outros)", 
+      "Laboratório (sangue, urina, outros)", 
       "Entrega de Exames", 
-      "CER (Centro Especializado em Reabilitação)", 
-      "Ambiente (Conforto, Temperatura, Espaço)", 
-      "Limpeza (Conservação Geral)", 
-      "Higiene e Organização dos Banheiros"
+      "Centro Especializado em Reabilitação - CER (NEP, Fisioterapia)", 
+      "Ambiente (conforto e acomodações)", 
+      "Limpeza e organização dos ambientes", 
+      "Higiene e organização dos banheiros"
     ];
     try {
       for (const name of defaults) {

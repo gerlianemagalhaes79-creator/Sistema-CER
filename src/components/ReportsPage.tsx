@@ -88,27 +88,80 @@ export const ReportsPage = ({
 
   // Sectors checklist to use as standard: exact 12 items
   const defaultSectors = [
-    "Portaria/Segurança", 
+    "Portaria/ Segurança", 
     "Recepção Geral", 
-    "Triagem", 
-    "Consultas Médicas", 
-    "Consultas Multiprofissionais", 
-    "Realização de Exames", 
-    "Laboratório", 
+    "Sinais Vitais - Triagem", 
+    "Consulta Médica", 
+    "Consulta Multiprofissional (Psicólogo(a), Fisioterapeuta, Fonoaudiólogo(a), Nutricionista, T.O, outros)", 
+    "Realização de Exames (Raio x, mamografia, ultrassom, outros)", 
+    "Laboratório (sangue, urina, outros)", 
     "Entrega de Exames", 
-    "CER (Centro Especializado em Reabilitação)", 
-    "Ambiente (Conforto, Temperatura, Espaço)", 
-    "Limpeza (Conservação Geral)", 
-    "Higiene e Organização dos Banheiros"
+    "Centro Especializado em Reabilitação - CER (NEP, Fisioterapia)", 
+    "Ambiente (conforto e acomodações)", 
+    "Limpeza e organização dos ambientes", 
+    "Higiene e organização dos banheiros"
   ];
+
+  const mapOldToNewSector = (name: string): string => {
+    const norm = name.trim();
+    switch (norm) {
+      case "Portaria/Segurança":
+        return "Portaria/ Segurança";
+      case "Triagem":
+        return "Sinais Vitais - Triagem";
+      case "Consultas Médicas":
+        return "Consulta Médica";
+      case "Consultas Multiprofissionais":
+        return "Consulta Multiprofissional (Psicólogo(a), Fisioterapeuta, Fonoaudiólogo(a), Nutricionista, T.O, outros)";
+      case "Realização de Exames":
+        return "Realização de Exames (Raio x, mamografia, ultrassom, outros)";
+      case "Laboratório":
+        return "Laboratório (sangue, urina, outros)";
+      case "CER (Centro Especializado em Reabilitação)":
+        return "Centro Especializado em Reabilitação - CER (NEP, Fisioterapia)";
+      case "Ambiente (Conforto, Temperatura, Espaço)":
+        return "Ambiente (conforto e acomodações)";
+      case "Limpeza (Conservação Geral)":
+        return "Limpeza e organização dos ambientes";
+      case "Higiene e Organização dos Banheiros":
+        return "Higiene e organização dos banheiros";
+      default:
+        return norm;
+    }
+  };
+
+  const SECTOR_ORDER: Record<string, number> = {
+    "Portaria/ Segurança": 1,
+    "Recepção Geral": 2,
+    "Sinais Vitais - Triagem": 3,
+    "Consulta Médica": 4,
+    "Consulta Multiprofissional (Psicólogo(a), Fisioterapeuta, Fonoaudiólogo(a), Nutricionista, T.O, outros)": 5,
+    "Realização de Exames (Raio x, mamografia, ultrassom, outros)": 6,
+    "Laboratório (sangue, urina, outros)": 7,
+    "Entrega de Exames": 8,
+    "Centro Especializado em Reabilitação - CER (NEP, Fisioterapia)": 9,
+    "Ambiente (conforto e acomodações)": 10,
+    "Limpeza e organização dos ambientes": 11,
+    "Higiene e organização dos banheiros": 12
+  };
+
   const activeSectors = useMemo(() => {
+    const mappedAvailable = availableSectors.map(mapOldToNewSector);
     const list = [...defaultSectors];
-    availableSectors.forEach(s => {
-      if (!list.includes(s) && s.length < 25) {
+    mappedAvailable.forEach(s => {
+      if (!list.includes(s) && s.length < 150) {
         list.push(s);
       }
     });
-    return list;
+
+    return list.sort((a, b) => {
+      const orderA = SECTOR_ORDER[a] ?? 99;
+      const orderB = SECTOR_ORDER[b] ?? 99;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return a.localeCompare(b);
+    });
   }, [availableSectors]);
 
   // Months labels list
@@ -196,12 +249,13 @@ export const ReportsPage = ({
 
     // Populate ratings from database
     filteredEvaluations.forEach(e => {
-      if (!sectorsPerformance[e.sector]) {
-        sectorsPerformance[e.sector] = { positivePercent: 0, negativePercent: 0, total: 0, ratings: { Otimo: 0, Bom: 0, Regular: 0, Ruim: 0 } };
+      const secName = mapOldToNewSector(e.sector);
+      if (!sectorsPerformance[secName]) {
+        sectorsPerformance[secName] = { positivePercent: 0, negativePercent: 0, total: 0, ratings: { Otimo: 0, Bom: 0, Regular: 0, Ruim: 0 } };
       }
-      if (e.rating in sectorsPerformance[e.sector].ratings) {
-        sectorsPerformance[e.sector].ratings[e.rating as any]++;
-        sectorsPerformance[e.sector].total++;
+      if (e.rating in sectorsPerformance[secName].ratings) {
+        sectorsPerformance[secName].ratings[e.rating as any]++;
+        sectorsPerformance[secName].total++;
       }
     });
 

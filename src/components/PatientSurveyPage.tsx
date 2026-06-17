@@ -25,18 +25,18 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
 
   // Default active sectors
   const defaultSectors = [
-    "Portaria/Segurança", 
+    "Portaria/ Segurança", 
     "Recepção Geral", 
-    "Triagem", 
-    "Consultas Médicas", 
-    "Consultas Multiprofissionais", 
-    "Realização de Exames", 
-    "Laboratório", 
+    "Sinais Vitais - Triagem", 
+    "Consulta Médica", 
+    "Consulta Multiprofissional (Psicólogo(a), Fisioterapeuta, Fonoaudiólogo(a), Nutricionista, T.O, outros)", 
+    "Realização de Exames (Raio x, mamografia, ultrassom, outros)", 
+    "Laboratório (sangue, urina, outros)", 
     "Entrega de Exames", 
-    "CER (Centro Especializado em Reabilitação)", 
-    "Ambiente (Conforto, Temperatura, Espaço)", 
-    "Limpeza (Conservação Geral)", 
-    "Higiene e Organização dos Banheiros"
+    "Centro Especializado em Reabilitação - CER (NEP, Fisioterapia)", 
+    "Ambiente (conforto e acomodações)", 
+    "Limpeza e organização dos ambientes", 
+    "Higiene e organização dos banheiros"
   ];
   // We strictly use the 12 environments for the public patient survey to guarantee identical mapping
   const sectors = defaultSectors;
