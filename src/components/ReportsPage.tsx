@@ -259,11 +259,11 @@ export const ReportsPage = ({
     const detractorsPercent = Math.round((detractors / totalForms) * 100);
     const npsGlobal = Math.round(((promoters - detractors) / totalForms) * 100);
 
-    let npsClassification = 'Regular';
-    if (npsGlobal >= 75) npsClassification = 'Excelente';
-    else if (npsGlobal >= 50) npsClassification = 'Muito Bom';
-    else if (npsGlobal >= 0) npsClassification = 'Regular';
-    else npsClassification = 'Crítico';
+    let npsClassification = 'Zona de Aperfeiçoamento 😐';
+    if (npsGlobal >= 75) npsClassification = 'Zona de Excelência ❤️';
+    else if (npsGlobal >= 50) npsClassification = 'Zona de Qualidade 😊';
+    else if (npsGlobal >= 0) npsClassification = 'Zona de Aperfeiçoamento 😐';
+    else npsClassification = 'Zona Crítica 💀';
 
     // Sector evaluation calculations
     const sectorsPerformance: Record<string, { positivePercent: number; negativePercent: number; total: number; ratings: Record<string, number> }> = {};
@@ -643,7 +643,8 @@ export const ReportsPage = ({
     doc.text('KPIs DE SATISFAÇÃO CONSOLIDADO', 20, 93);
 
     doc.setFontSize(12);
-    doc.text(`NPS Global: ${metrics.npsGlobal}% (${metrics.npsClassification})`, 20, 101);
+    const cleanNpsClassification = metrics.npsClassification.replace(/[^\w\sÀ-ÿ]/g, '').trim();
+    doc.text(`NPS Global: ${metrics.npsGlobal}% (${cleanNpsClassification})`, 20, 101);
     doc.text(`Índice de Aprovação: ${metrics.technicalQualityIndex}%`, 115, 101);
 
     // AI Praise section

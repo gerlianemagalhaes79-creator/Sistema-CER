@@ -293,8 +293,12 @@ export const EvaluationList = () => {
               </h4>
               <span className="text-xs font-bold text-slate-400 font-mono">pts</span>
             </div>
-            <p className="text-[10px] text-emerald-600 font-black uppercase tracking-wide">
-              {stats.npsClassic >= 75 ? 'Excelente' : stats.npsClassic >= 50 ? 'Muito Bom' : stats.npsClassic >= 0 ? 'Razoável' : 'Crítico'}
+            <p className={`text-[10px] font-black uppercase tracking-wide ${
+              stats.npsClassic >= 75 ? 'text-emerald-650' :
+              stats.npsClassic >= 50 ? 'text-teal-600' :
+              stats.npsClassic >= 0 ? 'text-amber-500' : 'text-rose-600'
+            }`}>
+              {stats.npsClassic >= 75 ? 'Zona de Excelência ❤️' : stats.npsClassic >= 50 ? 'Zona de Qualidade 😊' : stats.npsClassic >= 0 ? 'Zona de Aperfeiçoamento 😐' : 'Zona Crítica 💀'}
             </p>
           </div>
           <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">

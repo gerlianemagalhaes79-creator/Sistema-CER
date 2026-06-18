@@ -857,10 +857,10 @@ const DashboardPage = ({
       npsGlobal = Math.round(promotersPercent - detractorsPercent);
 
       // excellent: >75, muito bom: 50 a 74, razoavel: 0 a 49, critico: <0
-      if (npsGlobal >= 75) npsZone = 'Excelente';
-      else if (npsGlobal >= 50) npsZone = 'Muito Bom';
-      else if (npsGlobal >= 0) npsZone = 'Razoável';
-      else npsZone = 'Crítico';
+      if (npsGlobal >= 75) npsZone = 'Zona de Excelência ❤️';
+      else if (npsGlobal >= 50) npsZone = 'Zona de Qualidade 😊';
+      else if (npsGlobal >= 0) npsZone = 'Zona de Aperfeiçoamento 😐';
+      else npsZone = 'Zona Crítica 💀';
     }
 
     // Approval Index (percentage of Ótimo + Bom over all current month filtered evaluations)
@@ -1088,12 +1088,12 @@ const DashboardPage = ({
         <Card 
           title="NPS Global" 
           value={stats.totalForms > 0 ? `${stats.npsGlobal > 0 ? '+' : ''}${stats.npsGlobal}` : 'N/A'} 
-          subtitle={stats.totalForms > 0 ? `Zona: ${stats.npsZone}` : 'Sem dados'} 
+          subtitle={stats.totalForms > 0 ? stats.npsZone : 'Sem dados'} 
           colorClass={
-            stats.npsZone === 'Excelente' ? "text-emerald-700" :
-            stats.npsZone === 'Muito Bom' ? "text-teal-600" :
-            stats.npsZone === 'Razoável' ? "text-amber-600 font-bold" :
-            stats.npsZone === 'Crítico' ? "text-red-700 font-extrabold animate-pulse" : "text-gray-400"
+            stats.npsZone.includes('Excelência') ? "text-emerald-700" :
+            stats.npsZone.includes('Qualidade') ? "text-teal-600" :
+            stats.npsZone.includes('Aperfeiçoamento') ? "text-amber-500 font-bold" :
+            stats.npsZone.includes('Crítica') ? "text-red-650 font-extrabold animate-pulse" : "text-gray-400"
           } 
           icon={Activity} 
         />

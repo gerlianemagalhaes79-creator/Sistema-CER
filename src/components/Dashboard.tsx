@@ -11,7 +11,8 @@ import {
   AlertCircle,
   List,
   BarChart2,
-  Printer
+  Printer,
+  Sparkles
 } from 'lucide-react';
 import { 
   collection, 
@@ -54,7 +55,7 @@ const getDocDate = (createdAtField: any): Date | null => {
 // Subtle internal component for Stat Cards styled premium
 interface StatCardProps {
   title: string;
-  value: string | number;
+  value: React.ReactNode;
   subtitle: React.ReactNode;
   icon: React.ReactNode;
   color: 'blue' | 'emerald' | 'amber' | 'rose' | 'indigo';
@@ -262,16 +263,19 @@ export const Dashboard = () => {
         passivesPercent: 0,
         promotersCount: 0,
         detractorsCount: 0,
-        passivesCount: 0
+        passivesCount: 0,
+        averageScore: '0'
       };
     }
 
     let promoters = 0;
     let detractors = 0;
     let passives = 0;
+    let scoreSum = 0;
 
     filteredForms.forEach(f => {
-      const score = f.npsScore;
+      const score = typeof f.npsScore === 'number' ? f.npsScore : 0;
+      scoreSum += score;
       if (score >= 9) {
         promoters++;
       } else if (score <= 6) {
@@ -285,12 +289,13 @@ export const Dashboard = () => {
     const detractorsPercent = Math.round((detractors / totalForms) * 100);
     const passivesPercent = Math.round((passives / totalForms) * 100);
     const score = promotersPercent - detractorsPercent;
+    const averageScore = (scoreSum / totalForms).toFixed(1);
 
-    let status = 'Razoável';
-    if (score >= 75) status = 'Excelente';
-    else if (score >= 50) status = 'Muito Bom';
-    else if (score >= 0) status = 'Razoável';
-    else status = 'Crítico';
+    let status = 'Zona de Aperfeiçoamento 😐';
+    if (score >= 75) status = 'Zona de Excelência ❤️';
+    else if (score >= 50) status = 'Zona de Qualidade 😊';
+    else if (score >= 0) status = 'Zona de Aperfeiçoamento 😐';
+    else status = 'Zona Crítica 💀';
 
     return {
       score,
@@ -300,7 +305,8 @@ export const Dashboard = () => {
       passivesPercent,
       promotersCount: promoters,
       detractorsCount: detractors,
-      passivesCount: passives
+      passivesCount: passives,
+      averageScore
     };
   }, [filteredForms]);
 
@@ -366,25 +372,28 @@ export const Dashboard = () => {
       const m = tempDate.getMonth();
       const y = tempDate.getFullYear();
 
-      // Filter evaluations for this specific historical month
-      const monthEvals = allEvaluations.filter(e => {
-        const d = formDatesMap.get(e.formId) || getDocDate(e.createdAt);
+      // Filter forms for this specific historical month
+      const monthForms = allForms.filter(f => {
+        const d = formDatesMap.get(f.id) || getDocDate(f.date) || getDocDate(f.createdAt);
         return d ? d.getMonth() === m && d.getFullYear() === y : false;
       });
 
-      const total = monthEvals.length;
-      const positive = monthEvals.filter(e => e.rating === 'Ótimo' || e.rating === 'Otimo' || e.rating === 'Bom').length;
-      const satPercent = total > 0 ? Math.round((positive / total) * 100) : 0;
+      const total = monthForms.length;
+      let scoreSum = 0;
+      monthForms.forEach(f => {
+        scoreSum += typeof f.npsScore === 'number' ? f.npsScore : 0;
+      });
+      const avgNps = total > 0 ? Number((scoreSum / total).toFixed(1)) : 0;
 
       const monthName = tempDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toUpperCase();
       list.push({
         name: monthName,
-        'Satisfação (%)': satPercent,
-        'Total Avaliações': total
+        'Média Geral NPS': avgNps,
+        'Total Formulários': total
       });
     }
     return list;
-  }, [allEvaluations, formDatesMap, selectedMonth, selectedYear]);
+  }, [allForms, formDatesMap, selectedMonth, selectedYear]);
 
   // Helper to map old sector names to new clean ones to prevent duplicates and fragmentation
   const mapOldToNewSector = (name: string): string => {
@@ -502,13 +511,11 @@ export const Dashboard = () => {
 
   // NPS label helper styling
   const getNpsStatusBgColor = (status: string) => {
-    switch (status) {
-      case 'Excelente': return 'bg-emerald-50 border-emerald-200 text-emerald-800';
-      case 'Muito Bom': return 'bg-teal-50 border-teal-200 text-teal-850';
-      case 'Razoável': return 'bg-amber-50 border-amber-200 text-amber-850';
-      case 'Crítico': return 'bg-rose-50 border-rose-200 text-rose-850 animate-pulse';
-      default: return 'bg-gray-50 border-gray-200 text-gray-600';
-    }
+    if (status.includes('Excelência')) return 'bg-emerald-50 border-emerald-200 text-emerald-800';
+    if (status.includes('Qualidade')) return 'bg-teal-50 border-teal-200 text-teal-850';
+    if (status.includes('Aperfeiçoamento')) return 'bg-amber-50 border-amber-200 text-amber-850';
+    if (status.includes('Crítica')) return 'bg-rose-50 border-rose-200 text-rose-850 animate-pulse';
+    return 'bg-gray-50 border-gray-200 text-gray-600';
   };
 
   return (
@@ -555,8 +562,8 @@ export const Dashboard = () => {
 
 
 
-      {/* Grid of Metric Cards (Grade com 4 colunas no computador e 1 no mobile) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* Grid of Metric Cards (Grade com 5 colunas no computador e 1 no mobile) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         
         {/* Card 1: Avaliações */}
         <StatCard 
@@ -576,7 +583,21 @@ export const Dashboard = () => {
           color="emerald" 
         />
 
-        {/* Card 3: NPS Global */}
+        {/* Card 3: Média Geral NPS */}
+        <StatCard 
+          title="Média Geral NPS" 
+          value={
+            <span className="flex items-baseline gap-0.5">
+              <span>{npsMetrics.averageScore}</span>
+              <span className="text-sm font-bold text-slate-400 font-mono">/10</span>
+            </span>
+          } 
+          subtitle="Nota média ponderada" 
+          icon={<Sparkles size={22} />} 
+          color="indigo" 
+        />
+
+        {/* Card 4: NPS Global */}
         <StatCard 
           title="NPS Global" 
           value={totalFormsCount > 0 ? `${npsMetrics.score > 0 ? '+' : ''}${npsMetrics.score}` : 'N/A'} 
@@ -585,14 +606,14 @@ export const Dashboard = () => {
           color={npsColorClass} 
         />
 
-        {/* Card 4: Amostras */}
+        {/* Card 5: Amostras */}
         <StatCard 
           title="Amostras" 
           value={totalFormsCount} 
           subtitle="Total de Formulários" 
           icon={<Users size={22} />} 
           color="amber" 
-        />
+       />
 
       </div>
 
@@ -701,9 +722,9 @@ export const Dashboard = () => {
           <div>
             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Evolução Histórica</span>
             <h3 className="text-lg font-black text-slate-850 uppercase flex items-center gap-2">
-              <TrendingUp size={18} className="text-emerald-600" /> Tendência de Satisfação (%)
+              <TrendingUp size={18} className="text-emerald-600" /> Tendência de Média NPS (0-10)
             </h3>
-            <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">Percentual de aprovação (Ótimo & Bom) nos últimos 6 meses</p>
+            <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">Evolução da Nota Média Ponderada nos últimos 6 meses</p>
           </div>
 
           <div className="h-[280px] w-full">
@@ -711,11 +732,11 @@ export const Dashboard = () => {
               <LineChart data={satisfactionTrendData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} />
-                <YAxis domain={[0, 100]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} unit="%" />
+                <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} />
                 <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.05)' }} />
                 <Line 
                   type="monotone" 
-                  dataKey="Satisfação (%)" 
+                  dataKey="Média Geral NPS" 
                   stroke="#10b981" 
                   strokeWidth={5} 
                   dot={{ r: 6, fill: "#10b981", strokeWidth: 3, stroke: "#fff" }}
@@ -989,16 +1010,16 @@ export const Dashboard = () => {
                   {totalFormsCount > 0 ? `${npsMetrics.score > 0 ? '+' : ''}${npsMetrics.score}` : 'N/A'}
                 </span>
                 <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border inline-block mt-2 ${getNpsStatusBgColor(npsMetrics.status)}`}>
-                  Zona {npsMetrics.status}
+                  {npsMetrics.status}
                 </span>
               </div>
 
               {/* Slider scale indicator representing the state audit spectrum */}
               <div className="space-y-2">
-                <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase tracking-wider px-1">
-                  <span>Crítico</span>
-                  <span>Razoável</span>
-                  <span>Excelente</span>
+                <div className="flex justify-between text-[8px] font-black text-slate-450 uppercase tracking-wider px-1">
+                  <span>Zona Crítica</span>
+                  <span>Zona de Aperfeiçoamento</span>
+                  <span>Zona de Excelência</span>
                 </div>
                 
                 {/* Visual indicator bar */}
