@@ -12,7 +12,8 @@ import {
   List,
   BarChart2,
   Printer,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { 
   collection, 
@@ -52,16 +53,17 @@ const getDocDate = (createdAtField: any): Date | null => {
   return parsed;
 };
 
-// Subtle internal component for Stat Cards styled premium
+// Subtle internal component for Stat Cards styled premium with interactive click-explanation
 interface StatCardProps {
   title: string;
   value: React.ReactNode;
   subtitle: React.ReactNode;
   icon: React.ReactNode;
   color: 'blue' | 'emerald' | 'amber' | 'rose' | 'indigo';
+  onClick?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color }) => {
+const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color, onClick }) => {
   const themes = {
     blue: {
       border: 'border-blue-100',
@@ -98,14 +100,30 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color
   const currentTheme = themes[color] || themes.blue;
 
   return (
-    <div className={`relative overflow-hidden bg-white p-6 rounded-[2rem] border ${currentTheme.border} transition-all duration-300 hover:scale-[1.02] shadow-sm hover:shadow-md ${currentTheme.shadow} flex items-center justify-between`}>
+    <div 
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      className={`group relative overflow-hidden bg-white p-6 rounded-[2rem] border ${currentTheme.border} transition-all duration-300 hover:scale-[1.02] shadow-sm hover:shadow-md ${currentTheme.shadow} flex items-center justify-between ${onClick ? 'cursor-pointer select-none active:scale-[0.98]' : ''}`}
+      title={onClick ? "Clique para ver tutorial de cálculo" : undefined}
+    >
       {/* Subtle background bubble for visual comfort and material style */}
       <div className={`absolute -right-6 -bottom-6 w-24 h-24 rounded-full ${currentTheme.bubble} blur-xl`} />
       
-      <div className="space-y-1 z-10">
-        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">{title}</span>
+      <div className="space-y-1 z-10 w-full pr-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">{title}</span>
+          {onClick && (
+            <Info size={11} className="text-slate-350 group-hover:text-slate-500 transition-colors shrink-0" />
+          )}
+        </div>
         <span className="text-3xl font-black text-slate-900 block">{value}</span>
-        <div className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">{subtitle}</div>
+        <div className="flex items-center justify-between">
+          <div className="text-[9px] font-extrabold uppercase text-slate-400 tracking-wider block">{subtitle}</div>
+          {onClick && (
+            <span className="text-[8px] font-bold text-blue-500/80 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity duration-200">Explicar 💡</span>
+          )}
+        </div>
       </div>
       <div className={`w-12 h-12 rounded-2xl ${currentTheme.iconBg} flex items-center justify-center shrink-0 z-10`}>
         {icon}
@@ -124,6 +142,17 @@ export const Dashboard = () => {
   const [sectorViewMode, setSectorViewMode] = useState<'list' | 'chart'>('list');
   const [sectorSortKey, setSectorSortKey] = useState<'approval' | 'volume'>('approval');
   const [showPrintPreview, setShowPrintPreview] = useState<boolean>(false);
+  
+  // State for metric help dialog with educational explanation
+  const [selectedHelpMetric, setSelectedHelpMetric] = useState<{
+    title: string;
+    value: string | React.ReactNode;
+    subtitle: string;
+    description: string;
+    formula: string;
+    example: string;
+    color: 'blue' | 'emerald' | 'amber' | 'rose' | 'indigo';
+  } | null>(null);
   
   // Complete database collections storage
   const [allEvaluations, setAllEvaluations] = useState<SectorEvaluation[]>([]);
@@ -572,6 +601,15 @@ export const Dashboard = () => {
           subtitle="Total de Avaliações" 
           icon={<ClipboardList size={22} />} 
           color="blue" 
+          onClick={() => setSelectedHelpMetric({
+            title: "Avaliações",
+            value: totalEvaluationsCount,
+            subtitle: "Total de Notas por Setores",
+            description: "Representa a soma total das notas individuais dadas pelos pacientes para todos os setores avaliados. Cada vez que um paciente responde à pesquisa, ele pode avaliar um ou mais setores (ex: recepção, médico, enfermagem). Cada nota preenchida conta como uma avaliação individual de setor.",
+            formula: "Soma das avaliações de todos os setores preenchidos nos formulários.",
+            example: "Se 10 pacientes responderam à pesquisa e cada um deu nota para 3 setores, teremos um total de 30 Avaliações.",
+            color: "blue"
+          })}
         />
 
         {/* Card 2: Qualidade de Satisfação */}
@@ -581,6 +619,15 @@ export const Dashboard = () => {
           subtitle="Satisfação" 
           icon={<CheckCircle2 size={22} />} 
           color="emerald" 
+          onClick={() => setSelectedHelpMetric({
+            title: "Qualidade de Satisfação",
+            value: `${satisfactionPercent}%`,
+            subtitle: "Índice de Aprovação do Atendimento",
+            description: "Este índice reflete o percentual de aprovação direta do atendimento por setor. Ele mostra a proporção de avaliações individuais de setores que receberam as notas máximas ('Ótimo' ou 'Bom') em relação ao total acumulado de notas recebidas.",
+            formula: "((Notas 'Ótimo' + Notas 'Bom') / Total Geral de Avaliações) × 100",
+            example: "Se houveram 50 avaliações de setores, sendo 30 'Ótimo', 10 'Bom', 5 'Regular' e 5 'Ruim', a Qualidade de Satisfação será: (30 + 10) / 50 = 80% de aprovação.",
+            color: "emerald"
+          })}
         />
 
         {/* Card 3: Média Geral NPS */}
@@ -595,6 +642,15 @@ export const Dashboard = () => {
           subtitle="Nota média ponderada" 
           icon={<Sparkles size={22} />} 
           color="indigo" 
+          onClick={() => setSelectedHelpMetric({
+            title: "Média Geral NPS",
+            value: `${npsMetrics.averageScore}/10`,
+            subtitle: "Nota Média de Recomendação (0 a 10)",
+            description: "É a nota média aritmética atribuída diretamente pelos pacientes à clássica pergunta de recomendação da instituição: 'De 0 a 10, o quanto você recomendaria nossa instituição para amigos/familiares?'. Ela exibe a nota média fria, sem o desconto de detratores na fórmula tradicional.",
+            formula: "Soma de todas as notas de recomendação (0 a 10) / Número total de formulários respondidos",
+            example: "Se você tem 3 formulários com notas de recomendação: 10, 9 e 5. A nota média geral é calculada somando 10 + 9 + 5 = 24 e dividindo por 3 pesquisas, resultando em: 8.0.",
+            color: "indigo"
+          })}
         />
 
         {/* Card 4: NPS Global */}
@@ -604,6 +660,26 @@ export const Dashboard = () => {
           subtitle={`Zona: ${npsMetrics.status}`} 
           icon={<Activity size={22} />} 
           color={npsColorClass} 
+          onClick={() => setSelectedHelpMetric({
+            title: "NPS Global",
+            value: totalFormsCount > 0 ? `${npsMetrics.score > 0 ? '+' : ''}${npsMetrics.score}` : 'N/A',
+            subtitle: `Selo: ${npsMetrics.status}`,
+            description: "O Net Promoter Score (NPS) é a métrica padrão ouro usada mundialmente para mensurar a lealdade e recomendação dos pacientes. O sistema separa as notas (0 a 10) em três grupos: Promotores (notas 9 ou 10), Neutros (notas 7 ou 8) e Detratores (notas de 0 a 6). O cálculo final varia de -100 a +100.",
+            formula: "Percentual de Promotores (%) − Percentual de Detratores (%)",
+            example: `Considerando as respostas das pesquisas do período filtrado:
+• Promotores (notas 9-10): ${npsMetrics.promotersPercent}%
+• Neutros (notas 7-8): ${npsMetrics.passivesPercent}%
+• Detratores (notas 0-6): ${npsMetrics.detractorsPercent}%
+
+Cálculo do NPS: ${npsMetrics.promotersPercent}% (Promotores) - ${npsMetrics.detractorsPercent}% (Detratores) = ${npsMetrics.score}.
+
+Zonas de Classificação:
+• Zona de Excelência ❤️ (75 a 100)
+• Zona de Qualidade 😊 (50 a 74)
+• Zona de Aperfeiçoamento 😐 (0 a 49)
+• Zona Crítica 💀 (-100 a -1)`,
+            color: npsColorClass
+          })}
         />
 
         {/* Card 5: Amostras */}
@@ -613,7 +689,16 @@ export const Dashboard = () => {
           subtitle="Total de Formulários" 
           icon={<Users size={22} />} 
           color="amber" 
-       />
+          onClick={() => setSelectedHelpMetric({
+            title: "Amostras",
+            value: totalFormsCount,
+            subtitle: "Número de Pesquisas Respondidas",
+            description: "É a quantidade absoluta de formulários preenchidos e enviados de maneira única pelos pacientes. Cada formulário preenchido serve como a base estatística e amostral para obter a nota de recomendação (NPS) e as pontuações dos setores.",
+            formula: "Contagem total de formulários (pacientes respondentes) submetidos no período filtrado.",
+            example: "Se 85 pacientes responderam à pesquisa de opinião neste mês, o painel exibirá uma amostra de 85 formulários de opinião.",
+            color: "amber"
+          })}
+        />
 
       </div>
 
@@ -1437,6 +1522,87 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Tutorial/Explanation Modal Popup for Metric Cards */}
+      {selectedHelpMetric && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[999] flex items-center justify-center p-4 animate-fade-in no-print" onClick={() => setSelectedHelpMetric(null)}>
+          <div 
+            className="bg-white rounded-[2.5rem] border border-slate-150 shadow-2xl p-6 md:p-8 w-full max-w-lg relative sm:max-h-[90vh] overflow-y-auto animate-scale-up"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header decoration */}
+            <div className="absolute top-0 left-0 right-0 h-2 rounded-t-[2.5rem] bg-indigo-500" />
+            
+            <button 
+              onClick={() => setSelectedHelpMetric(null)}
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-650 p-2 hover:bg-slate-50 rounded-full transition-all text-xs font-black uppercase tracking-wider"
+              title="Fechar"
+            >
+              ✕
+            </button>
+
+            <div className="mt-2 space-y-6">
+              {/* Card Meta Title & Visual Accent */}
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+                  💡
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase text-indigo-500 tracking-widest block">Como essa informação é calculada?</span>
+                  <h3 className="text-xl font-black text-slate-950 tracking-tight">{selectedHelpMetric.title}</h3>
+                </div>
+              </div>
+
+              {/* Current value display */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Valor Atual sob Filtros</span>
+                  <p className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wide mt-0.5">{selectedHelpMetric.subtitle}</p>
+                </div>
+                <div className="text-2xl font-black text-slate-950 px-4 py-2 bg-white rounded-xl border border-slate-150">
+                  {selectedHelpMetric.value}
+                </div>
+              </div>
+
+              {/* Explanatory description text */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">O que significa?</h4>
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                  {selectedHelpMetric.description}
+                </p>
+              </div>
+
+              {/* Mathematical Formula block */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Fórmula de Cálculo:</h4>
+                <div className="bg-slate-50 border border-slate-150 p-3 rounded-xl font-mono text-[10px] text-slate-700 leading-relaxed font-bold break-all">
+                  {selectedHelpMetric.formula}
+                </div>
+              </div>
+
+              {/* Real practical example explanation */}
+              <div className="space-y-2 bg-blue-50/40 p-4 rounded-xl border border-blue-100/50">
+                <h4 className="text-xs font-black text-blue-900 uppercase tracking-wider flex items-center gap-1">
+                  <span>📝</span> Exemplo Prático de Cálculo:
+                </h4>
+                <p className="text-xs text-blue-950/80 leading-relaxed font-bold whitespace-pre-wrap">
+                  {selectedHelpMetric.example}
+                </p>
+              </div>
+
+              {/* Action Button */}
+              <div className="pt-2">
+                <button
+                  onClick={() => setSelectedHelpMetric(null)}
+                  className="w-full bg-slate-900 hover:bg-slate-950 text-white font-black text-xs uppercase tracking-widest py-3 px-4 rounded-xl transition-all shadow-sm hover:shadow-md"
+                >
+                  Entendi, obrigado! 👍
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Global CSS Inject module for printable rules */}
       <style>{`

@@ -72,21 +72,44 @@ export const EvaluationList = () => {
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'patient' | 'physical'>('all');
   const [npsFilter, setNpsFilter] = useState<'all' | 'promoters' | 'passives' | 'detractors'>('all');
+  const [monthFilter, setMonthFilter] = useState<string>('all');
+  const [yearFilter, setYearFilter] = useState<string>('all');
 
   // UI status for retroactive date adjustments
   const [updatingFormId, setUpdatingFormId] = useState<string | null>(null);
   const [successFormId, setSuccessFormId] = useState<string | null>(null);
+
+  // Dynamically extract available years from queried forms
+  const availableYears = useMemo(() => {
+    const yearsSet = new Set<string>();
+    forms.forEach(f => {
+      const dateVal = f.date || f.createdAt;
+      if (dateVal) {
+        try {
+          const iso = safeISOString(dateVal);
+          const d = new Date(iso);
+          if (!isNaN(d.getTime())) {
+            yearsSet.add(d.getFullYear().toString());
+          }
+        } catch {}
+      }
+    });
+    if (yearsSet.size === 0) {
+      yearsSet.add(new Date().getFullYear().toString());
+    }
+    return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
+  }, [forms]);
 
   // 1. Two Simultaneous Realtime Queries using Firebase Listeners
   useEffect(() => {
     setLoading(true);
     setErrorStr(null);
 
-    // Form Query: Limit 50, ordered by createdAt desc
+    // Form Query: Limit 250 records to allow flexible historical monthly filtering
     const formsQuery = query(
       collection(db, 'forms'), 
       orderBy('createdAt', 'desc'), 
-      limit(50)
+      limit(250)
     );
 
     // Evaluation Query: Limit 500, ordered by createdAt desc
@@ -230,9 +253,34 @@ export const EvaluationList = () => {
       else if (npsFilter === 'passives') matchesNps = score >= 7 && score <= 8;
       else if (npsFilter === 'detractors') matchesNps = score <= 6;
 
-      return matchesSearch && matchesSource && matchesNps;
+      // Month & Year filtering
+      let matchesMonth = true;
+      let matchesYear = true;
+      const formDateVal = f.date || f.createdAt;
+      if (formDateVal && (monthFilter !== 'all' || yearFilter !== 'all')) {
+        try {
+          const iso = safeISOString(formDateVal);
+          const d = new Date(iso);
+          if (!isNaN(d.getTime())) {
+            if (monthFilter !== 'all') {
+              matchesMonth = d.getMonth().toString() === monthFilter;
+            }
+            if (yearFilter !== 'all') {
+              matchesYear = d.getFullYear().toString() === yearFilter;
+            }
+          } else {
+            matchesMonth = false;
+            matchesYear = false;
+          }
+        } catch {
+          matchesMonth = false;
+          matchesYear = false;
+        }
+      }
+
+      return matchesSearch && matchesSource && matchesNps && matchesMonth && matchesYear;
     });
-  }, [forms, search, sourceFilter, npsFilter, evaluationsByFormId]);
+  }, [forms, search, sourceFilter, npsFilter, monthFilter, yearFilter, evaluationsByFormId]);
 
   // Overall Statistics computation for summary cards
   const stats = useMemo(() => {
@@ -406,6 +454,45 @@ export const EvaluationList = () => {
               <option value="promoters">PROMOTORES (9-10)</option>
               <option value="passives">PASSIVOS (7-8)</option>
               <option value="detractors">DETRATORES (0-6)</option>
+            </select>
+          </div>
+
+          {/* Month Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+            <Calendar size={13} className="text-slate-450" />
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="bg-transparent border-none text-[10px] font-black text-slate-500 uppercase tracking-widest focus:ring-0 outline-none cursor-pointer p-0"
+            >
+              <option value="all">TODOS MESES</option>
+              <option value="0">JANEIRO</option>
+              <option value="1">FEVEREIRO</option>
+              <option value="2">MARÇO</option>
+              <option value="3">ABRIL</option>
+              <option value="4">MAIO</option>
+              <option value="5">JUNHO</option>
+              <option value="6">JULHO</option>
+              <option value="7">AGOSTO</option>
+              <option value="8">SETEMBRO</option>
+              <option value="9">OUTUBRO</option>
+              <option value="10">NOVEMBRO</option>
+              <option value="11">DEZEMBRO</option>
+            </select>
+          </div>
+
+          {/* Year Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+            <Calendar size={13} className="text-slate-450" />
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="bg-transparent border-none text-[10px] font-black text-slate-500 uppercase tracking-widest focus:ring-0 outline-none cursor-pointer p-0"
+            >
+              <option value="all">TODOS ANOS</option>
+              {availableYears.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
             </select>
           </div>
 
