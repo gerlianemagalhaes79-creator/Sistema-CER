@@ -31,6 +31,80 @@ function cleanJSONString(str: string): string {
   return cleaned.trim();
 }
 
+// Helper utility to sleep during backoff retries
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Robust content generation helper with backoff retries and model fallbacks
+async function robustGenerateContent(params: {
+  contents: any;
+  config?: any;
+}): Promise<any> {
+  const models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  let lastError: any = null;
+
+  for (const model of models) {
+    let retries = 1; // Try twice per model to save time and API quota
+    while (retries >= 0) {
+      try {
+        console.log(`[API] Comunicando com o modelo ${model}...`);
+        const response = await ai.models.generateContent({
+          model,
+          contents: params.contents,
+          config: params.config,
+        });
+        if (response && response.text) {
+          console.log(`[API] Sucesso na geracao com o modelo ${model}`);
+          return response;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.log(`[API] Modelo ${model} indisponivel temporariamente.`);
+        
+        const status = err.status || (err.error && err.error.code);
+        if (status === 503 || status === 429 || (err.message && (err.message.includes("503") || err.message.includes("high demand") || err.message.includes("429")))) {
+          // If 429 quota is exceeded, retry other models faster instead of waiting
+          if (status === 429) {
+            console.log("[API] Limite de cota atingido para este modelo, rotacionando...");
+            break; 
+          }
+          await sleep(1000);
+        }
+      }
+      retries--;
+    }
+  }
+
+  throw lastError || new Error("Falha de conexao com os provedores adicionais.");
+}
+
+// Helper for simulated chat co-authoring adjustment when needed
+function adjustReportSimulated(currentReport: any, message: string) {
+  const textMsg = (message || "").toLowerCase();
+  
+  let praise = [...(currentReport?.praisePoints || [])];
+  let critical = [...(currentReport?.criticalAlerts || [])];
+  let actions = [...(currentReport?.strategicActions || [])];
+  let conclusion = currentReport?.conclusionText || "";
+
+  if (textMsg.includes("executivo") || textMsg.includes("curt") || textMsg.includes("resum")) {
+    praise = praise.map(p => p.split(".")[0] + ".");
+    critical = critical.map(c => c.split(".")[0] + ".");
+    actions = actions.slice(0, 2);
+    conclusion = "PARECER TÉCNICO OFICIAL CORPORATIVO\n\nTodos os índices operacionais foram consolidados e aprovados. Ações administrativas de correção e humanização de guichês seguem vigentes em cronograma simplificado.\n\n[Laudo Executivo Compactado]";
+  } else {
+    actions.push(`Diretriz customizada sob demanda: "Reforçar controles imediatos de atendimento na unidade de saúde."`);
+    conclusion = `${conclusion}\n\n* Parecer Técnico atualizado com base nos ajustes solicitados pelo Ouvidor: "${message}".`;
+  }
+
+  return {
+    praisePoints: praise,
+    criticalAlerts: critical,
+    strategicActions: actions,
+    conclusionText: conclusion,
+    isSimulated: true
+  };
+}
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
@@ -166,8 +240,7 @@ Você deve gerar um JSON válido contendo exatamente as seguintes propriedades e
 - strategicActions: Lista de 3 a 5 ações imediatas, técnicas e viáveis no âmbito do SUS para corrigir os desvios
 - conclusionText: Um texto longo de encerramento do relatório em formato de parecer oficial de ouvidoria, assinado tecnicamente, comentando a evolução da unidade e o compromisso do SUS na Policlínica Bernardo Félix da Silva.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await robustGenerateContent({
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -183,13 +256,21 @@ Você deve gerar um JSON válido contendo exatamente as seguintes propriedades e
         isSimulated: false
       });
     } catch (parseErr) {
-      console.error("Erro ao analisar resposta JSON do Gemini:", textResponse);
+      console.log(`[API] Nao foi possivel analisar resposta JSON do Gemini.`);
       res.status(502).json({ error: "O modelo Inteligente gerou um formato de relatório corrompido. Tente novamente.", raw: textResponse });
     }
 
   } catch (err: any) {
-    console.error("Erro na rota do Gemini Report:", err);
-    res.status(500).json({ error: err.message || "Erro desconhecido ao processar relatório" });
+    console.log(`[API] Rotas externas indisponiveis, ativando inteligência local baseada em dados reais.`);
+    try {
+      const fallbackReport = generateSimulatedReport(metrics, comments, extraPrompt);
+      if (fallbackReport.conclusionText) {
+        fallbackReport.conclusionText = `${fallbackReport.conclusionText}\n\n*(Nota da Ouvidoria: O sistema de Inteligência Artificial do Gemini está altamente congestionado ou temporariamente indisponível no momento. Para sua total conveniência, nós ativamos de forma totalmente automática nosso gerador interno de relatórios de ouvidoria baseados em seus dados reais).*`;
+      }
+      res.json(fallbackReport);
+    } catch (fallbackFallbackErr) {
+      res.status(500).json({ error: `Conectividade com a IA indisponível. Por favor, tente novamente mais tarde.` });
+    }
   }
 });
 
@@ -199,31 +280,8 @@ app.post("/api/gemini/chat", async (req: any, res: any) => {
 
   if (!process.env.GEMINI_API_KEY) {
     console.log("GEMINI_API_KEY ausente na rota de chat. Fornecendo sintonia simulada.");
-    const textMsg = (message || "").toLowerCase();
-    
-    // Simulate co-authoring adjustment
-    let praise = [...(currentReport.praisePoints || [])];
-    let critical = [...(currentReport.criticalAlerts || [])];
-    let actions = [...(currentReport.strategicActions || [])];
-    let conclusion = currentReport.conclusionText || "";
-
-    if (textMsg.includes("executivo") || textMsg.includes("curt") || textMsg.includes("resum")) {
-      praise = praise.map(p => p.split(".")[0] + ".");
-      critical = critical.map(c => c.split(".")[0] + ".");
-      actions = actions.slice(0, 2);
-      conclusion = "PARECER TÉCNICO OFICIAL CORPORATIVO\n\nTodos os índices operacionais foram consolidados e aprovados. Ações administrativas de correção e humanização de guichês seguem vigentes em cronograma simplificado.\n\n[Laudo Executivo Compactado]";
-    } else {
-      actions.push(`Diretriz customizada sob demanda: "Reforçar controles imediatos de atendimento na unidade de saúde."`);
-      conclusion = `${conclusion}\n\n* Parecer Técnico atualizado com base nos ajustes solicitados pelo Ouvidor: "${message}".`;
-    }
-
-    return res.json({
-      praisePoints: praise,
-      criticalAlerts: critical,
-      strategicActions: actions,
-      conclusionText: conclusion,
-      isSimulated: true
-    });
+    const simulated = adjustReportSimulated(currentReport, message);
+    return res.json(simulated);
   }
 
   try {
@@ -238,7 +296,7 @@ Instrução de Ajuste do Usuário:
 
 Analise a instrução de alteração do usuário e ajuste de forma inteligente o relatório. Por exemplo, se ele pediu "Torne o relatório mais executivo", reduza as palavras das listas organizando de forma clara. Se pediu "Aumente as ações da portaria", atualize e expanda a lista de "strategicActions" e atualize a conclusão.
 
-Você deve retornar o novo relatório completo estruturado em JSON com as mesmas propriedades do original:
+Você deve retornar o novo relatório completo estruturado in JSON com as mesmas propriedades do original:
 
 {
   "praisePoints": ["Traduções ou listas de pontos positivos atualizados"],
@@ -249,8 +307,7 @@ Você deve retornar o novo relatório completo estruturado em JSON com as mesmas
 
 Retorne unicamente o JSON sem qualquer blá blá blá de introdução.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await robustGenerateContent({
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -266,13 +323,21 @@ Retorne unicamente o JSON sem qualquer blá blá blá de introdução.`;
         isSimulated: false
       });
     } catch (parseErr) {
-      console.error("Erro no chat de relatório:", textResponse);
+      console.log(`[API] Nao foi possivel analisar resposta JSON do Gemini para os ajustes.`);
       res.status(502).json({ error: "A IA errou na formatação dos ajustes do relatório. Tente reenviar suas instruções.", raw: textResponse });
     }
 
   } catch (err: any) {
-    console.error("Erro no chat do Gemini:", err);
-    res.status(500).json({ error: err.message || "Erro de comunicação no chat inteligente" });
+    console.log(`[API] Rotas externas de sintonizacao indisponiveis, aplicando sintonizador inteligente local integrado.`);
+    try {
+      const fallbackReport = adjustReportSimulated(currentReport, message);
+      if (fallbackReport.conclusionText) {
+        fallbackReport.conclusionText = `${fallbackReport.conclusionText}\n\n*(Ajuste local realizado: Os servidores de IA do Gemini se encontram momentaneamente com excesso de tráfego, ativamos o processamento de sintonização automática integrada local).*`;
+      }
+      res.json(fallbackReport);
+    } catch (fallbackFallbackErr) {
+      res.status(500).json({ error: `O processador de emergência local está temporariamente indisponível.` });
+    }
   }
 });
 
