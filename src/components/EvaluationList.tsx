@@ -4,7 +4,10 @@ import {
   query, 
   orderBy, 
   limit, 
-  onSnapshot 
+  onSnapshot,
+  doc,
+  updateDoc,
+  Timestamp
 } from 'firebase/firestore';
 import { 
   ClipboardList, 
@@ -69,6 +72,10 @@ export const EvaluationList = () => {
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'patient' | 'physical'>('all');
   const [npsFilter, setNpsFilter] = useState<'all' | 'promoters' | 'passives' | 'detractors'>('all');
+
+  // UI status for retroactive date adjustments
+  const [updatingFormId, setUpdatingFormId] = useState<string | null>(null);
+  const [successFormId, setSuccessFormId] = useState<string | null>(null);
 
   // 1. Two Simultaneous Realtime Queries using Firebase Listeners
   useEffect(() => {
@@ -622,6 +629,83 @@ export const EvaluationList = () => {
                             </div>
                           </div>
                         )}
+
+                        {/* Seção Ouvidoria: Ajuste de Data Retroativa para correção de lançamento em mês incorreto */}
+                        <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-2xl font-sans">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-emerald-50 text-emerald-700 rounded-xl flex items-center justify-center shrink-0">
+                              <Calendar size={18} />
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Ajustar Data Retrospectiva</span>
+                              <p className="text-xs text-slate-500 font-semibold leading-none">
+                                Esta pesquisa está vinculada ao dia: <strong className="text-slate-800 font-black">{dateStr}</strong>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="date"
+                              id={`date-adjust-${form.id}`}
+                              defaultValue={(() => {
+                                try {
+                                  const iso = safeISOString(form.date || form.createdAt);
+                                  return iso.split('T')[0];
+                                } catch {
+                                  return '';
+                                }
+                              })()}
+                              className="bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-2.5 py-1.5 font-bold text-slate-700 text-xs focus:ring-4 focus:ring-emerald-100 outline-none transition-all cursor-pointer"
+                            />
+                            <button
+                              type="button"
+                              disabled={updatingFormId === form.id}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const inputEl = document.getElementById(`date-adjust-${form.id}`) as HTMLInputElement;
+                                if (!inputEl || !inputEl.value) return;
+                                
+                                const newDateStr = inputEl.value;
+                                setUpdatingFormId(form.id);
+                                setSuccessFormId(null);
+                                try {
+                                  const targetDate = new Date(newDateStr + 'T12:00:00');
+                                  if (isNaN(targetDate.getTime())) {
+                                    setUpdatingFormId(null);
+                                    return;
+                                  }
+
+                                  const formRef = doc(db, 'forms', form.id);
+                                  const timestampVal = Timestamp.fromDate(targetDate);
+                                  
+                                  await updateDoc(formRef, {
+                                    date: timestampVal,
+                                    createdAt: timestampVal 
+                                  });
+                                  
+                                  setSuccessFormId(form.id);
+                                  setTimeout(() => {
+                                    setSuccessFormId(null);
+                                  }, 4000);
+                                } catch (err) {
+                                  console.error("Erro ao atualizar data do formulário no Firebase:", err);
+                                } finally {
+                                  setUpdatingFormId(null);
+                                }
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-black text-[10px] uppercase tracking-wider px-3.5 py-2.5 rounded-xl active:scale-95 transition-all shadow-sm shadow-emerald-600/10 shrink-0"
+                            >
+                              {updatingFormId === form.id ? 'Salvando...' : 'Atualizar'}
+                            </button>
+                          </div>
+
+                          {successFormId === form.id && (
+                            <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider animate-pulse font-sans">
+                              ✓ Salvo com sucesso!
+                            </span>
+                          )}
+                        </div>
 
                         <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
                           Notas Individuais Por Setores ({formEvaluations.length})

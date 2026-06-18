@@ -68,7 +68,7 @@ export const SurveyService = {
     }
 
     const dateTimestamp = Timestamp.fromDate(dateObj);
-    const createdAtTimestamp = Timestamp.fromDate(now);
+    const createdAtTimestamp = customDate ? dateTimestamp : Timestamp.fromDate(now);
 
     const batch = writeBatch(db);
 

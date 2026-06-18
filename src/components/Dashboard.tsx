@@ -209,18 +209,30 @@ export const Dashboard = () => {
     };
   }, []);
 
+  // Build a fast lookup map from formId to its event date (favoring form.date first, then fallback to createdAt)
+  const formDatesMap = useMemo(() => {
+    const map = new Map<string, Date>();
+    allForms.forEach(f => {
+      const d = getDocDate(f.date) || getDocDate(f.createdAt);
+      if (d) {
+        map.set(f.id, d);
+      }
+    });
+    return map;
+  }, [allForms]);
+
   // Filter local data based on Selected Month and Selected Year
   const filteredEvaluations = useMemo(() => {
     return allEvaluations.filter(e => {
-      const d = getDocDate(e.createdAt);
+      const d = formDatesMap.get(e.formId) || getDocDate(e.createdAt);
       if (!d) return false;
       return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
     });
-  }, [allEvaluations, selectedMonth, selectedYear]);
+  }, [allEvaluations, formDatesMap, selectedMonth, selectedYear]);
 
   const filteredForms = useMemo(() => {
     return allForms.filter(f => {
-      const d = getDocDate(f.createdAt);
+      const d = getDocDate(f.date) || getDocDate(f.createdAt);
       if (!d) return false;
       return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
     });
@@ -242,7 +254,16 @@ export const Dashboard = () => {
   const npsMetrics = useMemo(() => {
     const totalForms = filteredForms.length;
     if (totalForms === 0) {
-      return { score: 0, status: 'Sem dados', promotersPercent: 0, detractorsPercent: 0, passivesPercent: 0 };
+      return { 
+        score: 0, 
+        status: 'Sem dados', 
+        promotersPercent: 0, 
+        detractorsPercent: 0, 
+        passivesPercent: 0,
+        promotersCount: 0,
+        detractorsCount: 0,
+        passivesCount: 0
+      };
     }
 
     let promoters = 0;
@@ -276,8 +297,29 @@ export const Dashboard = () => {
       status,
       promotersPercent,
       detractorsPercent,
-      passivesPercent
+      passivesPercent,
+      promotersCount: promoters,
+      detractorsCount: detractors,
+      passivesCount: passives
     };
+  }, [filteredForms]);
+
+  const npsDistributionData = useMemo(() => {
+    const counts = Array.from({ length: 11 }, (_, i) => ({
+      nota: `${i}`,
+      votos: 0,
+      tipo: i >= 9 ? 'Promotor' : i <= 6 ? 'Detrator' : 'Neutro',
+      cor: i >= 9 ? '#10b981' : i <= 6 ? '#ef4444' : '#f59e0b'
+    }));
+
+    filteredForms.forEach(f => {
+      const score = Math.round(Number(f.npsScore));
+      if (!isNaN(score) && score >= 0 && score <= 10) {
+        counts[score].votos++;
+      }
+    });
+
+    return counts;
   }, [filteredForms]);
 
   const totalFormsCount = filteredForms.length;
@@ -874,6 +916,135 @@ export const Dashboard = () => {
           </div>
         </div>
 
+        {/* Chart D: NPS Estadual Detalhado (Escala 0 a 10) - Full Width */}
+        <div className="lg:col-span-2 bg-white p-6 sm:p-8 rounded-[2.5rem] border border-slate-200/80 shadow-xs space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-4">
+            <div>
+              <span className="text-[10px] font-black uppercase text-emerald-700 tracking-widest block mb-1">Cobrança e Auditoria Estadual (NHO)</span>
+              <h3 className="text-lg font-black text-slate-850 uppercase flex items-center gap-2">
+                <Activity size={18} className="text-emerald-700 shrink-0" /> Detalhamento de Nota NPS (Escala de 0 a 10)
+              </h3>
+              <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">
+                Visualização auditada de acordo com as notas específicas de recomendação (0 a 10) atribuídas pelos pacientes
+              </p>
+            </div>
+            {totalFormsCount > 0 && (
+              <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl px-4 py-2 text-center shrink-0">
+                <span className="text-[9px] font-black text-emerald-800 uppercase tracking-widest block">Índice NPS Geral</span>
+                <span className="text-xl font-black text-emerald-700 leading-none block mt-0.5">
+                  {npsMetrics.score > 0 ? '+' : ''}{npsMetrics.score}
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center font-sans">
+            
+            {/* 1. Bar Chart of the 0 to 10 scale */}
+            <div className="lg:col-span-2 space-y-3">
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block font-sans">Frequência por Nota Absoluta</span>
+              <div className="h-[220px] w-full">
+                {totalFormsCount > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={npsDistributionData} margin={{ bottom: 10, left: -25, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="nota" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 'bold' }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 'bold' }} allowDecimals={false} />
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-slate-900 text-white rounded-xl p-3 shadow-md border-none text-[10px] leading-tight space-y-1">
+                                <p className="font-black uppercase tracking-wider text-[9px] text-slate-300">Nota {data.nota}</p>
+                                <p className="font-black text-xs">{data.votos} {data.votos === 1 ? 'paciente' : 'pacientes'}</p>
+                                <p className="font-bold text-slate-400">Classificação: <strong style={{ color: data.cor }}>{data.tipo}</strong></p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="votos" radius={[4, 4, 0, 0]} barSize={25}>
+                        {npsDistributionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.cor} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                    <span className="text-2xl">📭</span>
+                    <p className="text-xs font-black uppercase text-slate-400 tracking-wider mt-2">Sem respostas de recomendação registradas</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Visual Meter Gauge & Breakdown statistics */}
+            <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-[2rem] space-y-5">
+              <div className="text-center">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Zona do Score</span>
+                <span className="text-4xl font-extrabold text-slate-900 block mt-1">
+                  {totalFormsCount > 0 ? `${npsMetrics.score > 0 ? '+' : ''}${npsMetrics.score}` : 'N/A'}
+                </span>
+                <span className={`text-[9px] font-black uppercase px-2.5 py-1 rounded-lg border inline-block mt-2 ${getNpsStatusBgColor(npsMetrics.status)}`}>
+                  Zona {npsMetrics.status}
+                </span>
+              </div>
+
+              {/* Slider scale indicator representing the state audit spectrum */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-[8px] font-black text-slate-400 uppercase tracking-wider px-1">
+                  <span>Crítico</span>
+                  <span>Razoável</span>
+                  <span>Excelente</span>
+                </div>
+                
+                {/* Visual indicator bar */}
+                <div className="relative h-2.5 bg-gradient-to-r from-red-500 via-amber-400 to-emerald-500 rounded-full w-full overflow-visible animate-none">
+                  {totalFormsCount > 0 && (
+                    <div 
+                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-slate-900 rounded-full shadow-md flex items-center justify-center transition-all duration-350"
+                      // Map score from [-100, 100] to percentage [0, 100] -> percent = (score + 100) / 2
+                      style={{ left: `calc(${((npsMetrics.score + 100) / 2)}% - 8px)` }}
+                    >
+                      <div className="w-1.5 h-1.5 bg-slate-900 rounded-full animate-none"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Detailed Breakdown */}
+              <div className="space-y-2 pt-2 border-t border-slate-200/50 text-[10px] text-slate-700">
+                <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100/80">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span>
+                    Promotores (9-10)
+                  </span>
+                  <span className="font-black text-slate-800">{npsMetrics.promotersCount} ({npsMetrics.promotersPercent}%)</span>
+                </div>
+                <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100/80">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]"></span>
+                    Neutros (7-8)
+                  </span>
+                  <span className="font-black text-slate-800">{npsMetrics.passivesCount} ({npsMetrics.passivesPercent}%)</span>
+                </div>
+                <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100/80">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span>
+                    Detratores (0-6)
+                  </span>
+                  <span className="font-black text-slate-800">{npsMetrics.detractorsCount} ({npsMetrics.detractorsPercent}%)</span>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
       </div>
 
       {/* SISTEMA DE IMPRESSÃO DE PDF OFICIAL */}
@@ -1020,6 +1191,34 @@ export const Dashboard = () => {
                   </table>
                 </div>
 
+                {/* Detalhamento de NPS (Escala de 0 a 10) para Auditoria Estadual */}
+                <div className="border border-slate-300 rounded-xl p-4 bg-slate-50 mb-6 font-sans">
+                  <span className="text-[10px] font-black uppercase text-slate-700 tracking-wider block mb-2.5">Detalhamento Ouvidoria - NPS Estadual (Escala de recomendação 0 a 10)</span>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3 rounded-xl border border-slate-200">
+                    <div className="p-2 bg-emerald-50/10 border-r border-slate-150 last:border-none">
+                      <span className="text-[8px] uppercase font-black text-emerald-700 block leading-none">Promotores (9-10)</span>
+                      <strong className="text-xs font-black text-slate-800 block mt-1.5">{npsMetrics.promotersCount} formulários</strong>
+                      <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{npsMetrics.promotersPercent}% das respostas</span>
+                    </div>
+                    <div className="p-2 bg-amber-50/10 border-r border-slate-150 last:border-none">
+                      <span className="text-[8px] uppercase font-black text-amber-600 block leading-none">Neutros (7-8)</span>
+                      <strong className="text-xs font-black text-slate-800 block mt-1.5">{npsMetrics.passivesCount} formulários</strong>
+                      <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{npsMetrics.passivesPercent}% das respostas</span>
+                    </div>
+                    <div className="p-2 bg-rose-50/10 border-r border-slate-150 last:border-none">
+                      <span className="text-[8px] uppercase font-black text-rose-600 block leading-none">Detratores (0-6)</span>
+                      <strong className="text-xs font-black text-slate-800 block mt-1.5">{npsMetrics.detractorsCount} formulários</strong>
+                      <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{npsMetrics.detractorsPercent}% das respostas</span>
+                    </div>
+                    <div className="p-2 bg-[#022c22] text-white rounded-lg">
+                      <span className="text-[8px] uppercase font-black text-slate-300 block leading-none">Score NPS</span>
+                      <strong className="text-sm font-black block mt-1">{totalFormsCount > 0 ? `${npsMetrics.score > 0 ? '+' : ''}${npsMetrics.score}` : 'N/A'}</strong>
+                      <span className="text-[8px] uppercase font-black tracking-wider text-emerald-400 mt-1 block">Zona {npsMetrics.status}</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Metodology Context */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-6 text-[9px] text-slate-500 leading-relaxed">
                   <span className="font-black uppercase tracking-wider text-slate-700 block mb-0.5">Metodologia e Indicadores do Atendimento Geral</span>
@@ -1163,6 +1362,34 @@ export const Dashboard = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Detalhamento de NPS (Escala de 0 a 10) para Auditoria Estadual (Impressão) */}
+        <div className="border border-slate-350 rounded-xl p-4 bg-slate-50 mb-6 font-sans">
+          <span className="font-black uppercase tracking-wider text-slate-700 block mb-2 text-[10px]">Detalhamento Ouvidoria - NPS Estadual (Escala de recomendação 0 a 10)</span>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3 rounded-xl border border-slate-250">
+            <div className="p-2 border-r border-slate-200 last:border-none">
+              <span className="text-[8px] uppercase font-black text-emerald-700 block leading-none">Promotores (9-10)</span>
+              <strong className="text-xs font-black text-slate-800 block mt-1.5">{npsMetrics.promotersCount} f.</strong>
+              <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{npsMetrics.promotersPercent}% das respostas</span>
+            </div>
+            <div className="p-2 border-r border-slate-200 last:border-none">
+              <span className="text-[8px] uppercase font-black text-amber-600 block leading-none">Neutros (7-8)</span>
+              <strong className="text-xs font-black text-slate-800 block mt-1.5">{npsMetrics.passivesCount} f.</strong>
+              <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{npsMetrics.passivesPercent}% das respostas</span>
+            </div>
+            <div className="p-2 border-r border-slate-200 last:border-none">
+              <span className="text-[8px] uppercase font-black text-rose-600 block leading-none">Detratores (0-6)</span>
+              <strong className="text-xs font-black text-slate-800 block mt-1.5">{npsMetrics.detractorsCount} f.</strong>
+              <span className="text-[9px] text-slate-400 font-bold block mt-0.5">{npsMetrics.detractorsPercent}% das respostas</span>
+            </div>
+            <div className="p-2 bg-slate-900 border-none rounded-lg text-white">
+              <span className="text-[8px] uppercase font-black text-slate-300 block leading-none">Score NPS</span>
+              <strong className="text-sm font-black block mt-1">{totalFormsCount > 0 ? `${npsMetrics.score > 0 ? '+' : ''}${npsMetrics.score}` : 'N/A'}</strong>
+              <span className="text-[8px] uppercase font-black tracking-wider text-emerald-400 mt-1 block">Zona {npsMetrics.status}</span>
+            </div>
+          </div>
         </div>
 
         {/* Legend */}

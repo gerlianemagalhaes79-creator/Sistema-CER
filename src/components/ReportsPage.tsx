@@ -183,20 +183,46 @@ export const ReportsPage = ({
   // Year choices
   const YEARS = [currentYearNum - 1, currentYearNum, currentYearNum + 1];
 
+  const parseToDate = (val: any): Date | null => {
+    if (!val) return null;
+    if (typeof val.toDate === 'function') {
+      return val.toDate();
+    }
+    if (val.seconds !== undefined) {
+      return new Date(val.seconds * 1000);
+    }
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return null;
+    return d;
+  };
+
+  const formDatesMap = useMemo(() => {
+    const map = new Map<string, Date>();
+    forms.forEach(f => {
+      const d = parseToDate(f.date) || parseToDate(f.createdAt);
+      if (d) {
+        map.set(f.id, d);
+      }
+    });
+    return map;
+  }, [forms]);
+
   // 1. FILTER DATA BY MONTH AND YEAR
   const filteredForms = useMemo(() => {
     return forms.filter(f => {
-      const date = new Date(f.createdAt);
+      const date = parseToDate(f.date) || parseToDate(f.createdAt);
+      if (!date) return false;
       return (date.getMonth() + 1) === selectedMonth && date.getFullYear() === selectedYear;
     });
   }, [forms, selectedMonth, selectedYear]);
 
   const filteredEvaluations = useMemo(() => {
     return evaluations.filter(e => {
-      const date = new Date(e.createdAt);
+      const date = formDatesMap.get(e.formId) || parseToDate(e.createdAt);
+      if (!date) return false;
       return (date.getMonth() + 1) === selectedMonth && date.getFullYear() === selectedYear;
     });
-  }, [evaluations, selectedMonth, selectedYear]);
+  }, [evaluations, formDatesMap, selectedMonth, selectedYear]);
 
   // 2. COMPUTE MULTIPLE SATISFACTION METRICS
   const metrics = useMemo(() => {
