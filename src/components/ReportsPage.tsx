@@ -434,8 +434,20 @@ export const ReportsPage = ({
       });
 
       if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Falha ao conectar com o serviço do Gemini.');
+        let errorMsg = 'Falha ao conectar com o serviço do Gemini.';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errData = await response.json();
+            errorMsg = errData.error || errorMsg;
+          } else {
+            const txt = await response.text();
+            errorMsg = txt || errorMsg;
+          }
+        } catch {
+          errorMsg = `Erro ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMsg);
       }
 
       const reportData = await response.json();
@@ -481,8 +493,20 @@ export const ReportsPage = ({
       });
 
       if (!response.ok) {
-        const rawErr = await response.json();
-        throw new Error(rawErr.error || 'Erro ao ajustar o relatório.');
+        let errorMsg = 'Erro ao ajustar o relatório.';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errData = await response.json();
+            errorMsg = errData.error || errorMsg;
+          } else {
+            const txt = await response.text();
+            errorMsg = txt || errorMsg;
+          }
+        } catch {
+          errorMsg = `Erro ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMsg);
       }
 
       const resData = await response.json();
@@ -773,8 +797,8 @@ export const ReportsPage = ({
       }
 
       const monthForms = forms.filter(f => {
-        const d = new Date(f.createdAt);
-        return (d.getMonth() + 1) === m && d.getFullYear() === y;
+        const d = parseToDate(f.date) || parseToDate(f.createdAt);
+        return d ? (d.getMonth() + 1) === m && d.getFullYear() === y : false;
       });
 
       const total = monthForms.length;

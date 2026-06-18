@@ -368,7 +368,7 @@ export const Dashboard = () => {
 
       // Filter evaluations for this specific historical month
       const monthEvals = allEvaluations.filter(e => {
-        const d = getDocDate(e.createdAt);
+        const d = formDatesMap.get(e.formId) || getDocDate(e.createdAt);
         return d ? d.getMonth() === m && d.getFullYear() === y : false;
       });
 
@@ -384,7 +384,7 @@ export const Dashboard = () => {
       });
     }
     return list;
-  }, [allEvaluations, selectedMonth, selectedYear]);
+  }, [allEvaluations, formDatesMap, selectedMonth, selectedYear]);
 
   // Helper to map old sector names to new clean ones to prevent duplicates and fragmentation
   const mapOldToNewSector = (name: string): string => {
