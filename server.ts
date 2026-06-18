@@ -11,15 +11,26 @@ app.use(express.json({ limit: '10mb' }));
 
 const PORT = 3000;
 
-// Initialize Google GenAI with telemetry header
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+// Lazy initialization of GoogleGenAI client to avoid crash on startup when GEMINI_API_KEY is missing
+let aiInstance: GoogleGenAI | null = null;
+
+function getAIClient(): GoogleGenAI {
+  if (!aiInstance) {
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      throw new Error("GEMINI_API_KEY environment variable is required.");
     }
+    aiInstance = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
   }
-});
+  return aiInstance;
+}
 
 // Helper function to robustly clean JSON strings
 function cleanJSONString(str: string): string {
@@ -47,6 +58,7 @@ async function robustGenerateContent(params: {
     while (retries >= 0) {
       try {
         console.log(`[API] Comunicando com o modelo ${model}...`);
+        const ai = getAIClient();
         const response = await ai.models.generateContent({
           model,
           contents: params.contents,
