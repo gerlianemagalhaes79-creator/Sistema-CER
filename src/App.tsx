@@ -2256,7 +2256,7 @@ export default function App() {
               </div>
               <div className="flex flex-col items-center">
                 <span className="font-extrabold text-[#01402E] tracking-tight text-xs uppercase leading-snug max-w-[180px] block">Policlínica Bernardo Félix da Silva</span>
-                <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-1.5 block">Ouvidoria e Satisfação</span>
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mt-1.5 block">Ouvidoria e Satisfação</span>
               </div>
             </div>
           ) : (
