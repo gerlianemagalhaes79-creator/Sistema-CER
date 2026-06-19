@@ -11,7 +11,8 @@ import {
   HelpCircle,
   User,
   Phone,
-  Settings
+  Settings,
+  ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
@@ -171,32 +172,90 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
     <div className="min-h-screen bg-[#F0FDF4] text-gray-800 flex flex-col justify-between" id="id_patient_survey_root">
       
       {/* Header with high UI hierarchy and SUS compliance */}
-      <header className="bg-white border-b border-emerald-100 py-6 px-4 md:px-8 shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 md:gap-4 flex-wrap sm:flex-nowrap">
-            {loadedLogos.ouvidoria && (
-              <img src={loadedLogos.ouvidoria} alt="Logo Ouvidoria" className="h-10 md:h-12 w-auto object-contain shrink-0" referrerPolicy="no-referrer" />
-            )}
-            <div>
-              <h1 className="text-base md:text-xl font-black text-[#01402E] tracking-tight uppercase leading-tight">POLICLÍNICA BERNARDO FÉLIX DA SILVA</h1>
-              <p className="text-[9px] md:text-xs text-emerald-800 font-extrabold tracking-widest uppercase mt-0.5">Pesquisa de Satisfação de Pacientes</p>
-            </div>
-            {loadedLogos.consorcio && (
-              <img src={loadedLogos.consorcio} alt="Logo Consórcio" className="h-10 md:h-12 w-auto object-contain shrink-0" referrerPolicy="no-referrer" />
-            )}
-          </div>
+      <header className="py-6 px-4 md:px-8 max-w-4xl mx-auto w-full">
+        <div className="bg-white rounded-[2rem] border border-emerald-100 shadow-sm p-6 sm:p-8 space-y-6">
           
-          {/* Visual Step Indicator Indicator */}
-          {step <= 3 && (
-            <div className="text-right shrink-0">
-              <span className="text-xs text-emerald-800 font-black tracking-wider uppercase leading-none block">Etapa {step} de 3</span>
-              <div className="flex gap-2 mt-2 justify-end">
-                <div className={`w-2.5 h-2.5 rounded-full ${step >= 1 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
-                <div className={`w-2.5 h-2.5 rounded-full ${step >= 2 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
-                <div className={`w-2.5 h-2.5 rounded-full ${step >= 3 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
+          {/* Realização Header Block (moved to the top and kept small) */}
+          {(loadedLogos.policlinica || loadedLogos.ouvidoria || loadedLogos.consorcio) && (
+            <div className="bg-slate-50/70 py-1.5 px-3 rounded-xl border border-slate-100/40 flex items-center justify-center gap-3 flex-wrap text-emerald-850/65 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider">
+              <span>Realização:</span>
+              <div className="flex items-center gap-2">
+                {loadedLogos.policlinica && (
+                  <img 
+                    src={loadedLogos.policlinica} 
+                    alt="Policlínica" 
+                    className="h-6 sm:h-7 w-auto object-contain shrink-0" 
+                    referrerPolicy="no-referrer" 
+                  />
+                )}
+                {loadedLogos.policlinica && (loadedLogos.ouvidoria || loadedLogos.consorcio) && (
+                  <div className="h-3 border-l border-emerald-250/30 mx-0.5" />
+                )}
+                {loadedLogos.ouvidoria && (
+                  <img 
+                    src={loadedLogos.ouvidoria} 
+                    alt="Ouvidoria" 
+                    className="h-6 sm:h-7 w-auto object-contain shrink-0" 
+                    referrerPolicy="no-referrer" 
+                  />
+                )}
+                {loadedLogos.ouvidoria && loadedLogos.consorcio && (
+                  <div className="h-3 border-l border-emerald-250/30 mx-0.5" />
+                )}
+                {loadedLogos.consorcio && (
+                  <img 
+                    src={loadedLogos.consorcio} 
+                    alt="Consórcio Realização" 
+                    className="h-9 sm:h-11 w-auto object-contain shrink-0" 
+                    referrerPolicy="no-referrer" 
+                  />
+                )}
               </div>
             </div>
           )}
+
+          {/* Top Section: Clinic Names with discrete speech bubble badge above */}
+          <div className="space-y-4 text-center sm:text-left flex flex-col items-center sm:items-start text-emerald-950">
+            
+            {/* Discreet Speech Bubble (Balãozinho discreto) */}
+            <div className="relative inline-flex items-center gap-1 bg-[#01402E] text-[#F0FDF4] text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full shadow-sm">
+              <span>Pesquisa Ativa</span>
+              {/* Little speech bubble pin */}
+              <div className="absolute top-full left-1/2 sm:left-6 -translate-x-1/2 sm:translate-x-0 w-2.5 h-2.5 bg-[#01402E] rotate-45 -translate-y-1.5" />
+            </div>
+
+            <div className="space-y-1.5 w-full pt-1.5">
+              <h1 className="text-xl sm:text-2xl font-black text-[#01402E] tracking-tight uppercase leading-tight">
+                POLICLÍNICA BERNARDO<br />FÉLIX DA SILVA
+              </h1>
+              <p className="text-xs sm:text-sm md:text-base text-slate-500 font-extrabold uppercase tracking-wide">
+                Pesquisa de Satisfação dos Pacientes
+              </p>
+            </div>
+          </div>
+
+          {/* Solid line separator */}
+          <hr className="border-t border-slate-100" />
+
+          {/* Step Indicator Row */}
+          {step <= 3 && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-[#01402E]">
+                <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-800 shrink-0">
+                  <ClipboardList size={18} />
+                </div>
+                <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wide">
+                  Etapa {step} de 3
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <div className={`w-3 h-3 rounded-full ${step >= 1 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
+                <div className={`w-3 h-3 rounded-full ${step >= 2 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
+                <div className={`w-3 h-3 rounded-full ${step >= 3 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
+              </div>
+            </div>
+          )}
+
         </div>
       </header>
 
