@@ -10,10 +10,13 @@ import {
   CheckCircle,
   HelpCircle,
   User,
-  Phone
+  Phone,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
+import { LogoService, ClinicLogos } from '../services/LogoService';
+import { LogoManagerModal } from './LogoManagerModal';
 
 interface PatientSurveyPageProps {
   availableSectors: string[];
@@ -49,6 +52,18 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Logos customization state
+  const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
+
+  // Subscribe to live logo configurations
+  useEffect(() => {
+    const unsubscribe = LogoService.subscribeToLogos((data) => {
+      setLoadedLogos(data);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Auto sign-in anonymously in background when survey loads
   useEffect(() => {
@@ -157,22 +172,28 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
       
       {/* Header with high UI hierarchy and SUS compliance */}
       <header className="bg-white border-b border-emerald-100 py-6 px-4 md:px-8 shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 md:gap-4 flex-wrap sm:flex-nowrap">
+            {loadedLogos.ouvidoria && (
+              <img src={loadedLogos.ouvidoria} alt="Logo Ouvidoria" className="h-10 md:h-12 w-auto object-contain shrink-0" referrerPolicy="no-referrer" />
+            )}
             <div>
-              <h1 className="text-lg md:text-xl font-black text-[#01402E] tracking-tight uppercase">POLICLÍNICA BERNARDO FÉLIX</h1>
-              <p className="text-[10px] md:text-xs text-emerald-800 font-extrabold tracking-widest uppercase">Pesquisa de Satisfação de Pacientes</p>
+              <h1 className="text-base md:text-xl font-black text-[#01402E] tracking-tight uppercase leading-tight">POLICLÍNICA BERNARDO FÉLIX DA SILVA</h1>
+              <p className="text-[9px] md:text-xs text-emerald-800 font-extrabold tracking-widest uppercase mt-0.5">Pesquisa de Satisfação de Pacientes</p>
             </div>
+            {loadedLogos.consorcio && (
+              <img src={loadedLogos.consorcio} alt="Logo Consórcio" className="h-10 md:h-12 w-auto object-contain shrink-0" referrerPolicy="no-referrer" />
+            )}
           </div>
           
           {/* Visual Step Indicator Indicator */}
           {step <= 3 && (
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <span className="text-xs text-emerald-800 font-black tracking-wider uppercase leading-none block">Etapa {step} de 3</span>
-              <div className="flex gap-2.5 mt-2 justify-end">
-                <div className={`w-3 h-3 rounded-full ${step >= 1 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
-                <div className={`w-3 h-3 rounded-full ${step >= 2 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
-                <div className={`w-3 h-3 rounded-full ${step >= 3 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
+              <div className="flex gap-2 mt-2 justify-end">
+                <div className={`w-2.5 h-2.5 rounded-full ${step >= 1 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
+                <div className={`w-2.5 h-2.5 rounded-full ${step >= 2 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
+                <div className={`w-2.5 h-2.5 rounded-full ${step >= 3 ? 'bg-[#01402E]' : 'bg-emerald-100'}`} />
               </div>
             </div>
           )}
@@ -490,9 +511,18 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
       </main>
 
       {/* Footer metadata description */}
-      <footer className="py-6 px-4 text-center text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.14em]">
-        Controle Ouvidoria • Policlínica Bernardo Félix da Silva • Canal Direto do Cidadão
+      <footer className="py-6 px-4 text-center text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.14em] relative">
+        <span>Controle Ouvidoria • Policlínica Bernardo Félix da Silva • Canal Direto do Cidadão</span>
+        <button 
+          onClick={() => setIsLogoModalOpen(true)}
+          className="absolute right-4 bottom-4 p-2 text-emerald-800/25 hover:text-emerald-800/80 transition-colors cursor-pointer"
+          title="Personalizar Logotipos"
+        >
+          <Settings size={14} />
+        </button>
       </footer>
+
+      <LogoManagerModal isOpen={isLogoModalOpen} onClose={() => setIsLogoModalOpen(false)} />
 
     </div>
   );

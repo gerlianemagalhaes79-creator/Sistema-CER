@@ -126,5 +126,10 @@ service cloud.firestore {
       allow read: if isSignedIn() && isApprovedUser();
       allow update, delete: if isApprovedUser();
     }
+
+    // Settings collection for customizable logos
+    match /settings/{docId} {
+      allow read, write: if true;
+    }
   }
 }

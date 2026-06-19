@@ -61,6 +61,8 @@ import { ShareSurveyModal } from './components/ShareSurveyModal';
 import { PatientSurveyPage } from './components/PatientSurveyPage';
 import { EvaluationList } from './components/EvaluationList';
 import { Dashboard } from './components/Dashboard';
+import { LogoService, ClinicLogos } from './services/LogoService';
+import { LogoManagerModal } from './components/LogoManagerModal';
 import { 
   BarChart, 
   Bar, 
@@ -2080,6 +2082,10 @@ export default function App() {
   const [evaluations, setEvaluations] = useState<SectorEvaluation[]>([]);
   const [isPatientMode, setIsPatientMode] = useState(false);
 
+  // States for customizable branding logos
+  const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
+
   useEffect(() => {
     if (currentPage === 'new-form') {
       setCurrentView('form');
@@ -2096,6 +2102,14 @@ export default function App() {
     if (params.get('mode') === 'paciente') {
       setIsPatientMode(true);
     }
+  }, []);
+
+  // Subscribe to real-time customizable logo settings
+  useEffect(() => {
+    const unsubscribeLogos = LogoService.subscribeToLogos((data) => {
+      setLoadedLogos(data);
+    });
+    return () => unsubscribeLogos();
   }, []);
 
   useEffect(() => {
@@ -2222,26 +2236,36 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar - Desktop */}
+       {/* Sidebar - Desktop */}
       <motion.aside 
         animate={{ width: sidebarCollapsed ? 80 : 256 }}
-        className={`bg-white border-r border-slate-200 hidden lg:flex flex-col fixed h-full z-40 transition-all ${sidebarCollapsed ? 'items-center px-2 py-5' : 'p-6'}`}
+        className={`bg-white border-r border-slate-200 hidden lg:flex flex-col fixed h-full z-40 transition-all ${sidebarCollapsed ? 'items-center px-1.5 py-5' : 'p-6'}`}
       >
-        {/* Header App Brand */}
-        <div className={`flex items-center mb-8 h-12 ${sidebarCollapsed ? 'justify-center' : 'justify-between px-2'}`}>
+        {/* Header App Brand with Custom Branding Logos */}
+        <div className={`flex flex-col mb-8 ${sidebarCollapsed ? 'items-center justify-center' : 'w-full'}`}>
           {!sidebarCollapsed ? (
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 text-white font-black text-lg">
-                P
+            <div className="flex flex-col items-center text-center space-y-4 w-full bg-slate-50/50 p-4 rounded-3xl border border-slate-100">
+              <div className="flex items-center justify-center bg-white p-2 rounded-3xl shadow-sm border border-slate-100/80 w-24 h-24">
+                {loadedLogos.ouvidoria ? (
+                  <img src={loadedLogos.ouvidoria} alt="Ouvidoria" className="w-full h-full object-contain rounded-2xl shrink-0" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-16 h-16 bg-gradient-to-tr from-emerald-600 to-teal-500 rounded-2xl flex items-center justify-center text-white font-black text-xl shrink-0 shadow-sm">
+                    P
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col">
-                <span className="font-extrabold text-gray-800 tracking-tight text-base leading-none">Ouvidoria</span>
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1">Policlínica</span>
+              <div className="flex flex-col items-center">
+                <span className="font-extrabold text-[#01402E] tracking-tight text-xs uppercase leading-snug max-w-[180px] block">Policlínica Bernardo Félix da Silva</span>
+                <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-1.5 block">Ouvidoria e Satisfação</span>
               </div>
             </div>
           ) : (
-            <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20 text-white font-black text-xl">
-              P
+            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm text-white font-black text-xl overflow-hidden p-1 border border-slate-150">
+              {loadedLogos.ouvidoria ? (
+                <img src={loadedLogos.ouvidoria} alt="O" className="w-full h-full object-contain rounded-lg" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="text-emerald-700 font-extrabold text-lg">P</span>
+              )}
             </div>
           )}
         </div>
@@ -2319,6 +2343,18 @@ export default function App() {
             </div>
           )}
 
+          {/* Settings trigger for branding logos */}
+          <button
+            onClick={() => setIsLogoModalOpen(true)}
+            className={`w-full flex items-center gap-3 py-2 px-4 rounded-xl text-slate-500 hover:bg-slate-50 hover:text-slate-800 transition-all font-black text-xs uppercase tracking-wider cursor-pointer ${
+              sidebarCollapsed ? 'justify-center' : ''
+            }`}
+            title="Personalizar Logotipos"
+          >
+            <Settings size={16} className="text-slate-500" />
+            {!sidebarCollapsed && <span>Personalizar Marcas</span>}
+          </button>
+
           {/* Sair Button */}
           <button
             onClick={handleLogout}
@@ -2331,6 +2367,8 @@ export default function App() {
           </button>
         </div>
       </motion.aside>
+
+      <LogoManagerModal isOpen={isLogoModalOpen} onClose={() => setIsLogoModalOpen(false)} />
 
       {/* Main Content */}
       <div className={`flex-1 flex flex-col transition-all lg:ml-64 ${sidebarCollapsed ? 'lg:!ml-20' : ''}`}>
