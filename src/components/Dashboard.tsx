@@ -550,17 +550,17 @@ export const Dashboard = () => {
   return (
     <div className="space-y-8" id="real_reactive_dashboard">
       
-      {/* Premium Header in Slate & Blue */}
+      {/* Premium Header in Policlínica Green */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-slate-100 pb-6">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase">Dashboard Executivo</h2>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest block mt-1">PANORAMA DE GESTÃO POLICLÍNICA</p>
+          <h2 className="text-3xl font-black text-[#01402E] tracking-tight uppercase">Dashboard Executivo</h2>
+          <p className="text-xs font-black text-emerald-500 uppercase tracking-widest block mt-1.5">PANORAMA DE GESTÃO POLICLÍNICA</p>
         </div>
         
         {/* Date Filter Panel with Calendar Icon */}
         <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-[2rem] border border-slate-200/80 shadow-xs">
           <div className="flex items-center gap-2 px-3 border-r border-slate-150 last:border-none">
-            <Calendar size={15} className="text-blue-600 shrink-0" />
+            <Calendar size={15} className="text-emerald-600 shrink-0" />
             <select 
               value={selectedMonth} 
               onChange={e => setSelectedMonth(Number(e.target.value))}
@@ -574,7 +574,7 @@ export const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 px-3 last:border-none">
-            <Layers size={15} className="text-blue-600 shrink-0" />
+            <Layers size={15} className="text-emerald-600 shrink-0" />
             <select 
               value={selectedYear} 
               onChange={e => setSelectedYear(Number(e.target.value))}

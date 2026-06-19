@@ -2317,19 +2317,19 @@ export default function App() {
           {/* Share Survey CTA */}
           <button
             onClick={() => setIsShareModalOpen(true)}
-            className={`w-full py-3 px-4 rounded-2xl bg-indigo-50 border border-indigo-100 hover:bg-indigo-100/70 text-indigo-700 transition-all font-black text-xs uppercase tracking-wider flex items-center gap-2 justify-center cursor-pointer ${
+            className={`w-full py-3 px-4 rounded-2xl bg-[#effaf6] border border-emerald-100 hover:bg-[#d8f3e7] text-[#01402E] transition-all font-black text-xs uppercase tracking-wider flex items-center gap-2 justify-center cursor-pointer ${
               sidebarCollapsed ? 'p-3' : ''
             }`}
             title="Divulgar Pesquisa de Satisfação"
           >
-            <QrCode size={16} />
+            <QrCode size={16} className="text-emerald-600" />
             {!sidebarCollapsed && <span>Divulgar Pesquisa</span>}
           </button>
 
           {/* User Institution Profile Section */}
           {!sidebarCollapsed ? (
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2.5xl border border-gray-100">
-              <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-sm shrink-0 uppercase">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#01402E] border border-emerald-100/40 font-extrabold flex items-center justify-center text-sm shrink-0 uppercase">
                 {currentUser?.name.charAt(0) || 'P'}
               </div>
               <div className="flex flex-col truncate">
@@ -2338,7 +2338,7 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="w-12 h-12 rounded-2xl bg-gray-50 text-indigo-750 border border-gray-100 font-black flex items-center justify-center text-lg uppercase shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#01402E] border border-emerald-100/40 font-black flex items-center justify-center text-lg uppercase shadow-sm">
               {currentUser?.name.charAt(0) || 'P'}
             </div>
           )}

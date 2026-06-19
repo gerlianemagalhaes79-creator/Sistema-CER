@@ -205,14 +205,14 @@ export const NewFormPage = ({
       {/* Header Container Card */}
       <div className="bg-slate-50/50 p-6 md:p-8 rounded-[2rem] border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-600/10 shrink-0">
+          <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-600/10 shrink-0">
             <ClipboardList size={24} />
           </div>
           <div>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">
+            <h2 className="text-2xl md:text-3xl font-black text-[#01402E] tracking-tight">
               Lançar Formulário de Pesquisa
             </h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+            <p className="text-xs font-black text-emerald-500 uppercase tracking-widest mt-1.5">
               Área Administrativa para Lançamento Físico de Urna
             </p>
           </div>
@@ -220,14 +220,14 @@ export const NewFormPage = ({
 
         {/* Custom date input with calendar icon */}
         <div className="relative w-full md:w-auto min-w-[200px]">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600 pointer-events-none">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none">
             <Calendar size={18} />
           </span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full md:w-auto bg-white border border-slate-200 hover:border-slate-350 rounded-2xl py-3.5 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all cursor-pointer"
+            className="w-full md:w-auto bg-white border border-slate-200 hover:border-slate-350 rounded-2xl py-3.5 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-emerald-100 outline-none transition-all cursor-pointer"
           />
         </div>
       </div>
@@ -281,7 +281,7 @@ export const NewFormPage = ({
             {/* Patient Identification Card */}
             <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200/80 shadow-sm space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center shrink-0 border border-emerald-100/50">
                   <User size={20} />
                 </div>
                 <div>
@@ -304,7 +304,7 @@ export const NewFormPage = ({
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
                     placeholder="Nome completo do paciente (Opcional)..."
-                    className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
+                    className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-emerald-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
                   />
                 </div>
 
@@ -317,7 +317,7 @@ export const NewFormPage = ({
                     value={patientPhone}
                     onChange={(e) => setPatientPhone(e.target.value)}
                     placeholder="Telefone de contato (Opcional)..."
-                    className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
+                    className="w-full bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl py-4 pl-12 pr-5 font-bold text-slate-700 text-sm focus:ring-4 focus:ring-emerald-100 outline-none transition-all placeholder:text-slate-400 leading-snug"
                   />
                 </div>
               </div>
@@ -468,7 +468,7 @@ export const NewFormPage = ({
             {/* General Feedback Comments Card */}
             <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200/80 shadow-sm space-y-4">
               <div className="flex items-center gap-2.5">
-                <Smile size={20} className="text-blue-650" />
+                <Smile size={20} className="text-emerald-600" />
                 <h3 className="text-lg font-black text-slate-800 tracking-tight">
                   Comentários ou Sugestões Gerais
                 </h3>
@@ -480,7 +480,7 @@ export const NewFormPage = ({
                 value={generalComment}
                 onChange={(e) => setGeneralComment(e.target.value)}
                 placeholder="Insira sugestões, condolências, relatos adicionais recolhidos na pesquisa física..."
-                className="w-full min-h-[120px] bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl p-4 font-medium text-slate-700 text-sm focus:ring-4 focus:ring-blue-100/50 outline-none transition-all leading-relaxed placeholder-slate-400"
+                className="w-full min-h-[120px] bg-slate-50 border border-slate-150 hover:border-slate-200 focus:bg-white rounded-2xl p-4 font-medium text-slate-700 text-sm focus:ring-4 focus:ring-emerald-100/50 outline-none transition-all leading-relaxed placeholder-slate-400"
               />
             </div>
 
@@ -489,7 +489,7 @@ export const NewFormPage = ({
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-10 py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:shadow-xl shadow-blue-200 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                className="px-10 py-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[1.5rem] font-black uppercase text-xs tracking-widest hover:shadow-xl shadow-emerald-200 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {submitting ? (
                   <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
