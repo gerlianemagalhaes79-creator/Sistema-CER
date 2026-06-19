@@ -11,13 +11,11 @@ import {
   HelpCircle,
   User,
   Phone,
-  Settings,
   ClipboardList
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
 import { LogoService, ClinicLogos } from '../services/LogoService';
-import { LogoManagerModal } from './LogoManagerModal';
 
 interface PatientSurveyPageProps {
   availableSectors: string[];
@@ -56,7 +54,6 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
 
   // Logos customization state
   const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
-  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
 
   // Subscribe to live logo configurations
   useEffect(() => {
@@ -572,16 +569,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
       {/* Footer metadata description */}
       <footer className="py-6 px-4 text-center text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.14em] relative">
         <span>Controle Ouvidoria • Policlínica Bernardo Félix da Silva • Canal Direto do Cidadão</span>
-        <button 
-          onClick={() => setIsLogoModalOpen(true)}
-          className="absolute right-4 bottom-4 p-2 text-emerald-800/25 hover:text-emerald-800/80 transition-colors cursor-pointer"
-          title="Personalizar Logotipos"
-        >
-          <Settings size={14} />
-        </button>
       </footer>
-
-      <LogoManagerModal isOpen={isLogoModalOpen} onClose={() => setIsLogoModalOpen(false)} />
 
     </div>
   );
