@@ -236,7 +236,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                         <div className="grid grid-cols-5 gap-1 sm:gap-2 w-full md:w-auto md:min-w-[420px]">
                           {[
                             { id: 'Otimo', label: 'Ótimo', emoji: '😁', color: 'text-emerald-700 bg-emerald-50 border-emerald-100 hover:bg-emerald-100', activeBg: 'bg-emerald-600 text-white ring-4 ring-emerald-200 font-extrabold' },
-                            { id: 'Bom', label: 'Bom', emoji: '🙂', color: 'text-sky-700 bg-sky-50 border-sky-100 hover:bg-sky-100', activeBg: 'bg-sky-600 text-white ring-4 ring-sky-200 font-extrabold' },
+                            { id: 'Bom', label: 'Bom', emoji: '🙂', color: 'text-teal-700 bg-teal-50 border-teal-100 hover:bg-teal-100', activeBg: 'bg-teal-600 text-white ring-4 ring-teal-200 font-extrabold' },
                             { id: 'Regular', label: 'Regular', emoji: '😐', color: 'text-amber-700 bg-amber-50 border-amber-100 hover:bg-amber-100', activeBg: 'bg-amber-500 text-white ring-4 ring-amber-200 font-extrabold' },
                             { id: 'Ruim', label: 'Ruim', emoji: '🙁', color: 'text-red-700 bg-red-50 border-red-100 hover:bg-red-100', activeBg: 'bg-red-600 text-white ring-4 ring-red-200 font-extrabold' },
                             { id: 'NaoPassei', label: 'Não passei', emoji: '🚫', color: 'text-slate-500 bg-slate-50 border-slate-150 hover:bg-slate-100', activeBg: 'bg-slate-500 text-white ring-4 ring-slate-200 font-extrabold' }
