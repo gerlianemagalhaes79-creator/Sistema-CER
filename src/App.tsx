@@ -106,17 +106,17 @@ const SidebarItem = ({
     onClick={onClick}
     className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-xs font-bold leading-tight ${
       active 
-        ? 'bg-blue-50 text-blue-700 shadow-sm font-black' 
+        ? 'bg-emerald-50 text-[#01402E] shadow-sm font-black border border-emerald-100/50' 
         : 'text-slate-600 hover:bg-slate-50'
     }`}
     title={collapsed ? label : ''}
   >
     <div className="flex items-center gap-2.5">
-      <Icon size={16} className={`shrink-0 ${active ? 'text-blue-700' : 'text-slate-500'}`} />
+      <Icon size={16} className={`shrink-0 ${active ? 'text-emerald-600' : 'text-slate-500'}`} />
       {!collapsed && <span className="whitespace-nowrap font-sans">{label}</span>}
     </div>
     {active && !collapsed && (
-      <ChevronRight size={14} className="text-blue-500 shrink-0 ml-1 font-black" />
+      <ChevronRight size={14} className="text-emerald-500 shrink-0 ml-1 font-black" />
     )}
   </button>
 );
