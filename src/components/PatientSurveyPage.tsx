@@ -482,7 +482,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                     rows={4}
                     value={generalComment}
                     onChange={(e) => setGeneralComment(e.target.value)}
-                    placeholder="DIGITE SEU COMENTÁRIO, ELOGIO OU RECLAMAÇÃO AQUI..."
+                    placeholder="ESCREVA AQUI SEU ELOGIO, AGRADECIMENTO, SUGESTÃO OU COMENTÁRIO SOBRE O SEU ATENDIMENTO..."
                     className="w-full p-5 rounded-[2rem] border border-gray-200 bg-gray-50 text-base font-bold text-gray-650 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:bg-white resize-none"
                   />
                 </div>
