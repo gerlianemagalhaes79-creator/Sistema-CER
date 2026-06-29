@@ -5,6 +5,7 @@ export interface ClinicLogos {
   ouvidoria?: string;    // Base64 string of the ombudsman logo
   policlinica?: string;  // Base64 string of the policlinic logo
   consorcio?: string;    // Base64 string of the consortium logo
+  pesquisa?: string;     // Base64 string of the survey logo (replacing the old 3 logos in survey page)
 }
 
 export const LogoService = {

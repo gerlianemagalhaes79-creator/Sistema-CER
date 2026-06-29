@@ -176,8 +176,17 @@ const Header = ({
           <p className="text-sm font-bold text-gray-800 leading-tight">{user.name}</p>
           <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider">{user.accessType}</p>
         </div>
-        <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#064e3b] font-bold shadow-sm group-hover:shadow-md transition-shadow">
-          {user.name.charAt(0).toUpperCase()}
+        <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#064e3b] font-bold shadow-sm group-hover:shadow-md transition-shadow overflow-hidden">
+          {user.photoUrl ? (
+            <img 
+              src={user.photoUrl} 
+              alt={user.name} 
+              className="w-full h-full object-cover" 
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            user.name.charAt(0).toUpperCase()
+          )}
         </div>
       </button>
       <div className="h-8 w-px bg-gray-100"></div>
@@ -2329,8 +2338,17 @@ export default function App() {
           {/* User Institution Profile Section */}
           {!sidebarCollapsed ? (
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2.5xl border border-gray-100">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#01402E] border border-emerald-100/40 font-extrabold flex items-center justify-center text-sm shrink-0 uppercase">
-                {currentUser?.name.charAt(0) || 'P'}
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#01402E] border border-emerald-100/40 font-extrabold flex items-center justify-center text-sm shrink-0 uppercase overflow-hidden">
+                {currentUser?.photoUrl ? (
+                  <img 
+                    src={currentUser.photoUrl} 
+                    alt={currentUser.name} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  currentUser?.name.charAt(0) || 'P'
+                )}
               </div>
               <div className="flex flex-col truncate">
                 <span className="text-xs font-black text-gray-800 leading-snug">Policlínica</span>
@@ -2338,8 +2356,17 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#01402E] border border-emerald-100/40 font-black flex items-center justify-center text-lg uppercase shadow-sm">
-              {currentUser?.name.charAt(0) || 'P'}
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#01402E] border border-emerald-100/40 font-black flex items-center justify-center text-lg uppercase shadow-sm overflow-hidden">
+              {currentUser?.photoUrl ? (
+                <img 
+                  src={currentUser.photoUrl} 
+                  alt={currentUser.name} 
+                  className="w-full h-full object-cover" 
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                currentUser?.name.charAt(0) || 'P'
+              )}
             </div>
           )}
 

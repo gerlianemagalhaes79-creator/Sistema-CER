@@ -14,6 +14,7 @@ export interface User {
   status: 'Active' | 'Inactive';
   password?: string;
   createdAt: string;
+  photoUrl?: string;
 }
 
 export type ManifestationType = 'Reclamação' | 'Sugestão' | 'Elogio' | 'Solicitação' | 'Denúncia';

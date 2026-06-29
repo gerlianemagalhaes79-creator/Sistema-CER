@@ -36,8 +36,8 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Max dimension 160px keeps it extremely sharp for headers but ultra-lightweight for Firestore limit (1MB)
-        const MAX_DIM = 160;
+        // Max dimension 800px keeps it extremely sharp for headers but ultra-lightweight for Firestore limit (1MB)
+        const MAX_DIM = 800;
         let width = img.width;
         let height = img.height;
 
@@ -88,8 +88,7 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
       // Sanitize standard payload - remove undefined to prevent Firestore serialization crashes
       const cleanData: ClinicLogos = {};
       if (logos.ouvidoria) cleanData.ouvidoria = logos.ouvidoria;
-      if (logos.policlinica) cleanData.policlinica = logos.policlinica;
-      if (logos.consorcio) cleanData.consorcio = logos.consorcio;
+      if (logos.pesquisa) cleanData.pesquisa = logos.pesquisa;
 
       await LogoService.saveLogos(cleanData);
       setSuccessMsg('Logotipos atualizados com sucesso!');
@@ -114,7 +113,7 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
         <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-slate-50">
           <div>
             <h3 className="font-black text-gray-900 text-lg uppercase tracking-tight">Personalização de Logotipos</h3>
-            <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Selecione as imagens reais da sua galeria</p>
+            <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">Selecione a imagem real da sua galeria</p>
           </div>
           <button 
             onClick={onClose}
@@ -129,7 +128,7 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
           {loading ? (
             <div className="py-12 flex flex-col items-center justify-center space-y-3">
               <Loader2 className="animate-spin text-emerald-600" size={32} />
-              <p className="text-xs uppercase font-bold text-gray-500 tracking-widest">Carregando marcas...</p>
+              <p className="text-xs uppercase font-bold text-gray-500 tracking-widest">Carregando marca...</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -138,7 +137,7 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
               <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">1. Logotipo da Ouvidoria</span>
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">Logotipo da Ouvidoria</span>
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Aparece na tela de pesquisa e nos relatórios</span>
                   </div>
                   {logos.ouvidoria && (
@@ -162,31 +161,37 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
                     )}
                   </div>
                   <div className="flex-1 relative">
-                    <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-slate-300 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow-md transition-all cursor-pointer">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('logo_input_ouvidoria')?.click()}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-slate-300 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    >
                       <Upload size={14} />
                       {logos.ouvidoria ? 'Substituir' : 'Selecionar da Galeria'}
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange('ouvidoria', e)} 
-                        className="hidden" 
-                      />
-                    </label>
+                    </button>
+                    <input 
+                      id="logo_input_ouvidoria"
+                      type="file" 
+                      accept="image/*" 
+                      onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                      onChange={(e) => handleFileChange('ouvidoria', e)} 
+                      className="hidden" 
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Logo Item 2 */}
+              {/* Logo Item 2 - Pesquisa de Satisfação (Nova Logo Única) */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">2. Logotipo da Policlínica</span>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Logo oficial da Policlínica Bernardo Félix</span>
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">Logotipo da Pesquisa (Paciente)</span>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Logo que substituirá as marcas no cabeçalho da pesquisa do paciente</span>
                   </div>
-                  {logos.policlinica && (
+                  {logos.pesquisa && (
                     <button 
                       type="button" 
-                      onClick={() => handleRemove('policlinica')}
+                      onClick={() => handleRemove('pesquisa')}
                       className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
                       title="Remover logotipo"
                     >
@@ -197,65 +202,29 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
 
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 bg-white flex items-center justify-center p-1 overflow-hidden shrink-0">
-                    {logos.policlinica ? (
-                      <img src={logos.policlinica} alt="Policlínica" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                    {logos.pesquisa ? (
+                      <img src={logos.pesquisa} alt="Logo Pesquisa" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                     ) : (
                       <ImageIcon className="text-slate-300" size={20} />
                     )}
                   </div>
                   <div className="flex-1 relative">
-                    <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-slate-300 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow-md transition-all cursor-pointer">
-                      <Upload size={14} />
-                      {logos.policlinica ? 'Substituir' : 'Selecionar da Galeria'}
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange('policlinica', e)} 
-                        className="hidden" 
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Logo Item 3 */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">3. Logotipo do Consórcio</span>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Consórcio que gerencia a Policlínica</span>
-                  </div>
-                  {logos.consorcio && (
-                    <button 
-                      type="button" 
-                      onClick={() => handleRemove('consorcio')}
-                      className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
-                      title="Remover logotipo"
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('logo_input_pesquisa')?.click()}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-slate-300 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow-md transition-all cursor-pointer"
                     >
-                      <Trash2 size={15} />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 bg-white flex items-center justify-center p-1 overflow-hidden shrink-0">
-                    {logos.consorcio ? (
-                      <img src={logos.consorcio} alt="Consórcio" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
-                    ) : (
-                      <ImageIcon className="text-slate-300" size={20} />
-                    )}
-                  </div>
-                  <div className="flex-1 relative">
-                    <label className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-slate-300 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow-md transition-all cursor-pointer">
                       <Upload size={14} />
-                      {logos.consorcio ? 'Substituir' : 'Selecionar da Galeria'}
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange('consorcio', e)} 
-                        className="hidden" 
-                      />
-                    </label>
+                      {logos.pesquisa ? 'Substituir' : 'Selecionar da Galeria'}
+                    </button>
+                    <input 
+                      id="logo_input_pesquisa"
+                      type="file" 
+                      accept="image/*" 
+                      onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                      onChange={(e) => handleFileChange('pesquisa', e)} 
+                      className="hidden" 
+                    />
                   </div>
                 </div>
               </div>

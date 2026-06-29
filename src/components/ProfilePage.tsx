@@ -27,6 +27,54 @@ export const ProfilePage = ({ user, onUpdate }: { user: User, onUpdate: (u: User
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setMessage(null);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_DIM = 300; // Profile pics 300x300 is extremely sharp and fast
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height *= MAX_DIM / width;
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width *= MAX_DIM / height;
+              height = MAX_DIM;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+          const updated = await UserService.updateUser(user.id, { photoUrl: compressedBase64 });
+          if (updated) {
+            onUpdate({ ...user, photoUrl: compressedBase64 });
+            setMessage({ type: 'success', text: 'Foto de perfil atualizada com sucesso!' });
+          }
+        } catch (err) {
+          console.error(err);
+          setMessage({ type: 'error', text: 'Erro ao processar e salvar imagem de perfil.' });
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -71,12 +119,36 @@ export const ProfilePage = ({ user, onUpdate }: { user: User, onUpdate: (u: User
       <div className="bg-[#064e3b] p-8 rounded-[3rem] text-white relative overflow-hidden shadow-2xl shadow-emerald-900/20">
         <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
           <div className="relative group">
-            <div className="w-32 h-32 rounded-[2rem] bg-white/10 flex items-center justify-center text-5xl font-black border border-white/20 backdrop-blur-md shadow-inner">
-              {user.name.charAt(0).toUpperCase()}
+            <div 
+              onClick={() => document.getElementById('user_photo_input')?.click()}
+              className="w-32 h-32 rounded-[2rem] bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-md shadow-inner overflow-hidden relative cursor-pointer hover:bg-white/20 transition-all group-hover:scale-105"
+            >
+              {user.photoUrl ? (
+                <img 
+                  src={user.photoUrl} 
+                  alt={user.name} 
+                  className="w-full h-full object-cover" 
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="text-5xl font-black">{user.name.charAt(0).toUpperCase()}</span>
+              )}
             </div>
-            <button className="absolute -bottom-2 -right-2 bg-emerald-500 p-2.5 rounded-2xl border-4 border-[#064e3b] shadow-lg hover:scale-110 transition-transform">
+            <button 
+              type="button"
+              onClick={() => document.getElementById('user_photo_input')?.click()}
+              className="absolute -bottom-2 -right-2 bg-emerald-500 p-2.5 rounded-2xl border-4 border-[#064e3b] shadow-lg hover:scale-110 transition-transform cursor-pointer"
+            >
               <Camera size={18} />
             </button>
+            <input 
+              id="user_photo_input"
+              type="file" 
+              accept="image/*" 
+              onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+              onChange={handlePhotoChange} 
+              className="hidden" 
+            />
           </div>
           <div className="text-center md:text-left flex-1">
             <h2 className="text-3xl font-black tracking-tight">{user.name}</h2>

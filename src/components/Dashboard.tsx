@@ -38,6 +38,7 @@ import {
 } from 'recharts';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { SectorEvaluation, EvaluationForm } from '../types';
+import { LogoService, ClinicLogos } from '../services/LogoService';
 
 // Safely convert Firestore Timestamp or general dates to Date objects
 const getDocDate = (createdAtField: any): Date | null => {
@@ -135,6 +136,9 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color
 export const Dashboard = () => {
   const now = new Date();
   
+  // Logos
+  const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
+  
   // Year and Month selection controls
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
@@ -178,6 +182,14 @@ export const Dashboard = () => {
     { value: 10, label: 'Novembro' },
     { value: 11, label: 'Dezembro' }
   ];
+
+  // Subscribe to logo changes from Firestore
+  useEffect(() => {
+    const unsubscribeLogos = LogoService.subscribeToLogos((data) => {
+      setLoadedLogos(data);
+    });
+    return () => unsubscribeLogos();
+  }, []);
 
   // Re-reactive subscription to Firestore collections
   useEffect(() => {
@@ -740,10 +752,21 @@ Zonas de Classificação:
             {totalEvaluationsCount > 0 ? (
               <>
                 {/* Absolutely Centered Indicator inside the Donut Hole */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">Total</span>
-                  <span className="text-3xl font-black text-slate-800 leading-none my-1">{totalEvaluationsCount}</span>
-                  <span className="text-[9px] font-bold uppercase text-slate-400 tracking-wider leading-none">votos</span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none p-4">
+                  {loadedLogos.ouvidoria ? (
+                    <img 
+                      src={loadedLogos.ouvidoria} 
+                      alt="Ouvidoria" 
+                      className="max-w-[100px] max-h-[100px] object-contain rounded-lg" 
+                      referrerPolicy="no-referrer" 
+                    />
+                  ) : (
+                    <>
+                      <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest leading-none">Total</span>
+                      <span className="text-3xl font-black text-slate-800 leading-none my-1">{totalEvaluationsCount}</span>
+                      <span className="text-[9px] font-bold uppercase text-slate-400 tracking-wider leading-none">votos</span>
+                    </>
+                  )}
                 </div>
 
                 <ResponsiveContainer width="100%" height="100%">
@@ -1187,9 +1210,18 @@ Zonas de Classificação:
                 {/* Header */}
                 <div className="flex items-start justify-between border-b-2 border-slate-900 pb-5 mb-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-[#022c22] flex items-center justify-center text-white shrink-0 font-black text-xs">
-                      SUS
-                    </div>
+                    {loadedLogos.ouvidoria ? (
+                      <img 
+                        src={loadedLogos.ouvidoria} 
+                        alt="Ouvidoria" 
+                        className="w-12 h-12 object-contain rounded-xl shrink-0" 
+                        referrerPolicy="no-referrer" 
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-[#022c22] flex items-center justify-center text-white shrink-0 font-black text-xs">
+                        SUS
+                      </div>
+                    )}
                     <div>
                       <h1 className="text-sm font-black text-slate-900 uppercase tracking-tight">Policlínica Bernardo Félix da Silva</h1>
                       <p className="text-[9px] font-black uppercase text-slate-500 tracking-wider">Serviço de Ouvidoria Geral & Humanização de Atendimento — SUS</p>
@@ -1360,9 +1392,18 @@ Zonas de Classificação:
         {/* Header */}
         <div className="flex items-start justify-between border-b-2 border-slate-900 pb-5 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs shrink-0">
-              SUS
-            </div>
+            {loadedLogos.ouvidoria ? (
+              <img 
+                src={loadedLogos.ouvidoria} 
+                alt="Ouvidoria" 
+                className="w-12 h-12 object-contain rounded-xl shrink-0" 
+                referrerPolicy="no-referrer" 
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-xs shrink-0">
+                SUS
+              </div>
+            )}
             <div>
               <h1 className="text-sm font-black text-slate-900 uppercase tracking-tight animate-none">Policlínica Bernardo Félix da Silva</h1>
               <p className="text-[9px] font-black uppercase text-slate-500 tracking-wider leading-none mt-1">Serviço de Ouvidoria Geral & Humanização de Atendimento — SUS</p>
