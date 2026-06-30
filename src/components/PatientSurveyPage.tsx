@@ -242,11 +242,11 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
+              className="space-y-4"
             >
-              <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-emerald-50 text-center space-y-2 shadow-md">
-                <h2 className="text-xl md:text-2xl font-black text-[#01402E] uppercase">Como você avalia os setores onde passou hoje?</h2>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sua opinião é segura e fundamental! Avalie apenas onde você passou hoje (se não passou, marque "Não passei").</p>
+              <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-emerald-50 text-center space-y-1 shadow-sm">
+                <h2 className="text-sm sm:text-base md:text-lg font-black text-[#01402E] uppercase">Como você avalia os setores onde passou hoje?</h2>
+                <p className="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wide leading-relaxed">Sua opinião é segura e fundamental! Avalie apenas onde você passou hoje (se não passou, marque "Não passei").</p>
               </div>
 
               {/* Vertically scrolls sectors for visual comfort */}

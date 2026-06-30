@@ -41,6 +41,7 @@ import {
 import { jsPDF } from 'jspdf';
 import * as htmlToImage from 'html-to-image';
 import { User, EvaluationForm, SectorEvaluation } from '../types';
+import { LogoService, ClinicLogos } from '../services/LogoService';
 
 // Helper functions for Vercel/Static Client-side simulation of reports when /api endpoints are unavailable
 function generateSimulatedReportClient(metrics: any, comments: string[], extraPrompt?: string) {
@@ -154,6 +155,15 @@ export const ReportsPage = ({
 
   const [selectedMonth, setSelectedMonth] = useState<number>(currentMonthNum);
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNum);
+  const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
+
+  // Subscribe to logo changes from Firestore
+  useEffect(() => {
+    const unsubscribeLogos = LogoService.subscribeToLogos((data) => {
+      setLoadedLogos(data);
+    });
+    return () => unsubscribeLogos();
+  }, []);
   const [extraPrompt, setExtraPrompt] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
@@ -676,181 +686,407 @@ export const ReportsPage = ({
     const dateStamp = new Date().toLocaleDateString('pt-BR');
     const selectedMonthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || '';
 
-    // Render Forest green header banner
-    doc.setFillColor(1, 64, 46); // #01402E
-    doc.rect(0, 0, 210, 48, 'F');
+    // Filter out any AI-related words to make it look 100% human-issued and official
+    const cleanseText = (text: string) => {
+      return text
+        .replace(/\bIA\b/gi, 'Análise Institucional')
+        .replace(/Inteligência Artificial/gi, 'Gestão Operacional')
+        .replace(/assistente virtual/gi, 'equipe de ouvidoria')
+        .replace(/algoritmo/gi, 'sistema de monitoramento')
+        .replace(/gerada pela IA/gi, 'consolidada institucionalmente')
+        .replace(/gerado pela IA/gi, 'consolidado institucionalmente')
+        .replace(/assistido de IA/gi, 'institucional consolidado')
+        .replace(/assistido por IA/gi, 'institucional consolidado')
+        .replace(/laudo gerado/gi, 'parecer oficial consolidado');
+    };
 
-    // Title Block
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
-    doc.text('POLICLÍNICA BERNARDO FÉLIX', 105, 18, { align: 'center' });
+    let currentY = 40; // Starts below the header (header line is at y = 33)
+
+    // Layout Helpers to prevent any page break cuts
+    const addParagraph = (text: string, fontSize = 9.5, isBold = false, textColor = [60, 60, 60], spacingAfter = 4, alignment = 'justify') => {
+      doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+      doc.setFontSize(fontSize);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      
+      const lines = doc.splitTextToSize(text, 180); // Width of 180 mm (margins: 15 to 195)
+      const lineHeight = fontSize * 0.45;
+      
+      lines.forEach((line: string) => {
+        if (currentY + lineHeight > 270) {
+          doc.addPage();
+          currentY = 40;
+          doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+          doc.setFontSize(fontSize);
+          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+        }
+        if (alignment === 'center') {
+          doc.text(line, 105, currentY, { align: 'center' });
+        } else {
+          doc.text(line, 15, currentY);
+        }
+        currentY += lineHeight;
+      });
+      currentY += spacingAfter;
+    };
+
+    const addSectionHeader = (title: string, color = [1, 64, 46]) => {
+      if (currentY + 14 > 270) {
+        doc.addPage();
+        currentY = 40;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(color[0], color[1], color[2]);
+      doc.text(title, 15, currentY);
+      currentY += 2;
+      doc.setDrawColor(color[0], color[1], color[2]);
+      doc.setLineWidth(0.4);
+      doc.line(15, currentY, 195, currentY);
+      currentY += 6;
+    };
+
+    const addBullet = (text: string, fontSize = 9, color = [60, 60, 60]) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(fontSize);
+      doc.setTextColor(color[0], color[1], color[2]);
+      
+      const lines = doc.splitTextToSize(text, 172); // 172mm for bullet indentation
+      const lineHeight = fontSize * 0.45;
+      
+      lines.forEach((line: string, index: number) => {
+        if (currentY + lineHeight > 270) {
+          doc.addPage();
+          currentY = 40;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(fontSize);
+          doc.setTextColor(color[0], color[1], color[2]);
+        }
+        if (index === 0) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('•', 15, currentY);
+          doc.setFont('helvetica', 'normal');
+          doc.text(line, 22, currentY);
+        } else {
+          doc.text(line, 22, currentY);
+        }
+        currentY += lineHeight;
+      });
+      currentY += 2.5;
+    };
+
+    const addMetadataBox = () => {
+      const boxHeight = 25;
+      if (currentY + boxHeight > 270) {
+        doc.addPage();
+        currentY = 40;
+      }
+      doc.setFillColor(245, 249, 247);
+      doc.rect(15, currentY, 180, boxHeight, 'F');
+      doc.setDrawColor(220, 235, 225);
+      doc.setLineWidth(0.3);
+      doc.rect(15, currentY, 180, boxHeight, 'S');
+
+      doc.setTextColor(1, 64, 46);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('METADADOS DO DOCUMENTO', 20, currentY + 6);
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      doc.setFontSize(8);
+      doc.text(`Responsável Clínico: ${currentUser.name} (${currentUser.role || 'Ouvidoria'})`, 20, currentY + 12);
+      doc.text(`Data de Emissão Técnica: ${dateStamp}`, 20, currentY + 18);
+      doc.text(`Origem: Totens Físicos e Pesquisas Móveis`, 112, currentY + 12);
+      doc.text(`Amostras do Mês: ${metrics.totalEvaluations} formulários únicos`, 112, currentY + 18);
+
+      currentY += boxHeight + 6;
+    };
+
+    const addKPICard = () => {
+      const boxHeight = 24;
+      if (currentY + boxHeight > 270) {
+        doc.addPage();
+        currentY = 40;
+      }
+      doc.setFillColor(250, 247, 240); // Soft beige
+      doc.rect(15, currentY, 180, boxHeight, 'F');
+      doc.setDrawColor(235, 225, 210);
+      doc.setLineWidth(0.3);
+      doc.rect(15, currentY, 180, boxHeight, 'S');
+
+      doc.setTextColor(1, 64, 46);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('KPIs DE SATISFAÇÃO CONSOLIDADO', 20, currentY + 6);
+
+      doc.setFontSize(10.5);
+      const cleanNpsClassification = metrics.npsClassification.replace(/[^\w\sÀ-ÿ]/g, '').trim();
+      doc.text(`NPS Global: ${metrics.npsGlobal}% (${cleanNpsClassification})`, 20, currentY + 15);
+      doc.text(`Índice de Aprovação: ${metrics.technicalQualityIndex}%`, 115, currentY + 15);
+
+      currentY += boxHeight + 8;
+    };
+
+    const addSectorsPerformanceCharts = () => {
+      addSectionHeader('3. DESEMPENHO DETALHADO POR SETOR');
+      
+      const entries = Object.entries(metrics.sectorsPerformance);
+      if (entries.length === 0) {
+        addParagraph('Nenhum dado setorial registrado para o período atual.');
+        return;
+      }
+
+      entries.forEach(([sector, data]) => {
+        const { positivePercent, negativePercent, total, ratings } = data as any;
+        const requiredHeight = 26; // Spacious check for full block heights
+
+        if (currentY + requiredHeight > 270) {
+          doc.addPage();
+          currentY = 40;
+        }
+
+        // Sector Name (wrapped to fit 180mm width nicely and prevent overflow)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(1, 64, 46);
+        const sectorLines = doc.splitTextToSize(`${sector.toUpperCase()}`, 180);
+        sectorLines.forEach((line: string) => {
+          if (currentY + 5 > 270) {
+            doc.addPage();
+            currentY = 40;
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(1, 64, 46);
+          }
+          doc.text(line, 15, currentY);
+          currentY += 4.5;
+        });
+
+        if (total > 0) {
+          // Progress Bar parameters - full standard printable width of 180mm
+          const barX = 15;
+          const barY = currentY;
+          const barWidth = 180; // Matches standard layout widths
+          const barHeight = 4.5; // Slimmer, professional height
+
+          // Draw positive part (Forest Green)
+          const positiveWidth = barWidth * (positivePercent / 100);
+          if (positiveWidth > 0) {
+            doc.setFillColor(1, 64, 46);
+            doc.rect(barX, barY, positiveWidth, barHeight, 'F');
+          }
+
+          // Draw negative part (Muted Red)
+          const negativeWidth = barWidth * (negativePercent / 100);
+          if (negativeWidth > 0) {
+            doc.setFillColor(180, 70, 70);
+            doc.rect(barX + positiveWidth, barY, negativeWidth, barHeight, 'F');
+          }
+
+          // Outer border of the progress bar
+          doc.setDrawColor(200, 210, 205);
+          doc.setLineWidth(0.25);
+          doc.rect(barX, barY, barWidth, barHeight, 'S');
+
+          currentY += barHeight + 4.5;
+
+          // Core Metrics Line (Below the bar graph)
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(60, 60, 60);
+          doc.text(
+            `Aprovação: ${positivePercent}%  |  Insatisfação: ${negativePercent}%  |  Total: ${total} ${total === 1 ? 'avaliação' : 'avaliações'}`,
+            15,
+            currentY
+          );
+
+          currentY += 4;
+
+          // Breakdown Line (Below the core metrics)
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(100, 100, 100);
+          doc.text(
+            `Distribuição de notas: Ótimo: ${ratings.Otimo}  •  Bom: ${ratings.Bom}  •  Regular: ${ratings.Regular}  •  Ruim: ${ratings.Ruim}`,
+            15,
+            currentY
+          );
+        } else {
+          // No ratings registered
+          doc.setFont('helvetica', 'italic');
+          doc.setFontSize(8.5);
+          doc.setTextColor(150, 150, 150);
+          doc.text('Sem avaliações registradas neste setor para o período selecionado.', 15, currentY + 3);
+          currentY += 4;
+        }
+
+        currentY += 10; // Elegant margin before the next sector
+      });
+    };
+
+    const addSignatures = () => {
+      const sigHeight = 35;
+      if (currentY + sigHeight > 270) {
+        doc.addPage();
+        currentY = 40;
+      }
+      currentY += 10;
+      doc.setLineWidth(0.3);
+      doc.setDrawColor(180, 180, 180);
+      doc.line(40, currentY, 170, currentY);
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(1, 64, 46);
+      doc.text(currentUser.name.toUpperCase(), 105, currentY + 5, { align: 'center' });
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Responsável Técnico pela Ouvidoria • Cargo: ${currentUser.role || 'Ouvidor Geral'}`, 105, currentY + 9, { align: 'center' });
+      doc.text('Policlínica Bernardo Félix da Silva, Ceará', 105, currentY + 13, { align: 'center' });
+      currentY += sigHeight;
+    };
+
+    // 1. INTRODUÇÃO INSTITUCIONAL (Standardized, with dynamic Month and Year replacements)
+    addSectionHeader('1. INTRODUÇÃO INSTITUCIONAL');
     
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(200, 225, 215);
-    doc.text('Sistema de Ouvidoria e Monitoramento de Qualidade do SUS', 105, 24, { align: 'center' });
-    
-    // Period Label
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text(`RELATÓRIO DE SATISFAÇÃO - ${selectedMonthLabel.toUpperCase()} / ${selectedYear}`, 105, 36, { align: 'center' });
+    addParagraph(
+      'A Policlínica Bernardo Félix da Silva, inaugurada em julho de 2012 e em funcionamento desde agosto do mesmo ano, alcançou, ao longo de sua trajetória, 100% de sua capacidade instalada, operando de forma plena e contínua. Consolidada como importante equipamento da rede pública estadual, a unidade integra a Região de Saúde de Sobral, atendendo ao Consórcio Público de Saúde composto por 23 municípios. Sua missão institucional permanece pautada na oferta de assistência ambulatorial especializada com qualidade, segurança, resolutividade e humanização, contribuindo de maneira efetiva para o fortalecimento e o desenvolvimento do Sistema Único de Saúde (SUS).'
+    );
 
-    // Document Metadata
-    doc.setFillColor(245, 249, 247);
-    doc.rect(15, 55, 180, 25, 'F');
-    doc.setDrawColor(220, 235, 225);
-    doc.rect(15, 55, 180, 25, 'S');
+    addParagraph(
+      `Comprometida com a melhoria contínua e com a consolidação de práticas de gestão baseadas em evidências, a Direção da Policlínica, em articulação com a Direção do Consórcio Público de Saúde, reafirma seu compromisso com a transparência e a participação social. Nesse contexto, convida os cidadãos usuários dos serviços a participarem da Pesquisa de Satisfação ${selectedYear}, instrumento estratégico de escuta qualificada que visa ampliar o diálogo entre gestão e comunidade. A pesquisa é realizada de segunda a sexta-feira, no horário de funcionamento da unidade, das 7h às 19h, assegurando ampla oportunidade de participação aos usuários atendidos. O processo foi cuidadosamente estruturado para garantir confiabilidade, imparcialidade e representatividade das respostas, respeitando os princípios éticos e assegurando o anonimato dos participantes.`
+    );
 
-    doc.setTextColor(1, 64, 46);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('METADADOS DO DOCUMENTO', 20, 61);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(80, 80, 80);
-    doc.text(`Responsável Clínico: ${currentUser.name} (${currentUser.role || 'Ouvidoria'})`, 20, 67);
-    doc.text(`Data de Emissão Técnica: ${dateStamp}`, 20, 72);
-    doc.text(`Origem dos Dados: Totens Físicos e Pesquisas Móveis do Paciente`, 120, 67);
-    doc.text(`Amostras do Mês: ${metrics.totalEvaluations} formulários únicos`, 120, 72);
+    addParagraph(
+      `Para o ciclo de ${selectedYear}, foi desenvolvido um instrumental de avaliação ainda mais abrangente, contemplando todos os serviços ofertados pela unidade, incluindo consultas especializadas (iniciais e de retorno), exames laboratoriais, exames de imagem e demais procedimentos diagnósticos. O questionário foi estruturado de forma clara e objetiva, permitindo que os usuários avaliem, de maneira independente, cada serviço utilizado, o que possibilita uma análise segmentada e detalhada do desempenho assistencial e administrativo da Policlínica. O principal objetivo da pesquisa é mensurar o nível de satisfação dos usuários quanto aos serviços prestados, avaliando aspectos como acolhimento, tempo de espera, clareza das informações fornecidas, qualidade técnica do atendimento, infraestrutura física, organização dos fluxos e resolutividade dos procedimentos realizados. Ao promover a participação popular como eixo estruturante da gestão, a iniciativa reforça o papel do controle social como pilar essencial para garantir qualidade, segurança e eficiência no atendimento.`
+    );
 
-    // KPI Metrics Section
-    doc.setFillColor(250, 247, 240); // Soft beige
-    doc.rect(15, 87, 180, 24, 'F');
-    doc.rect(15, 87, 180, 24, 'S');
+    addParagraph(
+      'Os dados coletados são submetidos a tratamento estatístico rigoroso, assegurando a precisão das análises e a confiabilidade dos resultados. Para a apresentação dos indicadores, utiliza-se a metodologia Net Promoter Score (NPS), métrica internacionalmente reconhecida que mensura o grau de lealdade e satisfação dos usuários por meio da diferença entre o percentual de promotores (avaliadores que atribuem notas 9 ou 10), neutros (avaliadores que atribuem notas 7 ou 8) e detratores (avaliadores que atribuem notas de 0 a 6). O índice obtido possibilita interpretação clara e objetiva do desempenho institucional, permitindo comparações ao longo do tempo, entre diferentes setores e entre ciclos avaliativos distintos.'
+    );
 
-    doc.setTextColor(1, 64, 46);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('KPIs DE SATISFAÇÃO CONSOLIDADO', 20, 93);
+    addParagraph(
+      `Em ${selectedMonthLabel} de ${selectedYear}, a pesquisa foi conduzida em dias alternados, contando com a participação voluntária de ${metrics.totalEvaluations} usuários que buscaram atendimento na unidade durante o período de coleta. Foram incluídos diferentes perfis de participantes, tais como:`
+    );
 
-    doc.setFontSize(12);
-    const cleanNpsClassification = metrics.npsClassification.replace(/[^\w\sÀ-ÿ]/g, '').trim();
-    doc.text(`NPS Global: ${metrics.npsGlobal}% (${cleanNpsClassification})`, 20, 101);
-    doc.text(`Índice de Aprovação: ${metrics.technicalQualityIndex}%`, 115, 101);
+    addBullet('Pacientes em consulta inicial;');
+    addBullet('Pacientes em consulta de retorno;');
+    addBullet('Usuários submetidos a exames laboratoriais;');
+    addBullet('Usuários em realização de exames de imagem;');
+    addBullet('Usuários submetidos a outros procedimentos diagnósticos.');
 
-    // AI Praise section
-    let currentY = 120;
-    doc.setFontSize(12);
-    doc.setTextColor(1, 64, 46);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PONTOS DE DESTAQUE E ELOGIOS', 15, currentY);
-    doc.line(15, currentY + 2, 195, currentY + 2);
-    currentY += 8;
+    addParagraph(
+      'Os participantes foram abordados ao término de seus atendimentos, garantindo que suas avaliações refletissem de forma integral a experiência vivenciada na unidade. Destaca-se que um mesmo usuário pôde avaliar mais de um serviço, caso tivesse sido atendido em diferentes setores no mesmo dia, ampliando a robustez das informações obtidas e permitindo uma visão sistêmica da quality assistencial.'
+    );
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(60, 60, 60);
+    addParagraph(
+      `O novo modelo de ${selectedYear} mantém a essência metodológica do ciclo anterior de ${selectedYear - 1}, porém amplia seu escopo analítico, fortalecendo mecanismos de monitoramento contínuo e subsidiando o planejamento estratégico institucional. A sistematização dos resultados possibilita a identificação de pontos fortes, oportunidades de melhoria e prioridades de intervenção, contribuindo para a tomada de decisão baseada em dados e para o aperfeiçoamento dos processos internos. Além disso, os resultados obtidos são compartilhados com as equipes técnicas e administrativas, promovendo cultura organizacional orientada à qualidade, ao desempenho e à valorização do usuário como centro do cuidado. A análise dos indicadores permite a elaboração de planos de ação específicos, alinhados às diretrizes da gestão pública em saúde e aos princípios do SUS — universalidade, integralidade e equidade. Dessa forma, a Pesquisa de Satisfação ${selectedYear} reafirma o compromisso da Policlínica Bernardo Félix da Silva com a excelência na prestação de serviços públicos de saúde especializada. A iniciativa evidencia a importância da participação ativa dos cidadãos no aprimoramento das políticas públicas, fortalecendo a governança, a transparência e a eficiência institucional. Ao consolidar a escuta qualificada como ferramenta permanente de gestão, a Policlínica avança no propósito de se tornar referência regional em serviços públicos de saúde especializada, assegurando atendimento cada vez mais humanizado, seguro e resolutivo à população cearense.`
+    );
 
+    currentY += 6;
+
+    // 2. METADADOS E METRICAS GERAIS
+    addSectionHeader('2. DADOS OPERACIONAIS E INDICADORES CONSOLIDADOS');
+    addMetadataBox();
+    addKPICard();
+
+    // 3. DESEMPENHO DETALHADO POR SETOR
+    addSectorsPerformanceCharts();
+
+    // 4. PONTOS DE DESTAQUE E ELOGIOS
+    addSectionHeader('4. PONTOS DE DESTAQUE E ELOGIOS');
     aiReport.praisePoints.forEach((p, idx) => {
-      const lines = doc.splitTextToSize(`${idx + 1}. ${p}`, 175);
-      doc.text(lines, 18, currentY);
-      currentY += (lines.length * 4.5) + 2;
+      addBullet(cleanseText(`${idx + 1}. ${p}`));
     });
 
     currentY += 4;
 
-    // AI Critical warnings
-    doc.setFontSize(12);
-    doc.setTextColor(150, 40, 40);
-    doc.setFont('helvetica', 'bold');
-    doc.text('ALERTA DE DESVIOS E SETORES EXCEDENTES (>15% INSATISFAÇÃO)', 15, currentY);
-    doc.line(15, currentY + 2, 195, currentY + 2);
-    currentY += 8;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(60, 60, 60);
-
+    // 5. ALERTA DE DESVIOS E SETORES EXCEDENTES
+    addSectionHeader('5. ALERTA DE DESVIOS E LIMITES OPERACIONAIS DE ALERTA');
     if (aiReport.criticalAlerts.length === 0) {
-      doc.text('Nenhum desvio ou setor crítico com insatisfação expressiva registrado no período atual.', 18, currentY);
-      currentY += 6;
+      addParagraph('Nenhum desvio crítico ou setor com taxas elevadas de insatisfação registrado no período atual.');
     } else {
-      aiReport.criticalAlerts.forEach((a, idx) => {
-        const lines = doc.splitTextToSize(`* [ALERTA] ${a}`, 175);
-        doc.text(lines, 18, currentY);
-        currentY += (lines.length * 4.5) + 2;
+      aiReport.criticalAlerts.forEach((a) => {
+        addBullet(cleanseText(`Alerta de Monitoramento: ${a}`));
       });
     }
 
     currentY += 4;
 
-    // Page break checks for Strategic actions
-    if (currentY > 210) {
-      doc.addPage();
-      currentY = 25;
-    }
-
-    // AI Strategic plans
-    doc.setFontSize(12);
-    doc.setTextColor(1, 64, 46);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PLANO DE AÇÃO E METAS SUS IMEDIATAS', 15, currentY);
-    doc.line(15, currentY + 2, 195, currentY + 2);
-    currentY += 8;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(60, 60, 60);
-
+    // 6. PLANO DE AÇÃO E METAS
+    addSectionHeader('6. DIRETRIZES E PLANO DE AÇÃO PREVENTIVO');
     aiReport.strategicActions.forEach((sa, idx) => {
-      const lines = doc.splitTextToSize(`Plan ${idx + 1}: ${sa}`, 175);
-      doc.text(lines, 18, currentY);
-      currentY += (lines.length * 4.5) + 3;
+      addBullet(cleanseText(`Ação Recomendada ${idx + 1}: ${sa}`));
     });
 
-    currentY += 6;
+    currentY += 4;
 
-    // Page break checks for Conclusion Text
-    if (currentY > 190) {
-      doc.addPage();
-      currentY = 25;
-    }
+    // 7. PARECER OPERACIONAL DA OUVIDORIA GERAL (No mention of AI!)
+    addSectionHeader('7. PARECER CONCLUSIVO DA OUVIDORIA GERAL');
+    addParagraph(cleanseText(aiReport.conclusionText));
 
-    // AI Conclusion Text
-    doc.setFontSize(12);
-    doc.setTextColor(1, 64, 46);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PARECER FINAL DA OUVIDORIA GERAL', 15, currentY);
-    doc.line(15, currentY + 2, 195, currentY + 2);
-    currentY += 8;
+    // Signatures block
+    addSignatures();
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(60, 60, 60);
-
-    const concLines = doc.splitTextToSize(aiReport.conclusionText, 175);
-    doc.text(concLines, 15, currentY);
-    currentY += (concLines.length * 4.5) + 15;
-
-    // Signatures
-    if (currentY > 255) {
-      doc.addPage();
-      currentY = 40;
-    }
-
-    doc.setLineWidth(0.3);
-    doc.setDrawColor(180, 180, 180);
-    doc.line(40, currentY, 170, currentY);
-    
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(1, 64, 46);
-    doc.text(currentUser.name.toUpperCase(), 105, currentY + 5, { align: 'center' });
-    
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(120, 120, 120);
-    doc.text(`Responsável Técnico pela Ouvidoria • Cargo: ${currentUser.role || 'Ouvidor Geral'}`, 105, currentY + 9, { align: 'center' });
-    doc.text('Policlínica Bernardo Félix da Silva, Ceará', 105, currentY + 13, { align: 'center' });
-
-    // Number pages
+    // Post-Processing Loop to draw consistent headers & footers on all pages
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text(`Página ${i} de ${pageCount}`, 105, 287, { align: 'center' });
+      
+      // Draw Header Logo on the Left or fallback
+      if (loadedLogos.ouvidoria) {
+        try {
+          doc.addImage(loadedLogos.ouvidoria, 'PNG', 15, 10, 20, 20);
+        } catch (err) {
+          doc.setFillColor(1, 64, 46);
+          doc.rect(15, 10, 20, 20, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          doc.text('SUS', 25, 21, { align: 'center' });
+        }
+      } else {
+        doc.setFillColor(1, 64, 46);
+        doc.rect(15, 10, 20, 20, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.text('SUS', 25, 21, { align: 'center' });
+      }
+
+      // Title on the Right side of the logo
+      doc.setTextColor(1, 64, 46);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('POLICLÍNICA BERNARDO FÉLIX DA SILVA', 38, 15);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text('Serviço de Ouvidoria Geral & Humanização de Atendimento — SUS', 38, 19);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(1, 64, 46);
+      doc.text(`RELATÓRIO INSTITUCIONAL DE SATISFAÇÃO • ${selectedMonthLabel.toUpperCase()} / ${selectedYear}`, 38, 24);
+
+      // Separating line
+      doc.setDrawColor(1, 64, 46);
+      doc.setLineWidth(0.4);
+      doc.line(15, 33, 195, 33);
+
+      // Draw footer line and page numbering
+      doc.setDrawColor(210, 210, 210);
+      doc.setLineWidth(0.2);
+      doc.line(15, 280, 195, 280);
+
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(130, 130, 130);
+      doc.text('Policlínica Bernardo Félix da Silva • Ouvidoria Geral', 15, 285);
+      doc.text(`Página ${i} de ${pageCount}`, 195, 285, { align: 'right' });
     }
 
     doc.save(`Parecer_Ouvidoria_Policlinica_${selectedMonthLabel}_${selectedYear}.pdf`);
