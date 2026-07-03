@@ -142,19 +142,33 @@ interface ReportsPageProps {
   evaluations: SectorEvaluation[];
   currentUser: User;
   availableSectors: string[];
+  selectedMonth?: number;
+  setSelectedMonth?: (month: number) => void;
+  selectedYear?: number;
+  setSelectedYear?: (year: number) => void;
 }
 
 export const ReportsPage = ({ 
   forms = [], 
   evaluations = [], 
   currentUser,
-  availableSectors = []
+  availableSectors = [],
+  selectedMonth: propSelectedMonth,
+  setSelectedMonth: propSetSelectedMonth,
+  selectedYear: propSelectedYear,
+  setSelectedYear: propSetSelectedYear,
 }: ReportsPageProps) => {
   const currentMonthNum = new Date().getMonth() + 1;
   const currentYearNum = new Date().getFullYear();
 
-  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonthNum);
-  const [selectedYear, setSelectedYear] = useState<number>(currentYearNum);
+  const [localSelectedMonth, setLocalSelectedMonth] = useState<number>(currentMonthNum);
+  const [localSelectedYear, setLocalSelectedYear] = useState<number>(currentYearNum);
+
+  const selectedMonth = propSelectedMonth !== undefined ? propSelectedMonth : localSelectedMonth;
+  const setSelectedMonth = propSetSelectedMonth !== undefined ? propSetSelectedMonth : setLocalSelectedMonth;
+  const selectedYear = propSelectedYear !== undefined ? propSelectedYear : localSelectedYear;
+  const setSelectedYear = propSetSelectedYear !== undefined ? propSetSelectedYear : setLocalSelectedYear;
+
   const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
 
   // Subscribe to logo changes from Firestore

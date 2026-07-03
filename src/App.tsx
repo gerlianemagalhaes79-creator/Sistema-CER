@@ -1690,21 +1690,43 @@ const MovementsPage = ({
   patients, 
   currentUser,
   availableProfessionals,
-  onReload 
+  onReload,
+  selectedMonth,
+  setSelectedMonth,
+  selectedYear,
+  setSelectedYear
 }: { 
   movements: Movement[], 
   patients: Patient[], 
   currentUser: User,
   availableProfessionals: string[],
   onReload: () => void, 
-  key?: string 
+  key?: string,
+  selectedMonth?: number;
+  setSelectedMonth?: (month: number) => void;
+  selectedYear?: number;
+  setSelectedYear?: (year: number) => void;
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingMovement, setEditingMovement] = useState<Movement | null>(null);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<MovementType | ''>('');
   const [filterProfessional, setFilterProfessional] = useState('');
-  const [filterMonth, setFilterMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
+  
+  const [localFilterMonth, setLocalFilterMonth] = useState(new Date().toISOString().substring(0, 7)); // YYYY-MM
+  
+  const filterMonth = useMemo(() => {
+    if (selectedMonth !== undefined && selectedYear !== undefined) {
+      const mStr = String(selectedMonth + 1).padStart(2, '0');
+      return `${selectedYear}-${mStr}`;
+    }
+    return localFilterMonth;
+  }, [selectedMonth, selectedYear, localFilterMonth]);
+
+  const setFilterMonth = (val: string) => {
+    setLocalFilterMonth(val);
+  };
+
   const [activeTab, setActiveTab] = useState<'movements' | 'nps'>('movements');
 
   const canCreate = currentUser.accessType === 'Administrador' || currentUser.accessType === 'Coordenação' || currentUser.accessType === 'Recepção' || currentUser.accessType === 'Profissional';
@@ -1895,7 +1917,12 @@ const MovementsPage = ({
       </div>
 
       {activeTab === 'nps' ? (
-        <EvaluationList />
+        <EvaluationList 
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
+          selectedYear={selectedYear}
+          setSelectedYear={setSelectedYear}
+        />
       ) : (
         <>
           {/* Stats Cards */}
@@ -1926,7 +1953,17 @@ const MovementsPage = ({
             <input 
               type="month" 
               value={filterMonth}
-              onChange={e => setFilterMonth(e.target.value)}
+              onChange={e => {
+                const val = e.target.value;
+                setFilterMonth(val);
+                if (setSelectedMonth && setSelectedYear && val) {
+                  const parts = val.split('-');
+                  if (parts.length === 2) {
+                    setSelectedMonth(Number(parts[1]) - 1);
+                    setSelectedYear(Number(parts[0]));
+                  }
+                }
+              }}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-emerald-500 transition-all outline-none text-sm font-medium"
             />
           </div>
@@ -2090,6 +2127,10 @@ export default function App() {
   const [forms, setForms] = useState<EvaluationForm[]>([]);
   const [evaluations, setEvaluations] = useState<SectorEvaluation[]>([]);
   const [isPatientMode, setIsPatientMode] = useState(false);
+
+  // Global selected month and year for cross-page synchronization
+  const [globalSelectedMonth, setGlobalSelectedMonth] = useState<number>(new Date().getMonth()); // 0-indexed (0 = Jan, 11 = Dec)
+  const [globalSelectedYear, setGlobalSelectedYear] = useState<number>(new Date().getFullYear());
 
   // States for customizable branding logos
   const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
@@ -2411,7 +2452,13 @@ export default function App() {
           <AnimatePresence mode="wait">
             
             {currentPage === 'dashboard' && (
-              <Dashboard key="dashboard" />
+              <Dashboard 
+                key="dashboard"
+                selectedMonth={globalSelectedMonth}
+                setSelectedMonth={setGlobalSelectedMonth}
+                selectedYear={globalSelectedYear}
+                setSelectedYear={setGlobalSelectedYear}
+              />
             )}
             {currentView === 'form' && (
               <motion.div
@@ -2452,7 +2499,12 @@ export default function App() {
                 transition={{ duration: 0.2 }}
                 className="w-full"
               >
-                <EvaluationList />
+                <EvaluationList 
+                  selectedMonth={globalSelectedMonth}
+                  setSelectedMonth={setGlobalSelectedMonth}
+                  selectedYear={globalSelectedYear}
+                  setSelectedYear={setGlobalSelectedYear}
+                />
               </motion.div>
             )}
             {currentPage === 'movements' && currentView !== 'list' && (
@@ -2463,6 +2515,10 @@ export default function App() {
                 currentUser={currentUser}
                 availableProfessionals={professionals.filter(p => p.status === 'Active').map(p => p.name)}
                 onReload={() => {}} 
+                selectedMonth={globalSelectedMonth}
+                setSelectedMonth={setGlobalSelectedMonth}
+                selectedYear={globalSelectedYear}
+                setSelectedYear={setGlobalSelectedYear}
               />
             )}
             {currentPage === 'reports' && canAccess('reports') && (
@@ -2471,6 +2527,10 @@ export default function App() {
                 evaluations={evaluations}
                 currentUser={currentUser} 
                 availableSectors={professionals.filter(p => p.status === 'Active').map(p => p.name)}
+                selectedMonth={globalSelectedMonth + 1}
+                setSelectedMonth={(month: number) => setGlobalSelectedMonth(month - 1)}
+                selectedYear={globalSelectedYear}
+                setSelectedYear={setGlobalSelectedYear}
               />
             )}
             {currentPage === 'professionals' && canAccess('professionals') && (

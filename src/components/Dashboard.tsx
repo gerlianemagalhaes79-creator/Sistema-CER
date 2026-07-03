@@ -133,15 +133,33 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, subtitle, icon, color
   );
 };
 
-export const Dashboard = () => {
+interface DashboardProps {
+  selectedMonth?: number;
+  setSelectedMonth?: (month: number) => void;
+  selectedYear?: number;
+  setSelectedYear?: (year: number) => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({
+  selectedMonth: propSelectedMonth,
+  setSelectedMonth: propSetSelectedMonth,
+  selectedYear: propSelectedYear,
+  setSelectedYear: propSetSelectedYear,
+}) => {
   const now = new Date();
   
   // Logos
   const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
   
   // Year and Month selection controls
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth());
-  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
+  const [localSelectedMonth, setLocalSelectedMonth] = useState<number>(now.getMonth());
+  const [localSelectedYear, setLocalSelectedYear] = useState<number>(now.getFullYear());
+  
+  const selectedMonth = propSelectedMonth !== undefined ? propSelectedMonth : localSelectedMonth;
+  const setSelectedMonth = propSetSelectedMonth !== undefined ? propSetSelectedMonth : setLocalSelectedMonth;
+  const selectedYear = propSelectedYear !== undefined ? propSelectedYear : localSelectedYear;
+  const setSelectedYear = propSetSelectedYear !== undefined ? propSetSelectedYear : setLocalSelectedYear;
+
   const [loading, setLoading] = useState<boolean>(true);
   const [sectorViewMode, setSectorViewMode] = useState<'list' | 'chart'>('list');
   const [sectorSortKey, setSectorSortKey] = useState<'approval' | 'volume'>('approval');

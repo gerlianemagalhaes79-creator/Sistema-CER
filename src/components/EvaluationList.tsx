@@ -58,7 +58,19 @@ interface FirebaseEvaluation {
   createdAt: any;
 }
 
-export const EvaluationList = () => {
+interface EvaluationListProps {
+  selectedMonth?: number; // 0-indexed
+  setSelectedMonth?: (month: number) => void;
+  selectedYear?: number;
+  setSelectedYear?: (year: number) => void;
+}
+
+export const EvaluationList: React.FC<EvaluationListProps> = ({
+  selectedMonth: propSelectedMonth,
+  setSelectedMonth: propSetSelectedMonth,
+  selectedYear: propSelectedYear,
+  setSelectedYear: propSetSelectedYear,
+}) => {
   // Realtime Data state
   const [forms, setForms] = useState<FirebaseForm[]>([]);
   const [evaluations, setEvaluations] = useState<FirebaseEvaluation[]>([]);
@@ -72,8 +84,31 @@ export const EvaluationList = () => {
   const [search, setSearch] = useState('');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'patient' | 'physical'>('all');
   const [npsFilter, setNpsFilter] = useState<'all' | 'promoters' | 'passives' | 'detractors'>('all');
-  const [monthFilter, setMonthFilter] = useState<string>('all');
-  const [yearFilter, setYearFilter] = useState<string>('all');
+  
+  const [localMonthFilter, setLocalMonthFilter] = useState<string>('all');
+  const [localYearFilter, setLocalYearFilter] = useState<string>('all');
+
+  const monthFilter = propSelectedMonth !== undefined ? propSelectedMonth.toString() : localMonthFilter;
+  const setMonthFilter = (val: string) => {
+    if (propSetSelectedMonth !== undefined) {
+      if (val !== 'all') {
+        propSetSelectedMonth(Number(val));
+      }
+    } else {
+      setLocalMonthFilter(val);
+    }
+  };
+
+  const yearFilter = propSelectedYear !== undefined ? propSelectedYear.toString() : localYearFilter;
+  const setYearFilter = (val: string) => {
+    if (propSetSelectedYear !== undefined) {
+      if (val !== 'all') {
+        propSetSelectedYear(Number(val));
+      }
+    } else {
+      setLocalYearFilter(val);
+    }
+  };
 
   // UI status for retroactive date adjustments
   const [updatingFormId, setUpdatingFormId] = useState<string | null>(null);
