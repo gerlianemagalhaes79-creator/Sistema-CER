@@ -89,6 +89,10 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
       const cleanData: ClinicLogos = {};
       if (logos.ouvidoria) cleanData.ouvidoria = logos.ouvidoria;
       if (logos.pesquisa) cleanData.pesquisa = logos.pesquisa;
+      if (logos.consorcio) cleanData.consorcio = logos.consorcio;
+      if (logos.policlinica) cleanData.policlinica = logos.policlinica;
+      if (logos.consorcioPoliclinica) cleanData.consorcioPoliclinica = logos.consorcioPoliclinica;
+      if (logos.estado) cleanData.estado = logos.estado;
 
       await LogoService.saveLogos(cleanData);
       setSuccessMsg('Logotipos atualizados com sucesso!');
@@ -223,6 +227,102 @@ export const LogoManagerModal = ({ isOpen, onClose }: LogoManagerModalProps) => 
                       accept="image/*" 
                       onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                       onChange={(e) => handleFileChange('pesquisa', e)} 
+                      className="hidden" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Logo Item 3 - Consórcio e Policlínica (Combined logo) */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">Logotipo do Consórcio e Policlínica</span>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Logo única do Consórcio e Policlínica para o cabeçalho esquerdo do relatório oficial</span>
+                  </div>
+                  {logos.consorcioPoliclinica && (
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemove('consorcioPoliclinica')}
+                      className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
+                      title="Remover logotipo"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 bg-white flex items-center justify-center p-1 overflow-hidden shrink-0">
+                    {logos.consorcioPoliclinica ? (
+                      <img src={logos.consorcioPoliclinica} alt="Consórcio e Policlínica" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                      <ImageIcon className="text-slate-300" size={20} />
+                    )}
+                  </div>
+                  <div className="flex-1 relative">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('logo_input_consorcio_policlinica')?.click()}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-slate-300 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    >
+                      <Upload size={14} />
+                      {logos.consorcioPoliclinica ? 'Substituir' : 'Selecionar da Galeria'}
+                    </button>
+                    <input 
+                      id="logo_input_consorcio_policlinica"
+                      type="file" 
+                      accept="image/*" 
+                      onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                      onChange={(e) => handleFileChange('consorcioPoliclinica', e)} 
+                      className="hidden" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Logo Item 4 - Estado */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-gray-150 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">Logotipo do Estado</span>
+                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block">Logo oficial do Governo do Estado para o cabeçalho direito do relatório oficial</span>
+                  </div>
+                  {logos.estado && (
+                    <button 
+                      type="button" 
+                      onClick={() => handleRemove('estado')}
+                      className="p-1.5 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
+                      title="Remover logotipo"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-200 bg-white flex items-center justify-center p-1 overflow-hidden shrink-0">
+                    {logos.estado ? (
+                      <img src={logos.estado} alt="Logo do Estado" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                    ) : (
+                      <ImageIcon className="text-slate-300" size={20} />
+                    )}
+                  </div>
+                  <div className="flex-1 relative">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('logo_input_estado')?.click()}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-slate-300 text-slate-700 rounded-xl font-bold text-xs uppercase tracking-wider shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    >
+                      <Upload size={14} />
+                      {logos.estado ? 'Substituir' : 'Selecionar da Galeria'}
+                    </button>
+                    <input 
+                      id="logo_input_estado"
+                      type="file" 
+                      accept="image/*" 
+                      onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+                      onChange={(e) => handleFileChange('estado', e)} 
                       className="hidden" 
                     />
                   </div>

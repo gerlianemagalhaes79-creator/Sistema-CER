@@ -6,6 +6,8 @@ export interface ClinicLogos {
   policlinica?: string;  // Base64 string of the policlinic logo
   consorcio?: string;    // Base64 string of the consortium logo
   pesquisa?: string;     // Base64 string of the survey logo (replacing the old 3 logos in survey page)
+  consorcioPoliclinica?: string; // Base64 string of the consortium and polyclinic logo (combined)
+  estado?: string;       // Base64 string of the state logo (Ceará)
 }
 
 export const LogoService = {

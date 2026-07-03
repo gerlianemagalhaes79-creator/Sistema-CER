@@ -714,7 +714,51 @@ export const ReportsPage = ({
         .replace(/laudo gerado/gi, 'parecer oficial consolidado');
     };
 
-    let currentY = 40; // Starts below the header (header line is at y = 33)
+    const getCategoryDescription = (label: string, percent: number) => {
+      if (label === 'Ótimo') {
+        if (percent >= 70) {
+          return 'A expressiva maioria dos usuários avaliou o atendimento como excelente, ressaltando a agilidade no fluxo, a organização do setor e a postura acolhedora dos profissionais. Esses resultados demonstram a confiança dos usuários no processo de acolhimento deste setor, evidenciando a relevância da equipe na classificação inicial e no direcionamento adequado.';
+        } else if (percent >= 30) {
+          return 'Uma parcela significativa dos usuários qualificou o atendimento como excelente, elogiando a dedicação dos profissionais e o fluxo operacional do setor. Há espaço para consolidação das boas práticas para elevar ainda mais este índice.';
+        } else if (percent > 0) {
+          return 'Identificou-se um grupo de usuários que classificou o atendimento como excelente. Este percentual aponta para a oportunidade de diagnosticar os gargalos operacionais para expandir as experiências plenamente satisfatórias.';
+        } else {
+          return 'Não foram registrados índices de avaliação na categoria excelente para este setor no período correspondente.';
+        }
+      }
+      if (label === 'Bom') {
+        if (percent >= 50) {
+          return 'A maior parte dos respondentes classificou o atendimento como bom, indicando um nível altamente satisfatório de atendimento e plena conformidade com as expectativas dos usuários em relação aos serviços prestados.';
+        } else if (percent >= 10) {
+          return 'Parte dos respondentes classificou o atendimento como bom, indicando satisfação com os serviços prestados. Essas avaliações positivas representam uma base sólida, mas sugerem margem para refinar pequenos pontos de processo.';
+        } else if (percent > 0) {
+          return 'Um percentual reduzido avaliou o atendimento como bom, indicando que a grande maioria se concentrou em outras faixas avaliativas, mas ainda reconhecendo o valor e a qualidade geral do serviço.';
+        } else {
+          return 'Não houve registros de avaliações na categoria "Bom" para o setor durante o período analisado.';
+        }
+      }
+      if (label === 'Regular') {
+        if (percent > 15) {
+          return `O índice de avaliações regulares é relevante (${percent}%), o que sinaliza de forma clara oportunidades imediatas de melhoria em aspectos específicos do fluxo de atendimento, no tempo de espera ou na comunicação direta com o usuário.`;
+        } else if (percent > 0) {
+          return `Um pequeno percentual dos usuários avaliou o atendimento como regular (${percent}%), sinalizando oportunidades pontuais de melhoria em aspectos específicos do fluxo de atendimento, acolhimento ou tempo de espera.`;
+        } else {
+          return 'Não houve registros de avaliações na categoria "Regular" para o setor no período, demonstrando estabilidade e baixo nível de indiferença dos usuários.';
+        }
+      }
+      if (label === 'Ruim') {
+        if (percent > 15) {
+          return `O percentual de avaliações negativas é crítico (${percent}%), demandando uma intervenção imediata da gestão para corrigir desvios de processo, tempo de atendimento excessivo ou falhas estruturais de suporte.`;
+        } else if (percent > 0) {
+          return `Registrou-se um baixo percentual de insatisfação (${percent}%), que embora não seja alarmante, requer monitoramento contínuo para evitar que gargalos isolados se tornem sistêmicos no setor.`;
+        } else {
+          return 'Não houve registros de avaliações negativas para o setor durante o período analisado, indicando excelente controle de qualidade e alto padrão de aceitação.';
+        }
+      }
+      return '';
+    };
+
+    let currentY = 46; // Starts below the header table (header is from Y=10 to Y=40)
 
     // Layout Helpers to prevent any page break cuts
     const addParagraph = (text: string, fontSize = 9.5, isBold = false, textColor = [60, 60, 60], spacingAfter = 4, alignment = 'justify') => {
@@ -724,29 +768,27 @@ export const ReportsPage = ({
       
       const lines = doc.splitTextToSize(text, 180); // Width of 180 mm (margins: 15 to 195)
       const lineHeight = fontSize * 0.45;
+      const paragraphHeight = lines.length * lineHeight;
       
-      lines.forEach((line: string) => {
-        if (currentY + lineHeight > 270) {
-          doc.addPage();
-          currentY = 40;
-          doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-          doc.setFontSize(fontSize);
-          doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-        }
-        if (alignment === 'center') {
-          doc.text(line, 105, currentY, { align: 'center' });
-        } else {
-          doc.text(line, 15, currentY);
-        }
-        currentY += lineHeight;
-      });
-      currentY += spacingAfter;
+      if (currentY + paragraphHeight > 270) {
+        doc.addPage();
+        currentY = 46;
+      }
+      
+      if (alignment === 'center') {
+        doc.text(text, 105, currentY, { maxWidth: 180, align: 'center' });
+      } else if (alignment === 'justify') {
+        doc.text(text, 15, currentY, { maxWidth: 180, align: 'justify' });
+      } else {
+        doc.text(text, 15, currentY, { maxWidth: 180, align: 'left' });
+      }
+      currentY += paragraphHeight + spacingAfter;
     };
 
     const addSectionHeader = (title: string, color = [1, 64, 46]) => {
       if (currentY + 14 > 270) {
         doc.addPage();
-        currentY = 40;
+        currentY = 46;
       }
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
@@ -764,35 +806,31 @@ export const ReportsPage = ({
       doc.setFontSize(fontSize);
       doc.setTextColor(color[0], color[1], color[2]);
       
-      const lines = doc.splitTextToSize(text, 172); // 172mm for bullet indentation
+      const lines = doc.splitTextToSize(text, 173); // 173mm for bullet text block
       const lineHeight = fontSize * 0.45;
+      const blockHeight = lines.length * lineHeight;
       
-      lines.forEach((line: string, index: number) => {
-        if (currentY + lineHeight > 270) {
-          doc.addPage();
-          currentY = 40;
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(fontSize);
-          doc.setTextColor(color[0], color[1], color[2]);
-        }
-        if (index === 0) {
-          doc.setFont('helvetica', 'bold');
-          doc.text('•', 15, currentY);
-          doc.setFont('helvetica', 'normal');
-          doc.text(line, 22, currentY);
-        } else {
-          doc.text(line, 22, currentY);
-        }
-        currentY += lineHeight;
-      });
-      currentY += 2.5;
+      if (currentY + blockHeight > 270) {
+        doc.addPage();
+        currentY = 46;
+      }
+      
+      // Draw bullet point
+      doc.setFont('helvetica', 'bold');
+      doc.text('•', 15, currentY);
+      
+      // Draw justified bullet text block
+      doc.setFont('helvetica', 'normal');
+      doc.text(text, 22, currentY, { maxWidth: 173, align: 'justify' });
+      
+      currentY += blockHeight + 2.5;
     };
 
     const addMetadataBox = () => {
       const boxHeight = 25;
       if (currentY + boxHeight > 270) {
         doc.addPage();
-        currentY = 40;
+        currentY = 46;
       }
       doc.setFillColor(245, 249, 247);
       doc.rect(15, currentY, 180, boxHeight, 'F');
@@ -820,7 +858,7 @@ export const ReportsPage = ({
       const boxHeight = 24;
       if (currentY + boxHeight > 270) {
         doc.addPage();
-        currentY = 40;
+        currentY = 46;
       }
       doc.setFillColor(250, 247, 240); // Soft beige
       doc.rect(15, currentY, 180, boxHeight, 'F');
@@ -842,99 +880,225 @@ export const ReportsPage = ({
     };
 
     const addSectorsPerformanceCharts = () => {
-      addSectionHeader('3. DESEMPENHO DETALHADO POR SETOR');
-      
-      const entries = Object.entries(metrics.sectorsPerformance);
+      const entries = Object.entries(metrics.sectorsPerformance)
+        .filter(([_, data]: any) => (data.total || 0) > 0); // only show sectors with actual evaluations!
+
       if (entries.length === 0) {
-        addParagraph('Nenhum dado setorial registrado para o período atual.');
+        doc.addPage();
+        currentY = 46;
+        addSectionHeader('3. DESEMPENHO DETALHADO POR SETOR');
+        addParagraph('Nenhum dado setorial com avaliações registrado para o período atual.');
         return;
       }
 
-      entries.forEach(([sector, data]) => {
-        const { positivePercent, negativePercent, total, ratings } = data as any;
-        const requiredHeight = 26; // Spacious check for full block heights
-
-        if (currentY + requiredHeight > 270) {
+      entries.forEach(([sector, data], idx) => {
+        if (idx === 0) {
           doc.addPage();
-          currentY = 40;
+          currentY = 46;
+          addSectionHeader('3. DESEMPENHO DETALHADO POR SETOR');
+        } else {
+          // If a sector block needs at least 92mm, break page if it cannot fit
+          if (currentY + 92 > 270) {
+            doc.addPage();
+            currentY = 46;
+          } else {
+            currentY += 6; // small gap between sectors on the same page
+          }
         }
 
-        // Sector Name (wrapped to fit 180mm width nicely and prevent overflow)
+        const { positivePercent, negativePercent, total, ratings } = data as any;
+
+        // Draw sector title
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9.5);
-        doc.setTextColor(1, 64, 46);
-        const sectorLines = doc.splitTextToSize(`${sector.toUpperCase()}`, 180);
-        sectorLines.forEach((line: string) => {
-          if (currentY + 5 > 270) {
-            doc.addPage();
-            currentY = 40;
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9.5);
-            doc.setTextColor(1, 64, 46);
+        doc.setFontSize(10);
+        doc.setTextColor(1, 64, 46); // SUS Forest Green
+        doc.text(`Amostra Setorial: ${sector.toUpperCase()}`, 15, currentY);
+        currentY += 4.5;
+
+        // Circular Donut/Pie Chart layout parameters inside an elegant background card
+        const cardY = currentY + 1;
+        const cardHeight = 34;
+        
+        doc.setFillColor(248, 250, 252); // extremely soft slate blue-gray
+        doc.roundedRect(15, cardY, 180, cardHeight, 4, 4, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(15, cardY, 180, cardHeight, 4, 4, 'S');
+
+        // Title inside the card
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text("DISTRIBUIÇÃO PERCENTUAL DAS AVALIAÇÕES", 22, cardY + 6);
+
+        // Donut Chart center coordinates
+        const cx = 50;
+        const cy = cardY + 20;
+        const r = 10;
+
+        // Mathematical wedge drawing function via small filled triangles
+        const drawWedge = (cx: number, cy: number, r: number, startAngle: number, endAngle: number, color: [number, number, number]) => {
+          doc.setFillColor(color[0], color[1], color[2]);
+          const steps = Math.max(1, Math.ceil((endAngle - startAngle) * 30));
+          const angleStep = (endAngle - startAngle) / steps;
+          
+          for (let i = 0; i < steps; i++) {
+            const a1 = startAngle + i * angleStep;
+            const a2 = startAngle + (i + 1) * angleStep;
+            
+            const x1 = cx + r * Math.cos(a1);
+            const y1 = cy + r * Math.sin(a1);
+            const x2 = cx + r * Math.cos(a2);
+            const y2 = cy + r * Math.sin(a2);
+            
+            doc.triangle(cx, cy, x1, y1, x2, y2, 'F');
           }
-          doc.text(line, 15, currentY);
-          currentY += 4.5;
+        };
+
+        const sum = (ratings.Otimo || 0) + (ratings.Bom || 0) + (ratings.Regular || 0) + (ratings.Ruim || 0);
+        const pctOtimo = sum > 0 ? Math.round(((ratings.Otimo || 0) / sum) * 100) : 0;
+        const pctBom = sum > 0 ? Math.round(((ratings.Bom || 0) / sum) * 100) : 0;
+        const pctRegular = sum > 0 ? Math.round(((ratings.Regular || 0) / sum) * 100) : 0;
+        const pctRuim = sum > 0 ? Math.round(((ratings.Ruim || 0) / sum) * 100) : 0;
+
+        const categories = [
+          { value: ratings.Otimo || 0, pct: pctOtimo, label: 'Ótimo', color: [16, 185, 129] as [number, number, number] },
+          { value: ratings.Bom || 0, pct: pctBom, label: 'Bom', color: [59, 130, 246] as [number, number, number] },
+          { value: ratings.Regular || 0, pct: pctRegular, label: 'Regular', color: [245, 158, 11] as [number, number, number] },
+          { value: ratings.Ruim || 0, pct: pctRuim, label: 'Ruim', color: [239, 68, 68] as [number, number, number] },
+        ];
+
+        const startAngle = -Math.PI / 2; // Starts from 12 o'clock position
+        let currentAngle = startAngle;
+        categories.forEach(cat => {
+          if (cat.value > 0) {
+            const angleSize = (cat.value / sum) * 2 * Math.PI;
+            drawWedge(cx, cy, r, currentAngle, currentAngle + angleSize, cat.color);
+            currentAngle += angleSize;
+          }
         });
 
-        if (total > 0) {
-          // Progress Bar parameters - full standard printable width of 180mm
-          const barX = 15;
-          const barY = currentY;
-          const barWidth = 180; // Matches standard layout widths
-          const barHeight = 4.5; // Slimmer, professional height
+        // Draw a small white center circle to convert the pie chart into an elegant modern donut chart
+        doc.setFillColor(248, 250, 252);
+        doc.ellipse(cx, cy, r * 0.45, r * 0.45, 'F');
 
-          // Draw positive part (Forest Green)
-          const positiveWidth = barWidth * (positivePercent / 100);
-          if (positiveWidth > 0) {
-            doc.setFillColor(1, 64, 46);
-            doc.rect(barX, barY, positiveWidth, barHeight, 'F');
-          }
+        // Subtle clean outer ring border
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.15);
+        doc.ellipse(cx, cy, r, r, 'S');
 
-          // Draw negative part (Muted Red)
-          const negativeWidth = barWidth * (negativePercent / 100);
-          if (negativeWidth > 0) {
-            doc.setFillColor(180, 70, 70);
-            doc.rect(barX + positiveWidth, barY, negativeWidth, barHeight, 'F');
-          }
+        // Text inside the donut
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(30, 41, 59);
+        doc.text(total.toString(), cx, cy + 1, { align: 'center' });
 
-          // Outer border of the progress bar
-          doc.setDrawColor(200, 210, 205);
-          doc.setLineWidth(0.25);
-          doc.rect(barX, barY, barWidth, barHeight, 'S');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(5.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(total === 1 ? 'VOTO' : 'VOTOS', cx, cy + 4, { align: 'center' });
 
-          currentY += barHeight + 4.5;
+        // Legend box and approval badge on the right
+        const legendX = 95;
+        const badgeY = cardY + 5;
+        
+        // Approval Badge (pill)
+        doc.setFillColor(236, 253, 245);
+        doc.roundedRect(legendX, badgeY, 85, 6, 1.5, 1.5, 'F');
+        doc.setDrawColor(167, 243, 208);
+        doc.roundedRect(legendX, badgeY, 85, 6, 1.5, 1.5, 'S');
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(16, 185, 129);
+        doc.text(`Índice de Aprovação do Setor: ${positivePercent}%`, legendX + 4, badgeY + 4.2);
 
-          // Core Metrics Line (Below the bar graph)
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8.5);
-          doc.setTextColor(60, 60, 60);
-          doc.text(
-            `Aprovação: ${positivePercent}%  |  Insatisfação: ${negativePercent}%  |  Total: ${total} ${total === 1 ? 'avaliação' : 'avaliações'}`,
-            15,
-            currentY
-          );
+        // Legend entries in 2x2 grid
+        let legendY1 = cardY + 16;
+        let legendY2 = cardY + 24;
 
-          currentY += 4;
+        // Row 1
+        // Ótimo
+        doc.setFillColor(16, 185, 129);
+        doc.rect(legendX, legendY1, 3, 3, 'F');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(51, 65, 85);
+        doc.text(`Ótimo: ${ratings.Otimo || 0} (${pctOtimo}%)`, legendX + 5, legendY1 + 2.5);
 
-          // Breakdown Line (Below the core metrics)
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(8);
-          doc.setTextColor(100, 100, 100);
-          doc.text(
-            `Distribuição de notas: Ótimo: ${ratings.Otimo}  •  Bom: ${ratings.Bom}  •  Regular: ${ratings.Regular}  •  Ruim: ${ratings.Ruim}`,
-            15,
-            currentY
-          );
-        } else {
-          // No ratings registered
-          doc.setFont('helvetica', 'italic');
-          doc.setFontSize(8.5);
-          doc.setTextColor(150, 150, 150);
-          doc.text('Sem avaliações registradas neste setor para o período selecionado.', 15, currentY + 3);
-          currentY += 4;
+        // Bom
+        doc.setFillColor(59, 130, 246);
+        doc.rect(legendX + 42, legendY1, 3, 3, 'F');
+        doc.text(`Bom: ${ratings.Bom || 0} (${pctBom}%)`, legendX + 47, legendY1 + 2.5);
+
+        // Row 2
+        // Regular
+        doc.setFillColor(245, 158, 11);
+        doc.rect(legendX, legendY2, 3, 3, 'F');
+        doc.text(`Regular: ${ratings.Regular || 0} (${pctRegular}%)`, legendX + 5, legendY2 + 2.5);
+
+        // Ruim
+        doc.setFillColor(239, 68, 68);
+        doc.rect(legendX + 42, legendY2, 3, 3, 'F');
+        doc.text(`Ruim: ${ratings.Ruim || 0} (${pctRuim}%)`, legendX + 47, legendY2 + 2.5);
+
+        currentY = cardY + cardHeight + 4;
+
+        // Base explanatory paragraph
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        const baseText = `Com base nas informações coletadas por meio dos instrumentais de avaliação respondidos pelos usuários, foi realizada a análise do desempenho do setor de ${sector}, considerando um total de ${total} respondentes.`;
+        
+        const baseLines = doc.splitTextToSize(baseText, 180);
+        const baseLineHeight = 8 * 0.42;
+        const baseHeight = baseLines.length * baseLineHeight;
+
+        if (currentY + baseHeight > 270) {
+          doc.addPage();
+          currentY = 46;
         }
+        doc.text(baseText, 15, currentY, { maxWidth: 180, align: 'justify' });
+        currentY += baseHeight + 3;
 
-        currentY += 10; // Elegant margin before the next sector
+        // Detailed bullets drawing
+        const drawDetailBullet = (label: string, percent: number, color: [number, number, number]) => {
+          const desc = getCategoryDescription(label, percent);
+          
+          if (currentY + 12 > 270) {
+            doc.addPage();
+            currentY = 46;
+          }
+
+          // Bullet point and title
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(color[0], color[1], color[2]);
+          doc.text('•', 15, currentY);
+          doc.text(`${label} (${percent}%)`, 19, currentY);
+          currentY += 3.8;
+
+          // Justified description
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(71, 85, 105);
+          doc.setFontSize(7.5);
+
+          const lines = doc.splitTextToSize(desc, 176);
+          const lineHeight = 7.5 * 0.42;
+          const blockHeight = lines.length * lineHeight;
+
+          if (currentY + blockHeight > 270) {
+            doc.addPage();
+            currentY = 46;
+          }
+
+          doc.text(desc, 19, currentY, { maxWidth: 176, align: 'justify' });
+          currentY += blockHeight + 1.5;
+        };
+
+        drawDetailBullet('Ótimo', pctOtimo, [16, 185, 129]);
+        drawDetailBullet('Bom', pctBom, [59, 130, 246]);
+        drawDetailBullet('Regular', pctRegular, [245, 158, 11]);
+        drawDetailBullet('Ruim', pctRuim, [239, 68, 68]);
       });
     };
 
@@ -942,7 +1106,7 @@ export const ReportsPage = ({
       const sigHeight = 35;
       if (currentY + sigHeight > 270) {
         doc.addPage();
-        currentY = 40;
+        currentY = 46;
       }
       currentY += 10;
       doc.setLineWidth(0.3);
@@ -970,7 +1134,7 @@ export const ReportsPage = ({
     );
 
     addParagraph(
-      `Comprometida com a melhoria contínua e com a consolidação de práticas de gestão baseadas em evidências, a Direção da Policlínica, em articulação com a Direção do Consórcio Público de Saúde, reafirma seu compromisso com a transparência e a participação social. Nesse contexto, convida os cidadãos usuários dos serviços a participarem da Pesquisa de Satisfação ${selectedYear}, instrumento estratégico de escuta qualificada que visa ampliar o diálogo entre gestão e comunidade. A pesquisa é realizada de segunda a sexta-feira, no horário de funcionamento da unidade, das 7h às 19h, assegurando ampla oportunidade de participação aos usuários atendidos. O processo foi cuidadosamente estruturado para garantir confiabilidade, imparcialidade e representatividade das respostas, respeitando os princípios éticos e assegurando o anonimato dos participantes.`
+      `Comprometida com a melhoria contínua e com a consolidação de práticas de gestão baseadas em evidências, a Direção da Policlínica, em articulação com a Direção do Consórcio Público de Saúde, reafirma seu compromisso com a transparência e a participação social. Nesse contexto, convida os cidadãos usuários dos serviços a participarem da Pesquisa de Satisfação ${selectedYear}, instrumento estratégico de escuta qualificada que visa ampliar o diálogo entre gestão e comunidade. A pesquisa é realizada de segunda a sexta-feira, no horário de funcionamento da unidade, das 7h às 19h, assegurando ampla oportunidade de participação aos usuários atendidos. O processo foi cuidadosamente estruturado para garantir confiabilidade, imparcialidade e representatividade das respostas, respeitando os princípios éticos e assegurando o ano-nimato dos participantes.`
     );
 
     addParagraph(
@@ -992,7 +1156,7 @@ export const ReportsPage = ({
     addBullet('Usuários submetidos a outros procedimentos diagnósticos.');
 
     addParagraph(
-      'Os participantes foram abordados ao término de seus atendimentos, garantindo que suas avaliações refletissem de forma integral a experiência vivenciada na unidade. Destaca-se que um mesmo usuário pôde avaliar mais de um serviço, caso tivesse sido atendido em diferentes setores no mesmo dia, ampliando a robustez das informações obtidas e permitindo uma visão sistêmica da quality assistencial.'
+      'Os participantes foram abordados ao término de seus atendimentos, garantindo que suas avaliações refletissem de forma integral a experiência vivenciada na unidade. Destaca-se que um mesmo usuário pôde avaliar mais de um serviço, caso tivesse sido atendido em diferentes setores no mesmo dia, ampliando a robustez das informações obtidas e permitindo uma visão sistêmica da qualidade assistencial.'
     );
 
     addParagraph(
@@ -1020,7 +1184,7 @@ export const ReportsPage = ({
     // 5. ALERTA DE DESVIOS E SETORES EXCEDENTES
     addSectionHeader('5. ALERTA DE DESVIOS E LIMITES OPERACIONAIS DE ALERTA');
     if (aiReport.criticalAlerts.length === 0) {
-      addParagraph('Nenhum desvio crítico ou setor com taxas elevadas de insatisfação registrado no período atual.');
+      addParagraph('Nenhum desvio crítico ou sector com taxas elevadas de insatisfação registrado no período atual.');
     } else {
       aiReport.criticalAlerts.forEach((a) => {
         addBullet(cleanseText(`Alerta de Monitoramento: ${a}`));
@@ -1046,52 +1210,180 @@ export const ReportsPage = ({
 
     // Post-Processing Loop to draw consistent headers & footers on all pages
     const pageCount = doc.internal.getNumberOfPages();
+    
+    // Helper to add image with perfect aspect ratio preservation (no stretching)
+    const addFitImage = (imgData: string, cellX: number, cellY: number, cellWidth: number, cellHeight: number) => {
+      try {
+        const props = doc.getImageProperties(imgData);
+        const imgRatio = props.width / props.height;
+        const cellRatio = cellWidth / cellHeight;
+        
+        let drawW = cellWidth;
+        let drawH = cellHeight;
+        
+        if (imgRatio > cellRatio) {
+          drawW = cellWidth;
+          drawH = cellWidth / imgRatio;
+        } else {
+          drawH = cellHeight;
+          drawW = cellHeight * imgRatio;
+        }
+        
+        const drawX = cellX + (cellWidth - drawW) / 2;
+        const drawY = cellY + (cellHeight - drawH) / 2;
+        
+        doc.addImage(imgData, props.fileType || 'PNG', drawX, drawY, drawW, drawH);
+      } catch (e) {
+        console.error("Error drawing fitted image:", e);
+        // Fallback simple draw if it fails
+        doc.addImage(imgData, 'PNG', cellX, cellY, cellWidth, cellHeight);
+      }
+    };
+
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       
-      // Draw Header Logo on the Left or fallback
-      if (loadedLogos.ouvidoria) {
+      // 1. Draw outer border of the table header
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.25);
+      doc.rect(15, 10, 180, 30, 'S');
+      
+      // 2. Horizontal line
+      doc.line(15, 28, 195, 28);
+      
+      // 3. Vertical lines top row
+      doc.line(70, 10, 70, 28);
+      doc.line(150, 10, 150, 28);
+      
+      // 4. Vertical lines bottom row
+      doc.line(60, 28, 60, 40);
+      doc.line(105, 28, 105, 40);
+      doc.line(150, 28, 150, 40);
+      
+      // 5. Fill contents of Cell 1.1 (Top Left)
+      if (loadedLogos.consorcioPoliclinica) {
         try {
-          doc.addImage(loadedLogos.ouvidoria, 'PNG', 15, 10, 20, 20);
-        } catch (err) {
-          doc.setFillColor(1, 64, 46);
-          doc.rect(15, 10, 20, 20, 'F');
-          doc.setTextColor(255, 255, 255);
+          addFitImage(loadedLogos.consorcioPoliclinica, 17, 12, 51, 14);
+        } catch (e) {
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(8);
-          doc.text('SUS', 25, 21, { align: 'center' });
+          doc.setFontSize(6);
+          doc.setTextColor(100, 100, 100);
+          doc.text("Consórcio Público de Saúde", 42.5, 14, { align: 'center' });
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(5.5);
+          doc.text("Microrregião de Sobral", 42.5, 17, { align: 'center' });
+          
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7);
+          doc.setTextColor(1, 64, 46); // SUS Green
+          doc.text("POLICLÍNICA", 42.5, 22, { align: 'center' });
+          doc.text("BERNARDO FÉLIX DA SILVA", 42.5, 25, { align: 'center' });
         }
       } else {
-        doc.setFillColor(1, 64, 46);
-        doc.rect(15, 10, 20, 20, 'F');
-        doc.setTextColor(255, 255, 255);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.text('SUS', 25, 21, { align: 'center' });
+        doc.setFontSize(6);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Consórcio Público de Saúde", 42.5, 14, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.5);
+        doc.text("Microrregião de Sobral", 42.5, 17, { align: 'center' });
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.setTextColor(1, 64, 46); // SUS Green
+        doc.text("POLICLÍNICA", 42.5, 22, { align: 'center' });
+        doc.text("BERNARDO FÉLIX DA SILVA", 42.5, 25, { align: 'center' });
+      }
+      
+      // 6. Fill contents of Cell 1.2 (Top Center)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(1, 64, 46);
+      doc.text("RELATÓRIO DA PESQUISA DE OPINIÃO", 110, 15, { align: 'center' });
+      doc.setFontSize(8);
+      doc.setTextColor(80, 80, 80);
+      doc.text(`(${selectedMonthLabel.toUpperCase()} / ${selectedYear})`, 110, 19, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setTextColor(0, 0, 0);
+      doc.text("SETOR: Ouvidoria", 110, 24, { align: 'center' });
+      
+      // 7. Fill contents of Cell 1.3 (Top Right - Government Logo representation)
+      if (loadedLogos.estado) {
+        try {
+          addFitImage(loadedLogos.estado, 152, 12, 41, 14);
+        } catch (e) {
+          if (loadedLogos.ouvidoria) {
+            try {
+              addFitImage(loadedLogos.ouvidoria, 153, 11, 8, 8);
+            } catch (err) {}
+          }
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(6);
+          doc.setTextColor(1, 64, 46);
+          doc.text("GOVERNO DO", 176, 14, { align: 'center' });
+          doc.setFontSize(6.5);
+          doc.text("ESTADO DO CEARÁ", 176, 17, { align: 'center' });
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(5.5);
+          doc.setTextColor(100, 100, 100);
+          doc.text("Secretaria da Saúde", 176, 20, { align: 'center' });
+        }
+      } else {
+        if (loadedLogos.ouvidoria) {
+          try {
+            addFitImage(loadedLogos.ouvidoria, 153, 11, 8, 8);
+          } catch (e) {}
+        }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(1, 64, 46);
+        doc.text("GOVERNO DO", 176, 14, { align: 'center' });
+        doc.setFontSize(6.5);
+        doc.text("ESTADO DO CEARÁ", 176, 17, { align: 'center' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.5);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Secretaria da Saúde", 176, 20, { align: 'center' });
       }
 
-      // Title on the Right side of the logo
-      doc.setTextColor(1, 64, 46);
+      // 8. Bottom Row Cells
+      // Cell 2.1: DATA DA IMPLANTAÇÃO
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('POLICLÍNICA BERNARDO FÉLIX DA SILVA', 38, 15);
+      doc.setFontSize(5.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text("DATA DA IMPLANTAÇÃO:", 17, 32);
+      doc.setFontSize(7);
+      doc.setTextColor(50, 50, 50);
+      doc.text("SET / 2017", 17, 37);
 
-      doc.setFontSize(7.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 100, 100);
-      doc.text('Serviço de Ouvidoria Geral & Humanização de Atendimento — SUS', 38, 19);
-
-      doc.setFontSize(8.5);
+      // Cell 2.2: CÓDIGO
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(1, 64, 46);
-      doc.text(`RELATÓRIO INSTITUCIONAL DE SATISFAÇÃO • ${selectedMonthLabel.toUpperCase()} / ${selectedYear}`, 38, 24);
+      doc.setFontSize(5.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text("CÓDIGO:", 62, 32);
+      doc.setFontSize(7);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`REL - OUV - 012`, 62, 37);
 
-      // Separating line
-      doc.setDrawColor(1, 64, 46);
-      doc.setLineWidth(0.4);
-      doc.line(15, 33, 195, 33);
+      // Cell 2.3: DATA DA ÚLTIMA REVISÃO
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text("DATA DA ÚLTIMA REVISÃO:", 107, 32);
+      doc.setFontSize(7);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`${selectedMonthLabel.toUpperCase()} / ${selectedYear}`, 107, 37);
 
-      // Draw footer line and page numbering
+      // Cell 2.4: PÁGINA
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text("PÁGINA:", 152, 32);
+      doc.setFontSize(7);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`${i} de ${pageCount}`, 152, 37);
+
+      // Draw footer line and page numbering at the bottom of the page
       doc.setDrawColor(210, 210, 210);
       doc.setLineWidth(0.2);
       doc.line(15, 280, 195, 280);
@@ -1100,7 +1392,7 @@ export const ReportsPage = ({
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(130, 130, 130);
       doc.text('Policlínica Bernardo Félix da Silva • Ouvidoria Geral', 15, 285);
-      doc.text(`Página ${i} de ${pageCount}`, 195, 285, { align: 'right' });
+      doc.text(`Emitido em ${dateStamp}`, 195, 285, { align: 'right' });
     }
 
     doc.save(`Parecer_Ouvidoria_Policlinica_${selectedMonthLabel}_${selectedYear}.pdf`);
@@ -1780,81 +2072,84 @@ export const ReportsPage = ({
                     </div>
 
                     {/* Center Block */}
-                    <div className="lg:col-span-6 w-full space-y-3">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          Aprovação Geral: {data.positivePercent}%
-                        </span>
-                        <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-                          Distribuição das Notas
-                        </span>
-                      </div>
-
-                      {/* 4-color multi-segmented bar */}
-                      <div className="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden flex shadow-inner">
+                    <div className="lg:col-span-6 w-full flex flex-col sm:flex-row items-center gap-6 bg-slate-50/20 p-4 rounded-2xl border border-slate-100/50">
+                      {/* Left: Pie Chart */}
+                      <div className="h-24 w-24 shrink-0 relative flex items-center justify-center">
                         {total > 0 ? (
                           <>
-                            {otimoPercent > 0 && (
-                              <div 
-                                className="bg-emerald-500 h-full transition-all duration-500" 
-                                style={{ width: `${otimoPercent}%` }}
-                                title={`Ótimo: ${otimoPercent}% (${otimoCount} votos)`}
-                              />
-                            )}
-                            {bomPercent > 0 && (
-                              <div 
-                                className="bg-blue-500 h-full transition-all duration-500" 
-                                style={{ width: `${bomPercent}%` }}
-                                title={`Bom: ${bomPercent}% (${bomCount} votos)`}
-                              />
-                            )}
-                            {regularPercent > 0 && (
-                              <div 
-                                className="bg-amber-500 h-full transition-all duration-500" 
-                                style={{ width: `${regularPercent}%` }}
-                                title={`Regular: ${regularPercent}% (${regularCount} votos)`}
-                              />
-                            )}
-                            {ruimPercent > 0 && (
-                              <div 
-                                className="bg-red-500 h-full transition-all duration-500" 
-                                style={{ width: `${ruimPercent}%` }}
-                                title={`Ruim: ${ruimPercent}% (${ruimCount} votos)`}
-                              />
-                            )}
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={[
+                                    { name: 'Ótimo', value: otimoCount, color: '#10B981' },
+                                    { name: 'Bom', value: bomCount, color: '#3B82F6' },
+                                    { name: 'Regular', value: regularCount, color: '#F59E0B' },
+                                    { name: 'Ruim', value: ruimCount, color: '#EF4444' }
+                                  ].filter(d => d.value > 0)}
+                                  innerRadius={20}
+                                  outerRadius={34}
+                                  paddingAngle={3}
+                                  dataKey="value"
+                                >
+                                  {[
+                                    { name: 'Ótimo', value: otimoCount, color: '#10B981' },
+                                    { name: 'Bom', value: bomCount, color: '#3B82F6' },
+                                    { name: 'Regular', value: regularCount, color: '#F59E0B' },
+                                    { name: 'Ruim', value: ruimCount, color: '#EF4444' }
+                                  ].filter(d => d.value > 0).map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                  ))}
+                                </Pie>
+                                <Tooltip formatter={(val: any, name: any) => [`${val} votos`, name]} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                            <div className="absolute text-center">
+                              <span className="block text-xs font-black text-slate-700 leading-none">{total}</span>
+                              <span className="text-[7px] font-black text-gray-400 uppercase tracking-widest block leading-none mt-0.5">Votos</span>
+                            </div>
                           </>
                         ) : (
-                          <div className="w-full bg-slate-100/80 h-full text-center flex items-center justify-center">
-                            <span className="text-[8px] font-black text-slate-350 uppercase tracking-widest">Aguardando Coleta de Amostras</span>
-                          </div>
+                          <div className="text-[9px] font-bold text-gray-300 text-center uppercase tracking-wider">Sem Votos</div>
                         )}
                       </div>
 
-                      {/* Inline explanatory grid list cards */}
-                      <div className="grid grid-cols-4 gap-1.5 pt-0.5 text-center">
-                        <div className={`rounded-xl p-1.5 border transition-colors ${otimoCount > 0 ? 'bg-emerald-50/30 border-emerald-100/50 text-emerald-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-emerald-500/85">Ótimo</span>
-                          <span className="text-[10px] font-black">{otimoPercent}%</span>
-                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({otimoCount}v)</span>
-                        </div>
-                        
-                        <div className={`rounded-xl p-1.5 border transition-colors ${bomCount > 0 ? 'bg-blue-50/30 border-blue-105/50 text-blue-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-blue-500/85">Bom</span>
-                          <span className="text-[10px] font-black">{bomPercent}%</span>
-                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({bomCount}v)</span>
+                      {/* Right: Legend and percentages */}
+                      <div className="flex-1 w-full space-y-2.5">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-black text-slate-700 uppercase tracking-wider text-[10px] flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                            Aprovação Geral: {data.positivePercent}%
+                          </span>
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                            Distribuição das Notas
+                          </span>
                         </div>
 
-                        <div className={`rounded-xl p-1.5 border transition-colors ${regularCount > 0 ? 'bg-amber-50/30 border-amber-100/50 text-amber-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-amber-500/85">Regular</span>
-                          <span className="text-[10px] font-black">{regularPercent}%</span>
-                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({regularCount}v)</span>
-                        </div>
+                        {/* Inline explanatory grid list cards */}
+                        <div className="grid grid-cols-4 gap-1.5 pt-0.5 text-center">
+                          <div className={`rounded-xl p-1.5 border transition-colors ${otimoCount > 0 ? 'bg-emerald-50/30 border-emerald-100/50 text-emerald-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                            <span className="block text-[8px] font-black uppercase tracking-wider text-[#10B981]">Ótimo</span>
+                            <span className="text-[10px] font-black">{otimoPercent}%</span>
+                            <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({otimoCount}v)</span>
+                          </div>
+                          
+                          <div className={`rounded-xl p-1.5 border transition-colors ${bomCount > 0 ? 'bg-blue-50/30 border-blue-105/50 text-blue-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                            <span className="block text-[8px] font-black uppercase tracking-wider text-[#3B82F6]">Bom</span>
+                            <span className="text-[10px] font-black">{bomPercent}%</span>
+                            <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({bomCount}v)</span>
+                          </div>
 
-                        <div className={`rounded-xl p-1.5 border transition-colors ${ruimCount > 15 / 100 * total ? 'bg-red-50/60 border-red-200/50 text-red-900 animate-pulse' : ruimCount > 0 ? 'bg-red-50/30 border-red-100/50 text-red-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
-                          <span className="block text-[8px] font-black uppercase tracking-wider text-red-500/85">Ruim</span>
-                          <span className="text-[10px] font-black">{ruimPercent}%</span>
-                          <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({ruimCount}v)</span>
+                          <div className={`rounded-xl p-1.5 border transition-colors ${regularCount > 0 ? 'bg-amber-50/30 border-amber-100/50 text-amber-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                            <span className="block text-[8px] font-black uppercase tracking-wider text-[#F59E0B]">Regular</span>
+                            <span className="text-[10px] font-black">{regularPercent}%</span>
+                            <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({regularCount}v)</span>
+                          </div>
+
+                          <div className={`rounded-xl p-1.5 border transition-colors ${ruimCount > 15 / 100 * total ? 'bg-red-50/60 border-red-200/50 text-red-900 animate-pulse' : ruimCount > 0 ? 'bg-red-50/30 border-red-100/50 text-red-800' : 'bg-slate-50/20 border-slate-100/30 text-slate-400'}`}>
+                            <span className="block text-[8px] font-black uppercase tracking-wider text-[#EF4444]">Ruim</span>
+                            <span className="text-[10px] font-black">{ruimPercent}%</span>
+                            <span className="text-[8px] block font-bold text-slate-400 mt-0.5">({ruimCount}v)</span>
+                          </div>
                         </div>
                       </div>
                     </div>
