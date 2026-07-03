@@ -697,6 +697,7 @@ export const ReportsPage = ({
     if (!aiReport) return;
 
     const doc = new jsPDF() as any;
+    doc.setLineHeightFactor(1.5);
     const dateStamp = new Date().toLocaleDateString('pt-BR');
     const selectedMonthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || '';
 
@@ -767,7 +768,7 @@ export const ReportsPage = ({
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       
       const lines = doc.splitTextToSize(text, 180); // Width of 180 mm (margins: 15 to 195)
-      const lineHeight = fontSize * 0.45;
+      const lineHeight = fontSize * 1.5 * 0.352777;
       const paragraphHeight = lines.length * lineHeight;
       
       if (currentY + paragraphHeight > 270) {
@@ -807,7 +808,7 @@ export const ReportsPage = ({
       doc.setTextColor(color[0], color[1], color[2]);
       
       const lines = doc.splitTextToSize(text, 173); // 173mm for bullet text block
-      const lineHeight = fontSize * 0.45;
+      const lineHeight = fontSize * 1.5 * 0.352777;
       const blockHeight = lines.length * lineHeight;
       
       if (currentY + blockHeight > 270) {
@@ -897,12 +898,11 @@ export const ReportsPage = ({
           currentY = 46;
           addSectionHeader('3. DESEMPENHO DETALHADO POR SETOR');
         } else {
-          // If a sector block needs at least 92mm, break page if it cannot fit
-          if (currentY + 92 > 270) {
+          if (idx % 2 === 0) {
             doc.addPage();
             currentY = 46;
           } else {
-            currentY += 6; // small gap between sectors on the same page
+            currentY += 5; // small gap between sectors on the same page
           }
         }
 
@@ -910,31 +910,38 @@ export const ReportsPage = ({
 
         // Draw sector title
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
+        doc.setFontSize(9.5);
         doc.setTextColor(1, 64, 46); // SUS Forest Green
-        doc.text(`Amostra Setorial: ${sector.toUpperCase()}`, 15, currentY);
-        currentY += 4.5;
+        const titleText = `Amostra Setorial: ${sector.toUpperCase()}`;
+        const titleLines = doc.splitTextToSize(titleText, 180);
+        const titleLineHeight = 9.5 * 1.5 * 0.352777; // line height in mm (~5.03mm)
+        
+        titleLines.forEach((line: string, index: number) => {
+          doc.text(line, 15, currentY + (index * titleLineHeight));
+        });
+        
+        currentY += (titleLines.length - 1) * titleLineHeight + 3;
 
         // Circular Donut/Pie Chart layout parameters inside an elegant background card
         const cardY = currentY + 1;
-        const cardHeight = 34;
+        const cardHeight = 28;
         
         doc.setFillColor(248, 250, 252); // extremely soft slate blue-gray
-        doc.roundedRect(15, cardY, 180, cardHeight, 4, 4, 'F');
+        doc.roundedRect(15, cardY, 180, cardHeight, 3, 3, 'F');
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.2);
-        doc.roundedRect(15, cardY, 180, cardHeight, 4, 4, 'S');
+        doc.roundedRect(15, cardY, 180, cardHeight, 3, 3, 'S');
 
         // Title inside the card
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setTextColor(100, 116, 139);
-        doc.text("DISTRIBUIÇÃO PERCENTUAL DAS AVALIAÇÕES", 22, cardY + 6);
+        doc.text("DISTRIBUIÇÃO PERCENTUAL DAS AVALIAÇÕES", 22, cardY + 5);
 
         // Donut Chart center coordinates
         const cx = 50;
-        const cy = cardY + 20;
-        const r = 10;
+        const cy = cardY + 16.5;
+        const r = 8.5;
 
         // Mathematical wedge drawing function via small filled triangles
         const drawWedge = (cx: number, cy: number, r: number, startAngle: number, endAngle: number, color: [number, number, number]) => {
@@ -980,119 +987,107 @@ export const ReportsPage = ({
 
         // Draw a small white center circle to convert the pie chart into an elegant modern donut chart
         doc.setFillColor(248, 250, 252);
-        doc.ellipse(cx, cy, r * 0.45, r * 0.45, 'F');
+        doc.ellipse(cx, cy, r * 0.58, r * 0.58, 'F');
 
-        // Subtle clean outer ring border
+        // Subtle clean outer ring border and inner ring border
         doc.setDrawColor(203, 213, 225);
         doc.setLineWidth(0.15);
         doc.ellipse(cx, cy, r, r, 'S');
+        doc.ellipse(cx, cy, r * 0.58, r * 0.58, 'S');
 
-        // Text inside the donut
+        // Text inside the donut (perfectly centered within the expanded white center circle)
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
+        doc.setFontSize(8.5);
         doc.setTextColor(30, 41, 59);
-        doc.text(total.toString(), cx, cy + 1, { align: 'center' });
+        doc.text(total.toString(), cx, cy - 0.5, { align: 'center' });
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(5.5);
+        doc.setFontSize(5.2);
         doc.setTextColor(148, 163, 184);
-        doc.text(total === 1 ? 'VOTO' : 'VOTOS', cx, cy + 4, { align: 'center' });
+        doc.text('TOTAL', cx, cy + 3.2, { align: 'center' });
 
         // Legend box and approval badge on the right
         const legendX = 95;
-        const badgeY = cardY + 5;
+        const badgeY = cardY + 4;
         
         // Approval Badge (pill)
         doc.setFillColor(236, 253, 245);
-        doc.roundedRect(legendX, badgeY, 85, 6, 1.5, 1.5, 'F');
+        doc.roundedRect(legendX, badgeY, 85, 5, 1.2, 1.2, 'F');
         doc.setDrawColor(167, 243, 208);
-        doc.roundedRect(legendX, badgeY, 85, 6, 1.5, 1.5, 'S');
+        doc.roundedRect(legendX, badgeY, 85, 5, 1.2, 1.2, 'S');
         
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(7.5);
         doc.setTextColor(16, 185, 129);
-        doc.text(`Índice de Aprovação do Setor: ${positivePercent}%`, legendX + 4, badgeY + 4.2);
+        doc.text(`Índice de Aprovação do Setor: ${positivePercent}%`, legendX + 4, badgeY + 3.7);
 
         // Legend entries in 2x2 grid
-        let legendY1 = cardY + 16;
-        let legendY2 = cardY + 24;
+        let legendY1 = cardY + 12.5;
+        let legendY2 = cardY + 19.5;
 
         // Row 1
         // Ótimo
         doc.setFillColor(16, 185, 129);
-        doc.rect(legendX, legendY1, 3, 3, 'F');
+        doc.rect(legendX, legendY1, 2.5, 2.5, 'F');
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7.5);
         doc.setTextColor(51, 65, 85);
-        doc.text(`Ótimo: ${ratings.Otimo || 0} (${pctOtimo}%)`, legendX + 5, legendY1 + 2.5);
+        doc.text(`Ótimo: ${ratings.Otimo || 0} (${pctOtimo}%)`, legendX + 4.5, legendY1 + 2.2);
 
         // Bom
         doc.setFillColor(59, 130, 246);
-        doc.rect(legendX + 42, legendY1, 3, 3, 'F');
-        doc.text(`Bom: ${ratings.Bom || 0} (${pctBom}%)`, legendX + 47, legendY1 + 2.5);
+        doc.rect(legendX + 42, legendY1, 2.5, 2.5, 'F');
+        doc.text(`Bom: ${ratings.Bom || 0} (${pctBom}%)`, legendX + 46.5, legendY1 + 2.2);
 
         // Row 2
         // Regular
         doc.setFillColor(245, 158, 11);
-        doc.rect(legendX, legendY2, 3, 3, 'F');
-        doc.text(`Regular: ${ratings.Regular || 0} (${pctRegular}%)`, legendX + 5, legendY2 + 2.5);
+        doc.rect(legendX, legendY2, 2.5, 2.5, 'F');
+        doc.text(`Regular: ${ratings.Regular || 0} (${pctRegular}%)`, legendX + 4.5, legendY2 + 2.2);
 
         // Ruim
         doc.setFillColor(239, 68, 68);
-        doc.rect(legendX + 42, legendY2, 3, 3, 'F');
-        doc.text(`Ruim: ${ratings.Ruim || 0} (${pctRuim}%)`, legendX + 47, legendY2 + 2.5);
+        doc.rect(legendX + 42, legendY2, 2.5, 2.5, 'F');
+        doc.text(`Ruim: ${ratings.Ruim || 0} (${pctRuim}%)`, legendX + 46.5, legendY2 + 2.2);
 
-        currentY = cardY + cardHeight + 4;
+        currentY = cardY + cardHeight + 3.5;
 
         // Base explanatory paragraph
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
+        doc.setFontSize(7.5);
         doc.setTextColor(71, 85, 105);
-        const baseText = `Com base nas informações coletadas por meio dos instrumentais de avaliação respondidos pelos usuários, foi realizada a análise do desempenho do setor de ${sector}, considerando um total de ${total} respondentes.`;
+        const baseText = `Com base nas informações coletadas por meio dos instrumentais de avaliação respondidos pelos usuários, foi realizada a análise do desempenho do setor de ${sector}, considering um total de ${total} respondentes.`;
         
         const baseLines = doc.splitTextToSize(baseText, 180);
-        const baseLineHeight = 8 * 0.42;
+        const baseLineHeight = 7.5 * 1.35 * 0.352777;
         const baseHeight = baseLines.length * baseLineHeight;
 
-        if (currentY + baseHeight > 270) {
-          doc.addPage();
-          currentY = 46;
-        }
         doc.text(baseText, 15, currentY, { maxWidth: 180, align: 'justify' });
-        currentY += baseHeight + 3;
+        currentY += baseHeight + 2.5;
 
         // Detailed bullets drawing
         const drawDetailBullet = (label: string, percent: number, color: [number, number, number]) => {
           const desc = getCategoryDescription(label, percent);
-          
-          if (currentY + 12 > 270) {
-            doc.addPage();
-            currentY = 46;
-          }
 
           // Bullet point and title
           doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
           doc.setTextColor(color[0], color[1], color[2]);
           doc.text('•', 15, currentY);
           doc.text(`${label} (${percent}%)`, 19, currentY);
-          currentY += 3.8;
+          currentY += 3.2;
 
           // Justified description
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(71, 85, 105);
-          doc.setFontSize(7.5);
+          doc.setFontSize(6.8);
 
           const lines = doc.splitTextToSize(desc, 176);
-          const lineHeight = 7.5 * 0.42;
+          const lineHeight = 6.8 * 1.35 * 0.352777;
           const blockHeight = lines.length * lineHeight;
 
-          if (currentY + blockHeight > 270) {
-            doc.addPage();
-            currentY = 46;
-          }
-
           doc.text(desc, 19, currentY, { maxWidth: 176, align: 'justify' });
-          currentY += blockHeight + 1.5;
+          currentY += blockHeight + 1.2;
         };
 
         drawDetailBullet('Ótimo', pctOtimo, [16, 185, 129]);
@@ -1351,37 +1346,37 @@ export const ReportsPage = ({
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(5.5);
       doc.setTextColor(120, 120, 120);
-      doc.text("DATA DA IMPLANTAÇÃO:", 17, 32);
+      doc.text("DATA DA IMPLANTAÇÃO:", 37.5, 32, { align: 'center' });
       doc.setFontSize(7);
       doc.setTextColor(50, 50, 50);
-      doc.text("SET / 2017", 17, 37);
+      doc.text("SET / 2017", 37.5, 37, { align: 'center' });
 
       // Cell 2.2: CÓDIGO
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(5.5);
       doc.setTextColor(120, 120, 120);
-      doc.text("CÓDIGO:", 62, 32);
+      doc.text("CÓDIGO:", 82.5, 32, { align: 'center' });
       doc.setFontSize(7);
       doc.setTextColor(50, 50, 50);
-      doc.text(`REL - OUV - 012`, 62, 37);
+      doc.text(`REL - OUV - 012`, 82.5, 37, { align: 'center' });
 
       // Cell 2.3: DATA DA ÚLTIMA REVISÃO
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(5.5);
       doc.setTextColor(120, 120, 120);
-      doc.text("DATA DA ÚLTIMA REVISÃO:", 107, 32);
+      doc.text("DATA DA ÚLTIMA REVISÃO:", 127.5, 32, { align: 'center' });
       doc.setFontSize(7);
       doc.setTextColor(50, 50, 50);
-      doc.text(`${selectedMonthLabel.toUpperCase()} / ${selectedYear}`, 107, 37);
+      doc.text(`${selectedMonthLabel.toUpperCase()} / ${selectedYear}`, 127.5, 37, { align: 'center' });
 
       // Cell 2.4: PÁGINA
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(5.5);
       doc.setTextColor(120, 120, 120);
-      doc.text("PÁGINA:", 152, 32);
+      doc.text("PÁGINA:", 172.5, 32, { align: 'center' });
       doc.setFontSize(7);
       doc.setTextColor(50, 50, 50);
-      doc.text(`${i} de ${pageCount}`, 152, 37);
+      doc.text(`${i} de ${pageCount}`, 172.5, 37, { align: 'center' });
 
       // Draw footer line and page numbering at the bottom of the page
       doc.setDrawColor(210, 210, 210);
