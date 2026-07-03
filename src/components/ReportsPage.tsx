@@ -910,38 +910,38 @@ export const ReportsPage = ({
 
         // Draw sector title
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9.5);
+        doc.setFontSize(10);
         doc.setTextColor(1, 64, 46); // SUS Forest Green
         const titleText = `Amostra Setorial: ${sector.toUpperCase()}`;
         const titleLines = doc.splitTextToSize(titleText, 180);
-        const titleLineHeight = 9.5 * 1.5 * 0.352777; // line height in mm (~5.03mm)
+        const titleLineHeight = 10 * 1.4 * 0.352777; // line height in mm (~4.94mm)
         
         titleLines.forEach((line: string, index: number) => {
           doc.text(line, 15, currentY + (index * titleLineHeight));
         });
         
-        currentY += (titleLines.length - 1) * titleLineHeight + 3;
+        currentY += (titleLines.length - 1) * titleLineHeight + 3.5;
 
         // Circular Donut/Pie Chart layout parameters inside an elegant background card
         const cardY = currentY + 1;
-        const cardHeight = 28;
+        const cardHeight = 31;
         
         doc.setFillColor(248, 250, 252); // extremely soft slate blue-gray
-        doc.roundedRect(15, cardY, 180, cardHeight, 3, 3, 'F');
+        doc.roundedRect(15, cardY, 180, cardHeight, 3.5, 3.5, 'F');
         doc.setDrawColor(226, 232, 240);
         doc.setLineWidth(0.2);
-        doc.roundedRect(15, cardY, 180, cardHeight, 3, 3, 'S');
+        doc.roundedRect(15, cardY, 180, cardHeight, 3.5, 3.5, 'S');
 
         // Title inside the card
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
+        doc.setFontSize(8);
         doc.setTextColor(100, 116, 139);
-        doc.text("DISTRIBUIÇÃO PERCENTUAL DAS AVALIAÇÕES", 22, cardY + 5);
+        doc.text("DISTRIBUIÇÃO PERCENTUAL DAS AVALIAÇÕES", 22, cardY + 5.5);
 
         // Donut Chart center coordinates
         const cx = 50;
-        const cy = cardY + 16.5;
-        const r = 8.5;
+        const cy = cardY + 18;
+        const r = 9.2;
 
         // Mathematical wedge drawing function via small filled triangles
         const drawWedge = (cx: number, cy: number, r: number, startAngle: number, endAngle: number, color: [number, number, number]) => {
@@ -997,40 +997,40 @@ export const ReportsPage = ({
 
         // Text inside the donut (perfectly centered within the expanded white center circle)
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.5);
+        doc.setFontSize(9.5);
         doc.setTextColor(30, 41, 59);
         doc.text(total.toString(), cx, cy - 0.5, { align: 'center' });
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(5.2);
+        doc.setFontSize(5.8);
         doc.setTextColor(148, 163, 184);
         doc.text('TOTAL', cx, cy + 3.2, { align: 'center' });
 
         // Legend box and approval badge on the right
         const legendX = 95;
-        const badgeY = cardY + 4;
+        const badgeY = cardY + 5;
         
         // Approval Badge (pill)
         doc.setFillColor(236, 253, 245);
-        doc.roundedRect(legendX, badgeY, 85, 5, 1.2, 1.2, 'F');
+        doc.roundedRect(legendX, badgeY, 85, 5.5, 1.2, 1.2, 'F');
         doc.setDrawColor(167, 243, 208);
-        doc.roundedRect(legendX, badgeY, 85, 5, 1.2, 1.2, 'S');
+        doc.roundedRect(legendX, badgeY, 85, 5.5, 1.2, 1.2, 'S');
         
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7.5);
+        doc.setFontSize(8);
         doc.setTextColor(16, 185, 129);
-        doc.text(`Índice de Aprovação do Setor: ${positivePercent}%`, legendX + 4, badgeY + 3.7);
+        doc.text(`Índice de Aprovação do Setor: ${positivePercent}%`, legendX + 4, badgeY + 4);
 
         // Legend entries in 2x2 grid
-        let legendY1 = cardY + 12.5;
-        let legendY2 = cardY + 19.5;
+        let legendY1 = cardY + 14;
+        let legendY2 = cardY + 21.5;
 
         // Row 1
         // Ótimo
         doc.setFillColor(16, 185, 129);
         doc.rect(legendX, legendY1, 2.5, 2.5, 'F');
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(8);
         doc.setTextColor(51, 65, 85);
         doc.text(`Ótimo: ${ratings.Otimo || 0} (${pctOtimo}%)`, legendX + 4.5, legendY1 + 2.2);
 
@@ -1050,20 +1050,20 @@ export const ReportsPage = ({
         doc.rect(legendX + 42, legendY2, 2.5, 2.5, 'F');
         doc.text(`Ruim: ${ratings.Ruim || 0} (${pctRuim}%)`, legendX + 46.5, legendY2 + 2.2);
 
-        currentY = cardY + cardHeight + 3.5;
+        currentY = cardY + cardHeight + 4.5;
 
         // Base explanatory paragraph
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7.5);
+        doc.setFontSize(8.2);
         doc.setTextColor(71, 85, 105);
         const baseText = `Com base nas informações coletadas por meio dos instrumentais de avaliação respondidos pelos usuários, foi realizada a análise do desempenho do setor de ${sector}, considering um total de ${total} respondentes.`;
         
         const baseLines = doc.splitTextToSize(baseText, 180);
-        const baseLineHeight = 7.5 * 1.35 * 0.352777;
+        const baseLineHeight = 8.2 * 1.35 * 0.352777;
         const baseHeight = baseLines.length * baseLineHeight;
 
         doc.text(baseText, 15, currentY, { maxWidth: 180, align: 'justify' });
-        currentY += baseHeight + 2.5;
+        currentY += baseHeight + 3;
 
         // Detailed bullets drawing
         const drawDetailBullet = (label: string, percent: number, color: [number, number, number]) => {
@@ -1071,23 +1071,23 @@ export const ReportsPage = ({
 
           // Bullet point and title
           doc.setFont('helvetica', 'bold');
-          doc.setFontSize(7.5);
+          doc.setFontSize(8);
           doc.setTextColor(color[0], color[1], color[2]);
           doc.text('•', 15, currentY);
           doc.text(`${label} (${percent}%)`, 19, currentY);
-          currentY += 3.2;
+          currentY += 3.5;
 
           // Justified description
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(71, 85, 105);
-          doc.setFontSize(6.8);
+          doc.setFontSize(7.3);
 
           const lines = doc.splitTextToSize(desc, 176);
-          const lineHeight = 6.8 * 1.35 * 0.352777;
+          const lineHeight = 7.3 * 1.35 * 0.352777;
           const blockHeight = lines.length * lineHeight;
 
           doc.text(desc, 19, currentY, { maxWidth: 176, align: 'justify' });
-          currentY += blockHeight + 1.2;
+          currentY += blockHeight + 1.5;
         };
 
         drawDetailBullet('Ótimo', pctOtimo, [16, 185, 129]);
