@@ -827,6 +827,97 @@ export const ReportsPage = ({
       currentY += blockHeight + 2.5;
     };
 
+    const addPatientCommentBlock = (item: any) => {
+      const text = (item.comment || '').trim();
+      if (!text) return;
+
+      const title = `${item.title || ''} (${item.scoreOrRating !== undefined ? item.scoreOrRating : ''}) - ${item.date || ''}`;
+      const meta = `Origem: ${item.source || ''}`;
+      
+      // Calculate heights
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      const titleLines = doc.splitTextToSize(title, 170);
+      const titleHeight = titleLines.length * 8.5 * 1.35 * 0.352777;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      const bodyLines = doc.splitTextToSize(text, 170);
+      const bodyHeight = bodyLines.length * 8 * 1.4 * 0.352777;
+
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      const metaLines = doc.splitTextToSize(meta, 170);
+      const metaHeight = metaLines.length * 7 * 1.3 * 0.352777;
+
+      const totalContentHeight = titleHeight + bodyHeight + metaHeight + 8; // content + padding
+
+      // Check page break
+      if (currentY + totalContentHeight > 270) {
+        doc.addPage();
+        currentY = 46;
+      }
+
+      // Draw beautiful subtle background card for the comment
+      const cardY = currentY;
+      const cardHeight = totalContentHeight;
+      
+      // Select color based on category/sentiment
+      let bgColor = [248, 250, 252]; // Soft slate
+      let borderCol = [226, 232, 240];
+      let accentCol = [71, 85, 105];
+
+      if (item.category === 'promoter') {
+        bgColor = [240, 253, 250]; // Soft mint/teal
+        borderCol = [204, 251, 241];
+        accentCol = [13, 148, 136]; // Teal accent
+      } else if (item.category === 'detractor') {
+        bgColor = [254, 242, 242]; // Soft red/rose
+        borderCol = [254, 226, 226];
+        accentCol = [220, 38, 38]; // Red accent
+      }
+
+      doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+      doc.roundedRect(15, cardY, 180, cardHeight, 2, 2, 'F');
+      doc.setDrawColor(borderCol[0], borderCol[1], borderCol[2]);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(15, cardY, 180, cardHeight, 2, 2, 'S');
+
+      // Draw indicator bar on the left edge of the card
+      doc.setFillColor(accentCol[0], accentCol[1], accentCol[2]);
+      doc.rect(15, cardY, 2, cardHeight, 'F');
+
+      let drawY = cardY + 4;
+
+      // Draw title
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(accentCol[0], accentCol[1], accentCol[2]);
+      titleLines.forEach((line: string, index: number) => {
+        doc.text(line, 20, drawY + (index * 8.5 * 1.35 * 0.352777));
+      });
+      drawY += titleHeight + 1.5;
+
+      // Draw body text
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(51, 65, 85);
+      bodyLines.forEach((line: string, index: number) => {
+        doc.text(line, 20, drawY + (index * 8 * 1.4 * 0.352777));
+      });
+      drawY += bodyHeight + 2;
+
+      // Draw metadata (Source)
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7);
+      doc.setTextColor(148, 163, 184);
+      metaLines.forEach((line: string, index: number) => {
+        doc.text(line, 20, drawY + (index * 7 * 1.3 * 0.352777));
+      });
+
+      currentY += cardHeight + 3.5;
+    };
+
     const addMetadataBox = () => {
       const boxHeight = 25;
       if (currentY + boxHeight > 270) {
@@ -1169,6 +1260,8 @@ export const ReportsPage = ({
     addSectorsPerformanceCharts();
 
     // 4. PONTOS DE DESTAQUE E ELOGIOS
+    doc.addPage();
+    currentY = 46;
     addSectionHeader('4. PONTOS DE DESTAQUE E ELOGIOS');
     aiReport.praisePoints.forEach((p, idx) => {
       addBullet(cleanseText(`${idx + 1}. ${p}`));
@@ -1199,6 +1292,22 @@ export const ReportsPage = ({
     // 7. PARECER OPERACIONAL DA OUVIDORIA GERAL (No mention of AI!)
     addSectionHeader('7. PARECER CONCLUSIVO DA OUVIDORIA GERAL');
     addParagraph(cleanseText(aiReport.conclusionText));
+
+    currentY += 4;
+
+    // 8. MANIFESTAÇÕES E COMENTÁRIOS DOS PACIENTES
+    doc.addPage();
+    currentY = 46;
+    addSectionHeader('8. MANIFESTAÇÕES E COMENTÁRIOS REGISTRADOS DOS PACIENTES');
+    if (detailedPatientFeedbacks.length === 0) {
+      addParagraph('Nenhuma manifestação ou comentário individual registrado pelos pacientes no período correspondente.');
+    } else {
+      addParagraph('Constam a seguir os comentários e feedbacks individuais voluntariamente registrados pelos usuários durante o período avaliativo, divididos entre classificações positivas, neutras e críticas:');
+      
+      detailedPatientFeedbacks.forEach((item) => {
+        addPatientCommentBlock(item);
+      });
+    }
 
     // Signatures block
     addSignatures();
