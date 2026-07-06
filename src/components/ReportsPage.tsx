@@ -98,8 +98,7 @@ Os desvios setoriais individuais que ultrapassaram a barreira recomendada de 15%
 
 Este relatório reflete o compromisso com o controle de qualidade do SUS, visando sempre a excelência e universalidade resolutiva.
 
-[Atenciosamente, Ouvidoria Geral da Policlínica Bernardo Félix da Silva]
-*(Nota da Ouvidoria: Gerador de relatórios de contingência ativado devido à implantação de hospedagem estática ou ausência temporária do servidor backend no domínio atual).*`;
+[Atenciosamente, Ouvidoria Geral da Policlínica Bernardo Félix da Silva]`;
 
   return {
     praisePoints,
@@ -697,7 +696,7 @@ export const ReportsPage = ({
     if (!aiReport) return;
 
     const doc = new jsPDF() as any;
-    doc.setLineHeightFactor(1.5);
+    doc.setLineHeightFactor(1.35);
     const dateStamp = new Date().toLocaleDateString('pt-BR');
     const selectedMonthLabel = MONTHS.find(m => m.value === selectedMonth)?.label || '';
 
@@ -767,7 +766,7 @@ export const ReportsPage = ({
       doc.setFontSize(fontSize);
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       
-      const lineHeight = fontSize * 1.4 * 0.352777; // height per line in mm
+      const lineHeight = fontSize * 1.35 * 0.352777; // height per line in mm
       const paragraphs = text.split('\n');
       
       paragraphs.forEach((pText, pIdx) => {
@@ -807,13 +806,13 @@ export const ReportsPage = ({
           }
         }
         
-        // Print paragraph block as an array of lines to avoid any string '\n' issues with justify
+        // Print paragraph block using original string for native jsPDF wrapping, preventing stretching of last line
         if (alignment === 'center') {
-          doc.text(lines, 105, currentY, { align: 'center' });
+          doc.text(trimmed, 105, currentY, { maxWidth: 180, align: 'center' });
         } else if (alignment === 'justify') {
-          doc.text(lines, 15, currentY, { maxWidth: 180, align: 'justify' });
+          doc.text(trimmed, 15, currentY, { maxWidth: 180, align: 'justify' });
         } else {
-          doc.text(lines, 15, currentY, { maxWidth: 180, align: 'left' });
+          doc.text(trimmed, 15, currentY, { maxWidth: 180, align: 'left' });
         }
         currentY += paragraphHeight;
         
@@ -826,7 +825,8 @@ export const ReportsPage = ({
     };
 
     const addSectionHeader = (title: string, color = [1, 64, 46]) => {
-      if (currentY + 14 > 270) {
+      // Keep with next: ensure we have space for the header AND at least the start of its content (32mm)
+      if (currentY + 32 > 270) {
         doc.addPage();
         currentY = 46;
       }
