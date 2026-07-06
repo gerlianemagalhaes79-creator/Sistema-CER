@@ -767,23 +767,62 @@ export const ReportsPage = ({
       doc.setFontSize(fontSize);
       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       
-      const lines = doc.splitTextToSize(text, 180); // Width of 180 mm (margins: 15 to 195)
-      const lineHeight = fontSize * 1.5 * 0.352777;
-      const paragraphHeight = lines.length * lineHeight;
+      const lineHeight = fontSize * 1.4 * 0.352777; // height per line in mm
+      const paragraphs = text.split('\n');
       
-      if (currentY + paragraphHeight > 270) {
-        doc.addPage();
-        currentY = 46;
-      }
+      paragraphs.forEach((pText, pIdx) => {
+        const trimmed = pText.trim();
+        if (!trimmed) {
+          // Empty paragraph/newline spacer
+          currentY += lineHeight * 0.5;
+          return;
+        }
+        
+        const lines = doc.splitTextToSize(trimmed, 180);
+        const paragraphHeight = lines.length * lineHeight;
+        
+        // If this paragraph block doesn't fit on the current page
+        if (currentY + paragraphHeight > 270) {
+          // If the entire paragraph block is larger than the printable page height,
+          // we must break page line-by-line during printing.
+          if (paragraphHeight > (270 - 46)) {
+            lines.forEach((line: string) => {
+              if (currentY + lineHeight > 270) {
+                doc.addPage();
+                currentY = 46;
+              }
+              if (alignment === 'center') {
+                doc.text(line, 105, currentY, { align: 'center' });
+              } else {
+                doc.text(line, 15, currentY, { align: 'left' });
+              }
+              currentY += lineHeight;
+            });
+            currentY += spacingAfter;
+            return;
+          } else {
+            // Otherwise, it fits on a clean new page
+            doc.addPage();
+            currentY = 46;
+          }
+        }
+        
+        // Print paragraph block as an array of lines to avoid any string '\n' issues with justify
+        if (alignment === 'center') {
+          doc.text(lines, 105, currentY, { align: 'center' });
+        } else if (alignment === 'justify') {
+          doc.text(lines, 15, currentY, { maxWidth: 180, align: 'justify' });
+        } else {
+          doc.text(lines, 15, currentY, { maxWidth: 180, align: 'left' });
+        }
+        currentY += paragraphHeight;
+        
+        if (pIdx < paragraphs.length - 1) {
+          currentY += spacingAfter;
+        }
+      });
       
-      if (alignment === 'center') {
-        doc.text(text, 105, currentY, { maxWidth: 180, align: 'center' });
-      } else if (alignment === 'justify') {
-        doc.text(text, 15, currentY, { maxWidth: 180, align: 'justify' });
-      } else {
-        doc.text(text, 15, currentY, { maxWidth: 180, align: 'left' });
-      }
-      currentY += paragraphHeight + spacingAfter;
+      currentY += spacingAfter;
     };
 
     const addSectionHeader = (title: string, color = [1, 64, 46]) => {
