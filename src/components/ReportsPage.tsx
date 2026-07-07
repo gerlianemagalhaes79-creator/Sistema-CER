@@ -1186,7 +1186,7 @@ export const ReportsPage = ({
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8.2);
         doc.setTextColor(71, 85, 105);
-        const baseText = `Com base nas informações coletadas por meio dos instrumentais de avaliação respondidos pelos usuários, foi realizada a análise do desempenho do setor de ${sector}, considering um total de ${total} respondentes.`;
+        const baseText = `Com base nas informações coletadas por meio dos instrumentais de avaliação respondidos pelos usuários, foi realizada a análise do desempenho do setor de ${sector}, considerando um total de ${total} respondentes.`;
         
         const baseLines = doc.splitTextToSize(baseText, 180);
         const baseLineHeight = 8.2 * 1.35 * 0.352777;
@@ -1311,7 +1311,7 @@ export const ReportsPage = ({
     // 5. ALERTA DE DESVIOS E SETORES EXCEDENTES
     addSectionHeader('5. ALERTA DE DESVIOS E LIMITES OPERACIONAIS DE ALERTA');
     if (aiReport.criticalAlerts.length === 0) {
-      addParagraph('Nenhum desvio crítico ou sector com taxas elevadas de insatisfação registrado no período atual.');
+      addParagraph('Nenhum desvio crítico ou setor com taxas elevadas de insatisfação registrado no período atual.');
     } else {
       aiReport.criticalAlerts.forEach((a) => {
         addBullet(cleanseText(`Alerta de Monitoramento: ${a}`));
