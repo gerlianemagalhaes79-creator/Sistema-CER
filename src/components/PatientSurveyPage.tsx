@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Smile, 
   Meh, 
@@ -11,11 +11,57 @@ import {
   HelpCircle,
   User,
   Phone,
-  ClipboardList
+  ClipboardList,
+  Camera,
+  Upload,
+  Trash2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SurveyService } from '../services/SurveyService';
 import { LogoService, ClinicLogos } from '../services/LogoService';
+
+const compressAndResizeImage = (fileOrBlob: Blob | File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(fileOrBlob);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 600; // max width/height
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(event.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        // Compress to JPEG with 0.7 quality
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        resolve(compressedBase64);
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
 
 interface PatientSurveyPageProps {
   availableSectors: string[];
@@ -50,7 +96,27 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
   const [generalComment, setGeneralComment] = useState('');
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
+  const [photoBase64, setPhotoBase64] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressed = await compressAndResizeImage(file);
+        setPhotoBase64(compressed);
+      } catch (err) {
+        console.error("Erro ao processar imagem:", err);
+        alert("Erro ao processar a imagem. Certifique-se de que é um formato válido.");
+      }
+    }
+  };
 
   // Logos customization state
   const [loadedLogos, setLoadedLogos] = useState<ClinicLogos>({});
@@ -67,6 +133,15 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
   useEffect(() => {
     SurveyService.ensureAnonymousAuth();
   }, []);
+
+  // Clean up camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   // Timer for automatic restart on Success page (15 seconds with visual countdown)
   const [countdown, setCountdown] = useState(15);
@@ -94,7 +169,59 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
     setGeneralComment('');
     setPatientName('');
     setPatientPhone('');
+    setPhotoBase64(null);
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCameraActive(false);
     setStep(1);
+  };
+
+  const startCamera = async () => {
+    setCameraError(null);
+    setIsCameraActive(true);
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' }, 
+        audio: false 
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.play().catch(e => console.error("Erro ao dar play no video:", e));
+      }
+    } catch (err: any) {
+      console.error("Camera access error:", err);
+      setCameraError(
+        "Não foi possível acessar a câmera diretamente. Por favor, utilize a opção de anexar arquivo para tirar foto ou fazer upload."
+      );
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Compress to JPEG with 0.7 quality
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        setPhotoBase64(dataUrl);
+        stopCamera();
+      }
+    }
   };
 
   const handleSetSectorRating = (sector: string, rating: 'Otimo' | 'Bom' | 'Regular' | 'Ruim' | 'NaoPassei') => {
@@ -136,7 +263,7 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
           };
         });
 
-      // Submit direct to database anonymously, passing optional patient name and phone
+      // Submit direct to database anonymously, passing optional patient name, phone, and optional photo
       await SurveyService.submitSurvey(
         npsScore, 
         generalComment, 
@@ -146,7 +273,8 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
         undefined, 
         undefined,
         patientName.trim() || 'Anônimo (Paciente)',
-        patientPhone.trim()
+        patientPhone.trim(),
+        photoBase64 || undefined
       );
       setStep(4);
     } catch (err) {
@@ -460,6 +588,99 @@ export const PatientSurveyPage = ({ availableSectors = [] }: PatientSurveyPagePr
                     placeholder="ESCREVA AQUI SEU ELOGIO, AGRADECIMENTO, SUGESTÃO OU COMENTÁRIO SOBRE O SEU ATENDIMENTO..."
                     className="w-full p-5 rounded-[2rem] border border-gray-200 bg-gray-50 text-base font-bold text-gray-650 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:bg-white resize-none"
                   />
+                </div>
+
+                {/* Photo Upload and Capture Widget */}
+                <div className="space-y-3 bg-[#F0FDF4]/65 p-5 rounded-3xl border border-emerald-100/70">
+                  <label className="block text-xs font-black text-[#01402E] uppercase tracking-widest leading-none ml-1">
+                    Anexar Foto ou Tirar Foto (Opcional)
+                  </label>
+                  
+                  {isCameraActive ? (
+                    <div className="space-y-4">
+                      <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#01402E] bg-black aspect-video max-w-md mx-auto">
+                        <video 
+                          ref={videoRef} 
+                          className="w-full h-full object-cover" 
+                          playsInline 
+                          muted 
+                        />
+                      </div>
+                      <div className="flex justify-center gap-3">
+                        <button
+                          type="button"
+                          onClick={capturePhoto}
+                          className="px-5 py-3 bg-[#01402E] text-white hover:bg-emerald-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all shadow-md"
+                        >
+                          <Camera size={14} /> Capturar Foto
+                        </button>
+                        <button
+                          type="button"
+                          onClick={stopCamera}
+                          className="px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 active:scale-95 transition-all shadow-md"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : photoBase64 ? (
+                    <div className="space-y-3 text-center sm:text-left">
+                      <div className="relative inline-block overflow-hidden rounded-2xl border border-slate-200 shadow-md">
+                        <img 
+                          src={photoBase64} 
+                          alt="Prévia do anexo" 
+                          className="max-h-48 w-auto object-contain bg-white" 
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPhotoBase64(null)}
+                          className="absolute top-2 right-2 p-2 bg-red-600 text-white hover:bg-red-700 rounded-full transition-all active:scale-90 shadow-lg"
+                          title="Remover Foto"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">
+                        Foto anexada com sucesso!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-3">
+                        {/* Native/Webcam Capture Button */}
+                        <button
+                          type="button"
+                          onClick={startCamera}
+                          className="flex-1 min-w-[140px] px-4 py-4.5 bg-white border border-emerald-100 hover:border-emerald-500 text-[#01402E] rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
+                        >
+                          <Camera size={16} className="text-emerald-700" /> Usar Câmera
+                        </button>
+                        
+                        {/* File Upload Button */}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex-1 min-w-[140px] px-4 py-4.5 bg-white border border-emerald-100 hover:border-emerald-500 text-[#01402E] rounded-2xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 shadow-sm"
+                        >
+                          <Upload size={16} className="text-emerald-700" /> Escolher Arquivo/Foto
+                        </button>
+                      </div>
+                      
+                      <input 
+                        type="file"
+                        ref={fileInputRef}
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+
+                      {cameraError && (
+                        <p className="text-[10px] text-amber-700 font-bold uppercase tracking-wide leading-relaxed bg-amber-50/50 p-2 rounded-xl border border-amber-100">
+                          {cameraError}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 

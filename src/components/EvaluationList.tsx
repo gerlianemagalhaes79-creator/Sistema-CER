@@ -27,11 +27,14 @@ import {
   ThumbsUp,
   Meh,
   Frown,
-  Activity
+  Activity,
+  Image as ImageIcon,
+  X,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { safeISOString } from '../services/SurveyService';
+import { safeISOString, SurveyService } from '../services/SurveyService';
 
 interface FirebaseForm {
   id: string;
@@ -46,6 +49,7 @@ interface FirebaseForm {
   source?: 'patient' | 'physical';
   patientName?: string;
   patientPhone?: string;
+  photoUrl?: string;
 }
 
 interface FirebaseEvaluation {
@@ -79,6 +83,7 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
 
   // Expanded row state
   const [expandedForms, setExpandedForms] = useState<Record<string, boolean>>({});
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   // Filters State
   const [search, setSearch] = useState('');
@@ -113,6 +118,8 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
   // UI status for retroactive date adjustments
   const [updatingFormId, setUpdatingFormId] = useState<string | null>(null);
   const [successFormId, setSuccessFormId] = useState<string | null>(null);
+  const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Dynamically extract available years from queried forms
   const availableYears = useMemo(() => {
@@ -263,7 +270,8 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
     return forms.filter(f => {
       const score = f.recommendationScore !== undefined ? f.recommendationScore : (f.npsScore || 0);
       const obs = f.observation || f.generalComment || '';
-      const creator = f.createdByName || '';
+      const isDigital = f.source !== 'physical';
+      const creator = isDigital ? 'próprio paciente digital' : (f.createdByName || '');
       const formEvaluations = evaluationsByFormId[f.id] || [];
       
       // Search matching (case insensitive)
@@ -639,10 +647,14 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
                         </span>
                       </div>
 
-                      {/* c) Subtítulo no formato "Lançado por [Nome do Usuário] às HH:MM" acompanhado do ícone */}
+                      {/* c) Subtítulo no formato "Lançado por [Nome do Usuário] às HH:MM" ou "Respondido pelo Próprio Paciente às HH:MM" acompanhado do ícone */}
                       <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500 font-medium">
                         <UserIcon size={12} className="text-slate-400 shrink-0" />
-                        <span>Lançado por <strong className="text-slate-700 font-extrabold">{form.createdByName || 'Anônimo'}</strong></span>
+                        {form.source === 'physical' ? (
+                          <span>Lançado por <strong className="text-slate-700 font-extrabold">{form.createdByName || 'Anônimo'}</strong></span>
+                        ) : (
+                          <span>Respondido pelo <strong className="text-purple-750 font-extrabold">Próprio Paciente</strong></span>
+                        )}
                         <span className="text-slate-300">•</span>
                         <Clock size={12} className="text-slate-400 shrink-0" />
                         <span className="font-semibold text-slate-600">às {timeStr}</span>
@@ -756,6 +768,28 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
                           </div>
                         )}
 
+                        {/* Foto Anexada pelo Paciente */}
+                        {form.photoUrl && (
+                          <div className="bg-white rounded-2xl p-4.5 border border-slate-200/80 shadow-sm flex items-start gap-3 relative max-w-2xl">
+                            <div className="w-10 h-10 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center shrink-0">
+                              <ImageIcon size={18} />
+                            </div>
+                            <div className="space-y-1 flex-1">
+                              <span className="text-[10px] font-black uppercase text-purple-500 tracking-wider block mb-1.5">Foto Anexada pelo Paciente:</span>
+                              <div className="relative inline-block group cursor-pointer border border-slate-100 rounded-xl overflow-hidden bg-slate-50 p-1 shadow-sm" onClick={() => setSelectedPhoto(form.photoUrl)}>
+                                <img 
+                                  src={form.photoUrl} 
+                                  alt="Foto anexada" 
+                                  className="h-24 sm:h-32 w-auto object-contain rounded-lg hover:opacity-90 transition-opacity" 
+                                />
+                                <div className="absolute inset-0 bg-black/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-white bg-slate-900/80 px-2.5 py-1 rounded-full">Clique para ampliar</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Seção Ouvidoria: Ajuste de Data Retroativa para correção de lançamento em mês incorreto */}
                         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-2xl font-sans">
                           <div className="flex items-center gap-3">
@@ -833,6 +867,81 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
                           )}
                         </div>
 
+                        {/* Seção Ouvidoria: Excluir Formulário Individual */}
+                        <div className="bg-white rounded-2xl p-5 border border-rose-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 max-w-2xl font-sans">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center shrink-0">
+                              <Trash2 size={18} />
+                            </div>
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-black uppercase text-rose-600 tracking-wider">Excluir Formulário</span>
+                              <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-md">
+                                {confirmDeleteId === form.id ? (
+                                  <strong className="text-rose-700 font-extrabold animate-pulse">
+                                    Atenção: Confirma a exclusão definitiva deste formulário e das suas {formEvaluations.length} notas setoriais? Esta ação não pode ser desfeita!
+                                  </strong>
+                                ) : (
+                                  <>
+                                    Aviso: Esta ação é definitiva e removerá este formulário e todas as suas <strong className="text-slate-800 font-black">{formEvaluations.length} notas setoriais</strong> do banco de dados.
+                                  </>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+                            {confirmDeleteId === form.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-wider px-3.5 py-2.5 rounded-xl transition-all"
+                                >
+                                  Cancelar
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={deletingFormId === form.id}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setDeletingFormId(form.id);
+                                    try {
+                                      await SurveyService.deleteSurvey(form.id, formEvaluations);
+                                      setConfirmDeleteId(null);
+                                    } catch (err: any) {
+                                      console.error("Erro ao excluir formulário:", err);
+                                      let msg = "Erro ao excluir formulário.";
+                                      try {
+                                        const errData = JSON.parse(err.message);
+                                        if (errData.error.includes("permission")) {
+                                          msg += " Permissão insuficiente.";
+                                        }
+                                      } catch (e) {}
+                                      alert(msg);
+                                    } finally {
+                                      setDeletingFormId(null);
+                                    }
+                                  }}
+                                  className="bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-black text-[10px] uppercase tracking-wider px-3.5 py-2.5 rounded-xl active:scale-95 transition-all shadow-sm shadow-rose-600/10"
+                                >
+                                  {deletingFormId === form.id ? 'Excluindo...' : 'Sim, Excluir'}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setConfirmDeleteId(form.id);
+                                }}
+                                className="bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-wider px-4 py-2.5 rounded-xl active:scale-95 transition-all shadow-sm shadow-rose-600/10 w-full sm:w-auto"
+                              >
+                                Excluir
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
                         <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
                           Notas Individuais Por Setores ({formEvaluations.length})
                         </h5>
@@ -908,6 +1017,41 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
           })}
         </div>
       )}
+
+      {/* Full screen photo modal */}
+      <AnimatePresence>
+        {selectedPhoto && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-[9999] flex items-center justify-center p-4"
+            onClick={() => setSelectedPhoto(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="relative max-w-4xl max-h-[85vh] bg-white p-2 rounded-2xl shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedPhoto(null)}
+                className="absolute top-4 right-4 p-2 bg-slate-900/80 text-white hover:bg-slate-950 rounded-full transition-all active:scale-90 shadow-lg z-10"
+                title="Fechar"
+              >
+                <X size={18} />
+              </button>
+              <img 
+                src={selectedPhoto} 
+                alt="Foto Anexada Ampliada" 
+                className="max-w-full max-h-[80vh] object-contain rounded-lg" 
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -152,6 +152,7 @@ export interface EvaluationForm {
   recommendationScore?: number; // nota NPS de recomendação
   patientName?: string; // nome do paciente se identificado
   patientPhone?: string; // telefone do paciente se informado
+  photoUrl?: string; // Foto opcional anexada pelo paciente (como Base64 ou URL)
 }
 
 export interface SectorEvaluation {

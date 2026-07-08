@@ -50,7 +50,8 @@ export const SurveyService = {
     createdBy?: string,
     createdByName?: string,
     patientName?: string,
-    patientPhone?: string
+    patientPhone?: string,
+    photoUrl?: string
   ): Promise<void> => {
     // Ensure we are authenticated (e.g., anonymously)
     await SurveyService.ensureAnonymousAuth();
@@ -89,6 +90,7 @@ export const SurveyService = {
       recommendationScore: npsScore,
       patientName: patientName || '',
       patientPhone: patientPhone || '',
+      photoUrl: photoUrl || '',
 
       // For backwards compatibility with older reports page queries
       npsScore,
@@ -141,6 +143,20 @@ export const SurveyService = {
       await batch.commit();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'submit_survey');
+      throw error;
+    }
+  },
+
+  deleteSurvey: async (formId: string, associatedEvaluations: { id: string }[]): Promise<void> => {
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'forms', formId));
+    for (const evalItem of associatedEvaluations) {
+      batch.delete(doc(db, 'evaluations', evalItem.id));
+    }
+    try {
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `delete_survey/${formId}`);
       throw error;
     }
   },
