@@ -30,7 +30,8 @@ import {
   Activity,
   Image as ImageIcon,
   X,
-  Trash2
+  Trash2,
+  HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -120,6 +121,7 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
   const [successFormId, setSuccessFormId] = useState<string | null>(null);
   const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showVoiceExplanation, setShowVoiceExplanation] = useState(false);
 
   // Dynamically extract available years from queried forms
   const availableYears = useMemo(() => {
@@ -413,9 +415,16 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
         </div>
 
         {/* Metric 4 - Sentiment Bar */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-2">
+        <div 
+          onClick={() => setShowVoiceExplanation(true)}
+          className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-2 cursor-pointer hover:border-slate-350 hover:bg-slate-50/40 transition-all duration-200 active:scale-[0.98] relative group"
+          title="Clique para ver o que significa"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Distribuição de Voz</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Distribuição de Voz</span>
+              <HelpCircle size={12} className="text-slate-400 shrink-0 group-hover:text-indigo-600 transition-colors" />
+            </div>
             <span className="text-[10px] font-bold text-slate-400">{stats.promoters} P / {stats.detractors} D</span>
           </div>
           
@@ -1048,6 +1057,108 @@ export const EvaluationList: React.FC<EvaluationListProps> = ({
                 alt="Foto Anexada Ampliada" 
                 className="max-w-full max-h-[80vh] object-contain rounded-lg" 
               />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Voice Explanation Modal */}
+      <AnimatePresence>
+        {showVoiceExplanation && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans"
+            onClick={() => setShowVoiceExplanation(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 15 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 15 }}
+              className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full relative overflow-hidden border border-slate-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 mb-6">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
+                    <Activity size={12} /> Ajuda & Metodologia
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 tracking-tight mt-2">
+                    O que é a Distribuição de Voz?
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowVoiceExplanation(false)}
+                  className="p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-full transition-all active:scale-90"
+                  title="Fechar"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-4 text-xs sm:text-sm text-slate-600 font-semibold leading-relaxed mb-6">
+                <p>
+                  A barra de <strong className="text-slate-800 font-black">Distribuição de Voz</strong> ilustra graficamente o percentual e o total de respostas agrupadas segundo a metodologia oficial do <strong className="text-slate-800 font-black">NPS (Net Promoter Score)</strong>.
+                </p>
+                <p>
+                  Ela reflete a saúde da experiência geral do paciente dividida em três perfis:
+                </p>
+
+                {/* Legend items */}
+                <div className="space-y-2.5 pt-2">
+                  {/* PRO */}
+                  <div className="bg-emerald-50/50 border border-emerald-100 p-3 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm shadow-emerald-500/25">
+                      PRO
+                    </span>
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wide">Promotores (Notas 9 e 10)</h4>
+                      <p className="text-[11px] text-slate-500 font-semibold leading-normal">
+                        Pacientes extremamente satisfeitos que promovem ativamente sua clínica e indicam o atendimento a familiares e amigos.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* PAS */}
+                  <div className="bg-amber-50/50 border border-amber-100 p-3 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-lg bg-amber-400 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm shadow-amber-400/25">
+                      PAS
+                    </span>
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-black text-amber-800 uppercase tracking-wide">Passivos (Notas 7 e 8)</h4>
+                      <p className="text-[11px] text-slate-500 font-semibold leading-normal">
+                        Pacientes satisfeitos, porém neutros. Eles não fazem propaganda negativa, mas estão abertos a alternativas de atendimento.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* DET */}
+                  <div className="bg-rose-50/50 border border-rose-100 p-3 rounded-2xl flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-lg bg-rose-500 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm shadow-rose-500/25">
+                      DET
+                    </span>
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-black text-rose-800 uppercase tracking-wide">Detratores (Notas 0 a 6)</h4>
+                      <p className="text-[11px] text-slate-500 font-semibold leading-normal">
+                        Pacientes insatisfeitos que tiveram experiências desfavoráveis. Têm alta probabilidade de criticar a clínica e devem ser prioridade para ações corretivas da ouvidoria.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Button */}
+              <button
+                type="button"
+                onClick={() => setShowVoiceExplanation(false)}
+                className="w-full py-3.5 bg-slate-900 hover:bg-slate-950 text-white font-black text-xs uppercase tracking-wider rounded-2xl transition-all active:scale-[0.98] shadow-lg shadow-slate-900/10"
+              >
+                Entendi!
+              </button>
             </motion.div>
           </motion.div>
         )}
